@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+
+# Secrets. .env.example is committed; nothing else is.
+.env
+.env.*
+!.env.example
+
+# Local photo storage (the Docker image mounts /data instead).
+data/

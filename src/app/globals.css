@@ -1,0 +1,231 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. The interface is "flannel and chalk": a charcoal-navy ground
+ * in the dark, cool pattern paper in the light, chalk-coloured type, and one
+ * accent, brass, used only for the active thing. Colour otherwise belongs to
+ * Malin's own palette once a profile exists.
+ */
+:root {
+  color-scheme: light dark;
+
+  --ground: #e8e6e1;
+  --surface: #f2f0eb;
+  --raised: #fbfaf7;
+  --line: #cfcbc2;
+  --ink: #1c1f26;
+  --ink-2: #555963;
+  --ink-3: #6b6f78;
+  --brass: #8a6e2f;
+  --brass-soft: rgb(138 110 47 / 0.14);
+  --on-brass: #fbfaf7;
+  --alert: #b4443c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #181c23;
+    --surface: #1f242d;
+    --raised: #272d37;
+    --line: #353c48;
+    --ink: #ece7dd;
+    --ink-2: #b3afa6;
+    --ink-3: #868891;
+    --brass: #c8a96a;
+    --brass-soft: rgb(200 169 106 / 0.16);
+    --on-brass: #1a1612;
+    --alert: #e07a72;
+  }
+}
+
+@theme inline {
+  --font-display: var(--font-newsreader), Georgia, 'Times New Roman', serif;
+  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-brass: var(--brass);
+  --color-brass-soft: var(--brass-soft);
+  --color-on-brass: var(--on-brass);
+  --color-alert: var(--alert);
+}
+
+@theme {
+  /* Strong curves. The built-in ease-out is too weak to read as intentional. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  html {
+    background: var(--ground);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Never below 16px, or iOS Safari zooms into the field and stays there. */
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+
+  .font-display {
+    font-optical-sizing: auto;
+    font-feature-settings: 'kern', 'liga';
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /*
+   * Anything pressable: instant feedback that the interface heard the touch,
+   * no long-press text selection, no double-tap wait.
+   */
+  .pressable {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .pressable:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    background: var(--brass);
+    color: var(--on-brass);
+    transition:
+      transform 160ms var(--ease-out),
+      filter 150ms ease;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover {
+      filter: brightness(1.06);
+    }
+  }
+
+  /*
+   * The swatch fan. Five undyed swatches on the empty Today screen, fanned out
+   * once on load like a tailor's swatch book opening. It is the one orchestrated
+   * moment; the screen is seen only until a profile exists, so the delight
+   * budget is spent here and nowhere else.
+   */
+  .swatch {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 3.75rem;
+    height: 5.5rem;
+    margin-left: -1.875rem;
+    border-radius: 0.45rem;
+    border: 1px solid rgb(0 0 0 / 0.14);
+    background-color: var(--swatch);
+    /* A faint diagonal weave, so they read as cloth rather than paint chips. */
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgb(0 0 0 / 0.045) 0 1px,
+      transparent 1px 4px
+    );
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
+    transform-origin: 50% 118%;
+    transform: rotate(var(--r));
+    animation: swatch-fan 560ms var(--ease-out) both;
+    animation-delay: var(--d);
+  }
+
+  .swatch::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-left: -0.25rem;
+    border-radius: 50%;
+    background: var(--ground);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
+  }
+
+  @keyframes swatch-fan {
+    from {
+      opacity: 0;
+      transform: rotate(0deg) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: rotate(var(--r)) translateY(0);
+    }
+  }
+
+  /* The headline and button follow the swatches in the same sequence. */
+  .reveal {
+    animation: reveal 480ms var(--ease-out) both;
+    animation-delay: var(--d, 0ms);
+  }
+
+  @keyframes reveal {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pressable,
+    .btn-primary {
+      transition: none;
+    }
+
+    .pressable:active {
+      transform: none;
+    }
+
+    .swatch {
+      animation: fade 300ms ease both;
+      animation-delay: var(--d);
+    }
+
+    .reveal {
+      animation: fade 300ms ease both;
+    }
+  }
+}
