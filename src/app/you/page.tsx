@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
+import { connection } from 'next/server'
 import { Suspense } from 'react'
 
+import { HubRow } from '@/components/hub-row'
 import { StatusList, StatusSkeleton } from '@/components/status-list'
+import { parseStoredAnalysis } from '@/lib/analysis'
+import { listPhotos } from '@/lib/photos'
+import { getProfile, type Profile } from '@/lib/profile'
+import { seasonName } from '@/lib/seasons'
 
 export const metadata: Metadata = { title: 'You' }
 
@@ -12,21 +18,117 @@ export default function YouPage() {
         You
       </h1>
       <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-        A few photos, analysed by Claude and confirmed by you. Then your measurements, sizes,
-        life in Wellington, taste and budget.
+        A few photos, read by Claude and confirmed by you. Then your sizes, your week, your
+        taste and what you want to spend.
       </p>
 
-      <h2 className="mt-12 text-sm font-medium text-ink-2">Profile</h2>
-      <p className="mt-2 border-t border-line pt-4 text-ink-3">
-        Nothing recorded yet. Photo capture and the confirmation flow are the next milestone.
-      </p>
+      <Suspense fallback={<HubSkeleton />}>
+        <Hub />
+      </Suspense>
 
-      <h2 className="mt-12 text-sm font-medium text-ink-2">Systems</h2>
+      <h2 className="mt-14 text-sm font-medium text-ink-2">Systems</h2>
       <div className="mt-2">
         <Suspense fallback={<StatusSkeleton />}>
           <StatusList />
         </Suspense>
       </div>
     </section>
+  )
+}
+
+async function Hub() {
+  await connection()
+  const [profile, photos] = await Promise.all([getProfile(), listPhotos()])
+  const analysis = parseStoredAnalysis(profile.analysis)
+
+  const colouring = profile.confirmed_at && profile.season
+    ? { text: `${seasonName(profile.season)}, confirmed`, filled: true }
+    : analysis
+      ? { text: `${seasonName(analysis.colouring.season.value)} proposed, waiting for you`, filled: true }
+      : { text: photos.length ? 'Ready to read' : 'Needs photos first', filled: false }
+
+  return (
+    <ul className="mt-8 divide-y divide-line border-y border-line">
+      <HubRow
+        href="/you/photos"
+        title="Photos"
+        summary={photos.length ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'None yet'}
+        filled={photos.length > 0}
+        aside={
+          photos.length ? (
+            <div className="flex -space-x-2">
+              {photos.slice(0, 3).map((photo) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={photo.id}
+                  src={`/photos/${photo.id}?v=thumb`}
+                  alt=""
+                  width="32"
+                  height="32"
+                  className="size-8 rounded-full border-2 border-ground object-cover"
+                />
+              ))}
+            </div>
+          ) : null
+        }
+      />
+      <HubRow href="/you/colouring" title="Colouring and proportions" summary={colouring.text} filled={colouring.filled} />
+      <HubRow href="/you/sizes" title="Height and sizes" {...sizesSummary(profile)} />
+      <HubRow href="/you/life" title="Your week" {...lifeSummary(profile)} />
+      <HubRow href="/you/taste" title="Taste" {...tasteSummary(profile)} />
+      <HubRow href="/you/budget" title="Budget" {...budgetSummary(profile)} />
+    </ul>
+  )
+}
+
+function sizesSummary(profile: Profile): { summary: string; filled: boolean } {
+  const parts: string[] = []
+  if (profile.height_cm) parts.push(`${profile.height_cm} cm`)
+  if (profile.sizes.tee) parts.push(profile.sizes.tee)
+  if (profile.sizes.chest_cm) parts.push(`chest ${profile.sizes.chest_cm}`)
+  if (profile.sizes.waist_cm) parts.push(`waist ${profile.sizes.waist_cm}`)
+  if (profile.sizes.shoe_eu) parts.push(`EU ${profile.sizes.shoe_eu}`)
+  return parts.length ? { summary: parts.join(', '), filled: true } : { summary: 'Not set', filled: false }
+}
+
+function lifeSummary(profile: Profile): { summary: string; filled: boolean } {
+  const { office, gym, running, evenings_out } = profile.life
+  const parts: string[] = []
+  if (office) parts.push(`office ${office}`)
+  if (gym) parts.push(`gym ${gym}`)
+  if (running) parts.push(`runs ${running}`)
+  if (evenings_out) parts.push(`evenings out ${evenings_out}`)
+  return parts.length
+    ? { summary: `${parts.join(', ')} a week`, filled: true }
+    : { summary: 'Not set', filled: false }
+}
+
+function tasteSummary(profile: Profile): { summary: string; filled: boolean } {
+  const text = profile.taste.references ?? profile.taste.owned ?? profile.taste.no_gos
+  if (!text) return { summary: 'Not set', filled: false }
+  return { summary: text.length > 60 ? `${text.slice(0, 60).trimEnd()}…` : text, filled: true }
+}
+
+function budgetSummary(profile: Profile): { summary: string; filled: boolean } {
+  const { monthly, outerwear, shoes } = profile.budget
+  const parts: string[] = []
+  if (monthly) parts.push(`$${monthly} a month`)
+  if (outerwear) parts.push(`outerwear to $${outerwear}`)
+  if (shoes) parts.push(`shoes to $${shoes}`)
+  return parts.length ? { summary: parts.join(', '), filled: true } : { summary: 'Not set', filled: false }
+}
+
+function HubSkeleton() {
+  return (
+    <ul className="mt-8 divide-y divide-line border-y border-line" aria-busy>
+      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget'].map((title) => (
+        <li key={title} className="flex min-h-16 items-center py-3">
+          <div>
+            <p className="font-medium">{title}</p>
+            <p className="text-sm text-ink-3">Loading</p>
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }

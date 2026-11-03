@@ -7,6 +7,12 @@ const config: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      // Photo uploads go through a Server Action. Phone photos run 3 to 12 MB.
+      bodySizeLimit: '25mb',
+    },
+  },
   turbopack: {
     rules: {
       '*.css': {

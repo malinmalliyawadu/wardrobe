@@ -229,3 +229,103 @@
     }
   }
 }
+
+@layer components {
+  /* Form fields. Surface-coloured so they sit in the page rather than on it. */
+  .field {
+    width: 100%;
+    min-height: 3rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 0 0.875rem;
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.5;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .field::placeholder {
+    color: var(--ink-3);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: var(--brass);
+    box-shadow: 0 0 0 3px var(--brass-soft);
+  }
+
+  .field[aria-invalid='true'] {
+    border-color: var(--alert);
+  }
+
+  textarea.field {
+    padding: 0.75rem 0.875rem;
+    resize: vertical;
+  }
+
+  select.field {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23868891' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+  }
+
+  .spinner {
+    animation: spin 700ms linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* A photo tile arriving after an upload. Transition, not keyframes, so a
+     second upload landing mid-fade retargets instead of restarting. */
+  .tile-enter {
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      opacity 240ms var(--ease-out),
+      transform 240ms var(--ease-out);
+
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+  }
+
+  /*
+   * Hold to confirm. The brass fill is a progress indicator, so the press is
+   * linear and slow; the release snaps back fast.
+   */
+  .hold {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .hold-fill {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--alert);
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 200ms var(--ease-out);
+  }
+
+  .hold[data-holding='true'] .hold-fill {
+    clip-path: inset(0 0 0 0);
+    transition: clip-path var(--hold-ms, 1200ms) linear;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile-enter {
+      transition: opacity 200ms ease;
+    }
+  }
+}

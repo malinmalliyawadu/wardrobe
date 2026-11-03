@@ -1,18 +1,24 @@
 import type { CSSProperties } from 'react'
 
 /*
- * Undyed cloth: calico through charcoal. These stand in until the profile
- * exists, when the fan shows Malin's own palette instead.
+ * Undyed cloth, calico through charcoal, until the profile exists. After
+ * that the fan shows the five strongest colours of Malin's season.
  */
-const swatches = ['#d9d2c5', '#bfb8ad', '#a39d93', '#857f76', '#5e5a54']
+export const BLANK_SWATCHES = ['#d9d2c5', '#bfb8ad', '#a39d93', '#857f76', '#5e5a54']
 const angles = [-26, -13, 0, 13, 26]
 
-export function SwatchFan() {
+export function SwatchFan({
+  colours = BLANK_SWATCHES,
+  label = 'Five blank fabric swatches fanned out',
+}: {
+  colours?: string[]
+  label?: string
+}) {
   return (
-    <div className="relative h-28 w-48" role="img" aria-label="Five blank fabric swatches fanned out">
-      {swatches.map((colour, index) => (
+    <div className="relative h-28 w-48" role="img" aria-label={label}>
+      {colours.slice(0, 5).map((colour, index) => (
         <span
-          key={colour}
+          key={`${index}-${colour}`}
           className="swatch"
           style={
             {
