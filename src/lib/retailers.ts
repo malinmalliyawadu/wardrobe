@@ -37,9 +37,11 @@ export const RetailerSeedSchema = z.object({
    * How a product is read. "shopify": the whole catalogue from /products.json
    * every night, and one product from /products/<handle>.js. "uniqlo": one
    * product at a time from its own page, only for a link he pastes; never
-   * walked, so never on the finder's switches.
+   * walked, so never on the finder's switches. "manual": a site that cannot
+   * be read at all (Lululemon's answers with a bot challenge), so a find from
+   * it is typed in by him on Saved, and never checked again.
    */
-  platform: z.enum(['shopify', 'uniqlo']),
+  platform: z.enum(['shopify', 'uniqlo', 'manual']),
   base_url: url,
   /** Where /products.json is read, when it is not the public site. */
   feed_url: url.optional(),
@@ -67,7 +69,7 @@ export type Retailer = {
   id: number
   slug: string
   name: string
-  platform: 'shopify' | 'uniqlo'
+  platform: 'shopify' | 'uniqlo' | 'manual'
   base_url: string
   feed_url: string | null
   feed_collections: string[]
@@ -82,6 +84,11 @@ export type Retailer = {
 /** Whether the nightly finder reads the store's whole catalogue, and so whether it has a switch. */
 export function walkedNightly(retailer: Pick<Retailer, 'platform'>): boolean {
   return retailer.platform === 'shopify'
+}
+
+/** Whether a product can be read from the store's site at all, or is only ever typed in by him. */
+export function readable(retailer: Pick<Retailer, 'platform'>): boolean {
+  return retailer.platform !== 'manual'
 }
 
 /** The store to name in "try on at", only once its address is verified. */

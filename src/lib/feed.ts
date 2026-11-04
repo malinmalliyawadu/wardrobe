@@ -92,6 +92,8 @@ export type SavedFind = FindCard & {
   events: SavedEvent[]
   /** The newest change, when the latest run found it and it is good news. */
   news: SavedEvent | null
+  /** Typed in by him from a store that cannot be read, so its price is never checked. */
+  byHand: boolean
 }
 
 export type Run = {
@@ -113,7 +115,7 @@ export type Feed = {
   total: number
   slotNames: Record<number, string>
   /** Wanted and candidate slots in blueprint order, for the "for which slot" choice. */
-  openSlots: { id: number; name: string }[]
+  openSlots: { id: number; name: string; garment_type: GarmentType }[]
 }
 
 export type FindRow = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
@@ -271,7 +273,7 @@ export async function getFeed(): Promise<Feed> {
   const slotNames = Object.fromEntries(slots.map((slot) => [slot.id, slot.name]))
   const openSlots = slots
     .filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
-    .map((slot) => ({ id: slot.id, name: slot.name }))
+    .map((slot) => ({ id: slot.id, name: slot.name, garment_type: slot.garment_type }))
   if (!run) {
     const saved = await getSaved(sql, null, runRates(null))
     await attachTryOns(sql, saved)
@@ -356,6 +358,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       slot_garment: GarmentType | null
       slot_labels: string[] | null
       listed: { label: string; key: string | null }[] | null
+      by_hand: boolean
     })[]
   >`
     with latest_action as (
@@ -367,7 +370,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
-           r.platform = 'shopify' as stock_known,
+           r.platform = 'shopify' as stock_known, r.platform = 'manual' as by_hand,
            coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
            coalesce(c.compare_at_cents, v.compare_at_cents) as compare_at_cents,
            coalesce(c.sizes, v.sizes, '{}') as sizes, coalesce(c.size_known, false) as size_known,
@@ -422,7 +425,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
     if (event.kind === 'back') return { ...event, price: nzd(event.price) }
     return event
   }
-  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, ...row }) => {
+  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, by_hand, ...row }) => {
     // The slot's own size labels and garment when it was saved for one, as the filter reads them.
     const garment = slot_garment ?? garment_type
     const sizeKeys = garment ? wantedSizeKeys(garment, slot_labels ?? [], sizes) : null
@@ -439,6 +442,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       events,
       // The stores are read before scoring, so a run still scoring has already found the changes.
       news: newsSince(events, run?.started_at ?? null),
+      byHand: by_hand,
     }
   })
 }
@@ -505,8 +509,11 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
         `
     const [variant] = candidate || searched
       ? []
-      : await tx<{ price_cents: number | null }[]>`
-          select min(price_cents)::int as price_cents from product_variants
+      : await tx<{ price_cents: number | null; size: string | null }[]>`
+          -- A product with one size in stock (a find added by hand, a one-size piece) is saved in that size.
+          select min(price_cents)::int as price_cents,
+                 case when count(distinct option_size) = 1 then min(option_size) end as size
+          from product_variants
           where product_id = ${action.product_id} and available
         `
 
@@ -517,7 +524,7 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
         action: action.action,
         reason: action.action === 'dismissed' ? action.reason : null,
         price_cents: candidate?.price_cents ?? searched?.price_cents ?? variant?.price_cents ?? null,
-        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? null,
+        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? variant?.size ?? null,
       })}
     `
 
@@ -526,7 +533,7 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
       await pieceFromPurchase(tx, {
         product_id: action.product_id,
         slot_id: action.slot_id,
-        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? null,
+        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? variant?.size ?? null,
       })
     }
     if (action.slot_id === null) return

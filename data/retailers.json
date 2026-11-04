@@ -216,6 +216,19 @@
       "enabled": false,
       "notes": "Links only, like Uniqlo AU, for a link copied from the US site: many US products and colours are not sold in Australia, and the Australian page for them is a 404 (checked 2026-11-05: three of six US shirts). Read from the US page in USD, shown in NZD. Does not ship to NZ. Probed 2026-11-05: robots.txt allows /us/en/products/, and the page answers the finder's own User-Agent with the same preloaded state as AU's.",
       "wellington_store": null
+    },
+    {
+      "slug": "lululemon",
+      "name": "Lululemon",
+      "platform": "manual",
+      "base_url": "https://www.lululemon.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "enabled": false,
+      "notes": "Added by hand only. The site is Salesforce Commerce Cloud, not Shopify, and Cloudflare answers every request but robots.txt with a challenge page (403), sitemap included, to the finder's own User-Agent; getting past it would mean posing as a browser, which the finder does not do. Its affiliate feed (Commission Factory) needs a public site to promote it from. So a Lululemon link pasted on Saved opens a form for the photo, name, kind, price, colour and size, and the price is never checked. Probed 2026-11-05. Its Wellington store could not be checked on its own site, so none is shown.",
+      "wellington_store": null
     }
   ]
 }

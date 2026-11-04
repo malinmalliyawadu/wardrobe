@@ -2,14 +2,16 @@ import Link from 'next/link'
 import { connection } from 'next/server'
 
 import { SlotSwatches } from '@/components/cloth'
+import { db } from '@/lib/db'
 import { CARDS_PER_SLOT, getFeed, type FeedGroup, type Run } from '@/lib/feed'
 import { sizeGroup } from '@/lib/finder/classify'
 import { usdText } from '@/lib/finder/settings'
 import { getProfile } from '@/lib/profile'
+import { listRetailers, readable, type Retailer } from '@/lib/retailers'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { PRIORITY_LABELS } from '@/lib/wardrobe-values'
 
-import { AddLink } from './add-link'
+import { AddLink, type ManualStore } from './add-link'
 import { FindCard, SavedRow } from './find-card'
 import { changeLine, newsSummary } from './saved-change'
 
@@ -20,7 +22,7 @@ import { changeLine, newsSummary } from './saved-change'
  */
 export async function Feed() {
   await connection()
-  const [feed, guide, profile] = await Promise.all([getFeed(), getGuide(), getProfile()])
+  const [feed, guide, profile, retailers] = await Promise.all([getFeed(), getGuide(), getProfile(), listRetailers(db())])
   const name = (hex: string) => colourNameFor(guide, hex)
   const now = new Date()
   const news = newsSummary(feed.saved, feed.run?.started_at ?? null, now)
@@ -51,7 +53,7 @@ export async function Feed() {
           night it is checked for a lower price, and for your size coming back in stock.
         </p>
       )}
-      <AddLink key={feed.saved.length} slots={feed.openSlots} />
+      <AddLink key={feed.saved.length} slots={feed.openSlots} manualStores={manualStores(retailers)} />
     </section>
   )
 
@@ -145,6 +147,19 @@ function SlotFinds({ group, colourName }: { group: FeedGroup; colourName: (hex: 
       </div>
     </section>
   )
+}
+
+/** The shops whose links open the by-hand fields, with the hosts a link from each is on. */
+function manualStores(retailers: Retailer[]): ManualStore[] {
+  return retailers
+    .filter((retailer) => !readable(retailer))
+    .map((retailer) => ({
+      name: retailer.name,
+      currency: retailer.currency,
+      hosts: [retailer.base_url, retailer.feed_url]
+        .filter((origin): origin is string => Boolean(origin))
+        .map((origin) => new URL(origin).host.toLowerCase().replace(/^www\./, '')),
+    }))
 }
 
 /** "Last night's finds" for the nightly run, otherwise the day it ran. */
