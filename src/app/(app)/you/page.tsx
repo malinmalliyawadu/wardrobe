@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { HubRow } from '@/components/hub-row'
+import { TextBone } from '@/components/skeleton'
 import { StatusList, StatusSkeleton } from '@/components/status-list'
 import { parseStoredAnalysis } from '@/lib/analysis'
 import { listPhotos } from '@/lib/photos'
@@ -141,19 +142,22 @@ function finderSummary(
   const parts = [
     settings.max_usd_per_run > 0 ? `${usdText(settings.max_usd_per_run)} a night` : 'Judging off',
     `${usdText(Math.round(spend.thisMonth * 100) / 100)} this month`,
-    on === total ? `all ${total} shops` : `${on} of ${total} shops`,
+    total === 0 ? 'shops added on the first run' : on === total ? `all ${total} shops` : `${on} of ${total} shops`,
   ]
   return { summary: parts.join(', '), filled: true }
 }
 
+/** The rows' titles are known before the data, so they show at once; only the summaries wait. */
 function HubSkeleton() {
   return (
-    <ul className="mt-8 divide-y divide-line border-y border-line" aria-busy>
-      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget', 'Finder'].map((title) => (
+    <ul className="mt-8 divide-y divide-line border-y border-line" aria-busy aria-label="Loading your profile">
+      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget', 'Finder'].map((title, index) => (
         <li key={title} className="flex min-h-16 items-center py-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="font-medium">{title}</p>
-            <p className="text-sm text-ink-3">Loading</p>
+            <div className="skeleton">
+              <TextBone className={['w-40', 'w-52', 'w-36', 'w-48', 'w-32', 'w-44', 'w-56'][index]} size="text-sm" />
+            </div>
           </div>
         </li>
       ))}

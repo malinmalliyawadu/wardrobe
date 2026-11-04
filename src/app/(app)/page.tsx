@@ -3,6 +3,7 @@ import { Suspense, type CSSProperties } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
 import { Feed } from '@/components/feed/feed'
+import { FeedSkeleton } from '@/components/feed/feed-skeleton'
 import { SwatchFan } from '@/components/swatch-fan'
 import { listSlots, type Slot } from '@/lib/blueprint'
 import { getProfile } from '@/lib/profile'
@@ -12,10 +13,12 @@ import { getGuide } from '@/lib/style-guide'
 export default function TodayPage() {
   return (
     <section className="pt-8 lg:pt-6">
-      <Suspense fallback={<div className="h-28" aria-hidden />}>
+      {/* The hero's own height (fan, headline, line, button: about 470px at
+          either width), held empty so the feed below does not jump when it lands. */}
+      <Suspense fallback={<div className="h-[29.5rem]" aria-hidden />}>
         <Hero />
       </Suspense>
-      <Suspense fallback={<div className="mt-16 h-96" aria-hidden />}>
+      <Suspense fallback={<FeedSkeleton />}>
         <Feed />
       </Suspense>
     </section>

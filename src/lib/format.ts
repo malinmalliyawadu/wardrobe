@@ -16,3 +16,23 @@ export function band(minCents: number | null, maxCents: number | null): string |
 export function day(date: Date): string {
   return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', timeZone: 'Pacific/Auckland' })
 }
+
+const ZONE = 'Pacific/Auckland'
+
+/**
+ * When something happened, as he would say it in Wellington: "last night"
+ * (after 8pm yesterday or before 8am today, which is when the finder runs),
+ * "today", "yesterday", "on Tuesday" within the week, then "on 4 November".
+ */
+export function whenSaid(date: Date, now = new Date()): string {
+  const dayOf = (value: Date) => value.toLocaleDateString('en-CA', { timeZone: ZONE })
+  const hour = Number(date.toLocaleString('en-NZ', { hour: 'numeric', hourCycle: 'h23', timeZone: ZONE }))
+  const yesterday = new Date(now.getTime() - 24 * 3600 * 1000)
+  if ((dayOf(date) === dayOf(now) && hour < 8) || (dayOf(date) === dayOf(yesterday) && hour >= 20)) return 'last night'
+  if (dayOf(date) === dayOf(now)) return 'today'
+  if (dayOf(date) === dayOf(yesterday)) return 'yesterday'
+  if (now.getTime() - date.getTime() < 6 * 24 * 3600 * 1000) {
+    return `on ${date.toLocaleDateString('en-NZ', { weekday: 'long', timeZone: ZONE })}`
+  }
+  return `on ${day(date)}`
+}

@@ -11,6 +11,7 @@ import { getProfile } from '@/lib/profile'
 import { getGuide, type GuideColour, type Section } from '@/lib/style-guide'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
+import { GuideSkeleton } from '../skeletons'
 import { GuideStep } from '../steps'
 import { SECTION_TITLES } from './titles'
 
@@ -27,7 +28,7 @@ export default function GuidePage() {
         What suits you, written from your confirmed profile. The blueprint is drafted from it,
         and the finder checks every product against it.
       </p>
-      <Suspense fallback={<p className="mt-10 border-t border-line pt-6 text-ink-3">Loading the guide</p>}>
+      <Suspense fallback={<GuideSkeleton />}>
         <Content />
       </Suspense>
     </section>

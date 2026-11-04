@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { PhotosSkeleton } from '@/components/skeleton'
 import { listPhotos } from '@/lib/photos'
 import { getProfile } from '@/lib/profile'
 
@@ -22,7 +23,7 @@ export default function PhotosPage() {
         Claude once for the read, and can be deleted afterwards without losing the profile.
         A full-length photo also goes to OpenAI when you ask to see a find on you.
       </p>
-      <Suspense fallback={<p className="mt-10 text-ink-3">Loading photos</p>}>
+      <Suspense fallback={<PhotosSkeleton />}>
         <Sections />
       </Suspense>
     </section>

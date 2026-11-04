@@ -14,13 +14,21 @@ const url = z
   .url()
   .transform((value) => value.replace(/\/+$/, ''))
 
-export const WellingtonStoreSchema = z.object({
-  name: z.string().min(1),
-  /** The street or area, from memory until verified. Never shown on its own. */
-  area: z.string().nullable(),
-  address: z.string().nullable(),
-  verified: z.boolean(),
-})
+export const WellingtonStoreSchema = z
+  .object({
+    name: z.string().min(1),
+    /** The street or area, from memory until verified. Never shown on its own. */
+    area: z.string().nullable(),
+    address: z.string().nullable(),
+    verified: z.boolean(),
+    /** The page on the retailer's own site the address was read from. */
+    source: z.string().url().nullable().optional(),
+    /** The day it was read there, YYYY-MM-DD. */
+    checked: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  })
+  .refine((store) => !store.verified || (store.address && store.source && store.checked), {
+    message: 'A verified store needs the address, the page on its own site it came from, and the day it was checked',
+  })
 
 export const RetailerSeedSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/),

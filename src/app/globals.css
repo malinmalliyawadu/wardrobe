@@ -221,7 +221,25 @@
     }
   }
 
+  /*
+   * Loading placeholders (src/components/skeleton.tsx). Held back 300 ms so a
+   * quick load never flashes them, then a short fade, opacity only.
+   */
+  .bone {
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 45%, transparent);
+  }
+
+  .skeleton {
+    animation: fade 200ms var(--ease-out) 300ms both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      /* Still held back, so nothing flashes; appears without the fade. */
+      animation: fade 1ms linear 300ms both;
+    }
+
     .pressable,
     .btn-primary {
       transition: none;
