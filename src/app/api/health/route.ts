@@ -6,8 +6,8 @@ import { checkAll } from '@/lib/health'
  * GET /api/health
  *
  * The full check, behind the sign-in (the container health check calls
- * /api/health/live, which leaves Claude out). 200 when both the database
- * and Claude answer, 503 otherwise, with the detail in the body either way.
+ * /api/health/live, which leaves Claude out). 200 when the database, Claude
+ * and the photos volume all answer, 503 otherwise, with the detail in the body either way.
  * connection() marks the route as request-time so the build does not try to
  * prerender a database call.
  */

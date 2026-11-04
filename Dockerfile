@@ -33,6 +33,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     PHOTOS_DIR=/data/photos

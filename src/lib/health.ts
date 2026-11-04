@@ -1,7 +1,10 @@
+import { access, constants, mkdir } from 'node:fs/promises'
+
 import Anthropic from '@anthropic-ai/sdk'
 
 import { MODELS, claude } from './claude.ts'
 import { db } from './db.ts'
+import { photosDir } from './photos.ts'
 
 export type Check = {
   name: string
@@ -11,7 +14,7 @@ export type Check = {
 }
 
 /**
- * The two things the app cannot work without. Each check is independent and
+ * The things the app cannot work without. Each check is independent and
  * never throws: a failure is a result, so the health page and the CLI can
  * show both at once.
  */
@@ -59,8 +62,25 @@ export async function checkClaude(): Promise<Check> {
   }
 }
 
+/**
+ * Whether uploads and try-ons can be written. In Docker the app runs as a
+ * non-root user, so a volume mounted as a host directory owned by root reads
+ * fine and fails on the first upload; this says so before Malin finds out.
+ */
+export async function checkPhotos(): Promise<Check> {
+  const started = performance.now()
+  const dir = photosDir()
+  try {
+    await mkdir(/*turbopackIgnore: true*/ dir, { recursive: true })
+    await access(/*turbopackIgnore: true*/ dir, constants.W_OK)
+    return { name: 'Photos', ok: true, detail: `${dir} is writable`, latencyMs: elapsed(started) }
+  } catch (error) {
+    return { name: 'Photos', ok: false, detail: `${dir}: ${message(error)}`, latencyMs: elapsed(started) }
+  }
+}
+
 export async function checkAll(): Promise<Check[]> {
-  return Promise.all([checkDatabase(), checkClaude()])
+  return Promise.all([checkDatabase(), checkClaude(), checkPhotos()])
 }
 
 function claudeMessage(error: unknown): string {
