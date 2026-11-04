@@ -8,19 +8,24 @@ import { after, before, describe, test } from 'node:test'
 import sharp from 'sharp'
 
 import { connect, db, type Sql } from '../src/lib/db.ts'
+import { getOnMe, listOnMe, outfitTitle } from '../src/lib/on-me.ts'
 import { removeAllPhotos, removePhoto, storePhoto } from '../src/lib/photos.ts'
 import {
+  layer,
   latestLookTryOns,
   latestTryOns,
   lookTryOnPrompt,
   makeTryOn,
   MAX_GARMENT_IMAGES,
   MODEL,
+  outfitTryOnPrompt,
   outputSize,
   placement,
   productImageUrl,
   showPieces,
+  startAgain,
   startLookTryOn,
+  startOutfitTryOn,
   startTryOn,
   tryOnCost,
   tryOnFile,
@@ -100,6 +105,29 @@ describe('the pure parts', () => {
     assert.match(prompt, /Wear it this way: Tuck the tee\./)
     assert.match(prompt, /Do not slim, lengthen, straighten or flatter him/)
     assert.doesNotMatch(prompt, /[–—]/, 'plain hyphens only')
+  })
+
+  test('pieces he chose go on in place of what he wears, and nothing else changes', () => {
+    const jacket = { piece_id: null, product_id: 9, name: 'Field Jacket', garment_type: 'jacket', colour_name: 'olive', colour_hex: null, fabric: null, fit: null, shown: { kind: 'product', src: 'x' } } as const
+    const tee = { piece_id: 2, name: 'Chalk tee', garment_type: 'tee', colour_name: 'chalk', colour_hex: '#f4f1ea', fabric: null, fit: null, shown: { kind: 'photo', photo_id: 1 } } as const
+    const both = outfitTryOnPrompt([jacket, tee])
+    assert.match(both, /Images 2 to 3 are photos of clothes: some he owns, .* and some a shop's photo of a piece he is thinking of buying\./)
+    assert.match(both, /wearing these pieces together/)
+    assert.match(both, /- Image 2: "Field Jacket", the outer layer, olive\./)
+    assert.match(both, /- Image 3: "Chalk tee", the top, chalk \(#f4f1ea\)\./)
+    assert.match(both, /layered in the order listed, the outer layer over the rest\. Change nothing else he is wearing\./)
+    assert.match(both, /Do not slim, lengthen, straighten or flatter him/)
+    assert.doesNotMatch(both, /[–—]/, 'plain hyphens only')
+
+    const one = outfitTryOnPrompt([jacket])
+    assert.match(one, /Image 2 is a shop's photo of a piece he is thinking of buying\./)
+    assert.match(one, /wearing this piece, so he can judge honestly how it looks on him\. The piece:/)
+    assert.match(one, /in place of the matching thing he is wearing\. Change nothing else he is wearing\./)
+
+    assert.ok(layer('coat') < layer('jacket') && layer('jacket') < layer('knitwear') && layer('knitwear') < layer('tee'))
+    assert.ok(layer('tee') < layer('jeans') && layer('jeans') < layer('boots') && layer('boots') < layer('bag'))
+    assert.equal(outfitTitle(['Field Jacket', 'Chalk tee', 'Putty chinos']), 'Field Jacket, Chalk tee and Putty chinos')
+    assert.equal(outfitTitle(['Field Jacket']), 'Field Jacket')
   })
 
   test('product photos are asked of the CDN at the size sent', () => {
@@ -379,5 +407,106 @@ describe('the lifecycle', () => {
     // And it goes with his photos like any other.
     await removePhoto(photo.id, sql)
     assert.equal((await latestLookTryOns([look!.id], sql)).size, 0)
+  })
+
+  test('pieces and saved finds he chose are put on in layer order, listed with their sources, and made again', async () => {
+    const photo = await storePhoto({ bytes: await jpeg(1200, 1600, { r: 140, g: 110, b: 85 }), mime: 'image/jpeg', kind: 'full_body' })
+
+    // A saved find with no garment type of its own: it takes its slot's.
+    const [retailer] = await sql<{ id: number }[]>`select id::int as id from retailers limit 1`
+    const [slot] = await sql<{ id: number }[]>`
+      insert into blueprint_slots (position, name, why, priority, garment_type, source)
+      values (0, 'Olive field jacket', 'Because.', 1, 'jacket', 'claude') returning id::int as id
+    `
+    const [jacket, unsaved] = await sql<{ id: number }[]>`
+      insert into products ${sql([
+        { retailer_id: retailer!.id, external_id: '2', title: 'Field Jacket', url: 'https://shop.test/p/2', images: sql.json([{ src: '//cdn.shopify.com/s/files/1/jacket.jpg' }]), content_hash: 'h2' },
+        { retailer_id: retailer!.id, external_id: '3', title: 'Not saved', url: 'https://shop.test/p/3', images: sql.json([]), content_hash: 'h3' },
+      ])}
+      returning id::int as id
+    `
+    await sql`insert into feed_actions (product_id, slot_id, action) values (${jacket!.id}, ${slot!.id}, 'saved')`
+    await sql`insert into feed_actions (product_id, action, reason) values (${unsaved!.id}, 'dismissed', 'colour')`
+
+    await writeFile(path.join(dir, 'wardrobe', 'grey-tee.jpg'), await jpeg(1176, 1568, { r: 230, g: 230, b: 228 }))
+    const [teePhoto] = await sql<{ id: number }[]>`
+      insert into wardrobe_photos (path, bytes, width, height, sha256)
+      values ('wardrobe/grey-tee.jpg', 1, 1176, 1568, 'grey-tee') returning id::int as id
+    `
+    const [tee, aside] = await sql<{ id: number }[]>`
+      insert into wardrobe_pieces ${sql([
+        { name: 'Grey tee', garment_type: 'tee', source: 'photo', photo_id: teePhoto!.id, colour_name: 'grey', set_aside_at: null },
+        { name: 'Old jumper', garment_type: 'knitwear', source: 'typed', photo_id: null, colour_name: 'navy', set_aside_at: new Date() },
+      ])}
+      returning id::int as id
+    `
+
+    const none = await startOutfitTryOn({ piece_ids: [], product_ids: [] }, sql)
+    assert.ok(!none.ok && /at least one/.test(none.message))
+    const setAside = await startOutfitTryOn({ piece_ids: [aside!.id], product_ids: [] }, sql)
+    assert.ok(!setAside.ok && /no longer in your wardrobe or saved/.test(setAside.message), 'a set-aside piece is not offered')
+    const notSaved = await startOutfitTryOn({ piece_ids: [], product_ids: [unsaved!.id] }, sql)
+    assert.ok(!notSaved.ok && /no longer in your wardrobe or saved/.test(notSaved.message), 'only finds still saved')
+
+    // Chosen tee first, but the jacket is the outer layer, so it goes first.
+    const started = await startOutfitTryOn({ piece_ids: [tee!.id], product_ids: [jacket!.id, jacket!.id] }, sql)
+    assert.ok(started.ok)
+    const busy = await startOutfitTryOn({ piece_ids: [tee!.id], product_ids: [] }, sql)
+    assert.ok(!busy.ok && /One at a time/.test(busy.message))
+
+    const [row] = await sql<{ product_id: number | null; look_id: number | null; pieces: { piece_id: number | null; product_id?: number; garment_type: string; shown: { kind: string } }[]; prompt: string }[]>`
+      select product_id, look_id, pieces, prompt from try_ons where id = ${started.id}
+    `
+    assert.equal(row?.product_id, null)
+    assert.equal(row?.look_id, null)
+    assert.deepEqual(row?.pieces.map((piece) => [piece.piece_id, piece.product_id ?? null, piece.garment_type, piece.shown.kind]), [
+      [null, jacket!.id, 'jacket', 'product'],
+      [tee!.id, null, 'tee', 'photo'],
+    ])
+    assert.match(row!.prompt, /Change nothing else he is wearing/)
+
+    const calls: Call[] = []
+    const generated = await jpeg(1152, 1536, { r: 60, g: 70, b: 50 })
+    const openai = fakeFetch(async () => Response.json({ data: [{ b64_json: generated.toString('base64') }], usage: { input_tokens: 1000, output_tokens: 1000 } }), calls)
+    assert.equal(await makeTryOn(started.id, { sql, fetch: openai }), 'ready')
+    const edit = calls.find((call) => call.url === 'https://api.openai.com/v1/images/edits')
+    assert.equal((edit!.body!.images as unknown[]).length, 3, 'him, the shop’s jacket, his tee')
+
+    const [listed] = (await listOnMe(sql)).filter((image) => image.id === started.id)
+    assert.ok(listed)
+    assert.equal(listed.status, 'ready')
+    assert.deepEqual(listed.subject, { kind: 'outfit', title: 'Field Jacket and Grey tee', count: 2 })
+    assert.deepEqual(listed.sources.map((source) => [source.name, source.kind, source.shown, source.href]), [
+      ['Field Jacket', 'saved', 'product', 'https://shop.test/p/2'],
+      ['Grey tee', 'piece', 'photo', `/looks/pieces/${tee!.id}`],
+    ])
+    assert.equal(listed.sources[1]!.photo?.id, teePhoto!.id)
+    assert.equal(listed.sources[0]!.garment_type, 'jacket')
+    assert.match((await getOnMe(started.id, sql))!.prompt, /"Grey tee"/)
+
+    // Made again: a new row of the same pieces, shown first while it is made.
+    const again = await startAgain(started.id, sql)
+    assert.ok(again.ok && again.id !== started.id)
+    const [newest] = await listOnMe(sql)
+    assert.equal(newest?.id, again.id)
+    assert.equal(newest?.status, 'making')
+    assert.deepEqual(newest?.sources.map((source) => source.name), ['Field Jacket', 'Grey tee'])
+    assert.equal(await makeTryOn(again.id, { sql, fetch: openai }), 'ready')
+
+    // A piece gone from the wardrobe stays named on the picture, with nowhere to link.
+    await sql`delete from wardrobe_pieces where id = ${tee!.id}`
+    const gone = (await listOnMe(sql)).find((image) => image.id === started.id)
+    assert.equal(gone?.sources[1]?.href, null)
+    assert.equal(gone?.sources[1]?.name, 'Grey tee')
+
+    // A failed request has no picture, so the page leaves it out.
+    const failing = await startOutfitTryOn({ piece_ids: [], product_ids: [jacket!.id] }, sql)
+    assert.ok(failing.ok)
+    await makeTryOn(failing.id, { sql, fetch: fakeFetch(async () => Response.json({ error: { message: 'no' } }, { status: 500 }), []) })
+    assert.ok(!(await listOnMe(sql)).some((image) => image.id === failing.id))
+
+    // And they go with his photos like any other.
+    await removePhoto(photo.id, sql)
+    assert.equal((await listOnMe(sql)).length, 0)
   })
 })

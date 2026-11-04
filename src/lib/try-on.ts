@@ -9,10 +9,11 @@ import { db, type Sql } from './db.ts'
 import { photosDir } from './photos.ts'
 
 /*
- * Try-on: "See it on me" on a feed find or on a look. One of Malin's
- * full-length photos goes to OpenAI's image editor with the product's own
- * photo (a find), or with the photos of the look's pieces (a look), and it
- * returns him wearing it. Agreed with Malin on 2026-11-04, with the photo rule
+ * Try-on: "See it on me" on a feed find, on a look, or on pieces he chose
+ * himself on the On me page (an outfit: any mix of his wardrobe pieces and the
+ * finds he saved). One of Malin's full-length photos goes to OpenAI's image
+ * editor with the product's own photo (a find), or with the photos of the
+ * pieces (a look or an outfit), and it returns him wearing it. Agreed with Malin on 2026-11-04, with the photo rule
  * in docs/plan.md section 1.1: made on request only, one at a time (a unique
  * index holds that), kept on the photos volume, deleted with his photos.
  * OpenAI does not train on API data and keeps requests up to 30 days for
@@ -156,11 +157,18 @@ export function tryOnPrompt(product: { title: string; garment_type: string | nul
   ].join('\n')
 }
 
-/** A piece of a look as it was sent, kept on the row so a remake can be compared. */
-export type LookPieceSent = {
-  piece_id: number
+/**
+ * A piece of a look or an outfit as it was sent, kept on the row so a remake
+ * can be compared: one of his wardrobe pieces (piece_id), or a find he saved
+ * (product_id, on outfits only).
+ */
+export type PieceSent = {
+  /** Null for a saved find. */
+  piece_id: number | null
+  /** A saved find; absent on a wardrobe piece, and on rows from before outfits. */
+  product_id?: number | null
   name: string
-  garment_type: string
+  garment_type: string | null
   colour_name: string | null
   colour_hex: string | null
   fabric: string | null
@@ -170,20 +178,18 @@ export type LookPieceSent = {
 }
 
 /** "ink navy (#1f2942)", "#1f2942", "ink navy", or null. */
-function colourWords(piece: Pick<LookPieceSent, 'colour_name' | 'colour_hex'>): string | null {
+function colourWords(piece: Pick<PieceSent, 'colour_name' | 'colour_hex'>): string | null {
   if (piece.colour_name && piece.colour_hex) return `${piece.colour_name} (${piece.colour_hex})`
   return piece.colour_name ?? piece.colour_hex
 }
 
 /**
- * The instruction for a whole look. Image 1 is him; the pieces with a photo
- * follow in the look's order, outermost first, and a piece with no photo is
- * described in words. The same priorities as a find: him unchanged, every
- * piece exactly as it is (colour first), a believable fit, no flattery.
+ * One line per piece, numbering the photos from image 2 in order and
+ * describing a piece with no photo in words.
  */
-export function lookTryOnPrompt(look: { title: string; styling: string | null; pieces: LookPieceSent[] }): string {
+function pieceLines(pieces: PieceSent[]): { lines: string[]; lastImage: number } {
   let image = 1
-  const lines = look.pieces.map((piece) => {
+  const lines = pieces.map((piece) => {
     const { noun } = placement(piece.garment_type)
     const colour = colourWords(piece)
     if (piece.shown.kind === 'words') {
@@ -193,19 +199,109 @@ export function lookTryOnPrompt(look: { title: string; styling: string | null; p
     image += 1
     return `- Image ${image}: "${piece.name}", the ${noun}${colour ? `, ${colour}` : ''}.`
   })
-  const photos = image > 1 ? `Images 2 to ${image} are photos of clothes he owns, some laid flat or on a hanger, some a shop's photo.` : null
+  return { lines, lastImage: image }
+}
+
+const KEEP_HIM =
+  'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him.'
+
+const EACH_AS_PHOTOGRAPHED =
+  'Reproduce each piece exactly as in its photo: the same colour and shade, shown under the light of image 1 without shifting its hue, brightness or saturation; the same fabric, texture, weight, pattern, cut, length, collar, buttons, pockets, stitching and hardware. Take only the garment from each photo, nothing of the bed, floor, hanger, model or other clothes around it. Make a piece given only in words plainly, in exactly that colour, with no pattern, logos or details that are not described. Add no logos, text or details anywhere.'
+
+const NATURAL_FIT = 'Let each piece fit and drape the way its cut would on his body, with natural creases and no smoothing.'
+
+/**
+ * The instruction for a whole look. Image 1 is him; the pieces with a photo
+ * follow in the look's order, outermost first, and a piece with no photo is
+ * described in words. The same priorities as a find: him unchanged, every
+ * piece exactly as it is (colour first), a believable fit, no flattery.
+ */
+export function lookTryOnPrompt(look: { title: string; styling: string | null; pieces: PieceSent[] }): string {
+  const { lines, lastImage } = pieceLines(look.pieces)
+  const photos = lastImage > 1 ? `Images 2 to ${lastImage} are photos of clothes he owns, some laid flat or on a hanger, some a shop's photo.` : null
   return [
     ['Image 1 is a photo of a man.', photos].filter(Boolean).join(' '),
     `Make a photograph of the man in image 1 dressed in this whole outfit, "${look.title}", so he can judge honestly how it looks on him. The pieces, from the outermost layer in:`,
     ...lines,
     look.styling ? `Wear it this way: ${look.styling}` : null,
-    'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him.',
-    'Reproduce each piece exactly as in its photo: the same colour and shade, shown under the light of image 1 without shifting its hue, brightness or saturation; the same fabric, texture, weight, pattern, cut, length, collar, buttons, pockets, stitching and hardware. Take only the garment from each photo, nothing of the bed, floor, hanger, model or other clothes around it. Make a piece given only in words plainly, in exactly that colour, with no pattern, logos or details that are not described. Add no logos, text or details anywhere.',
+    KEEP_HIM,
+    EACH_AS_PHOTOGRAPHED,
     'Replace everything he is wearing with this outfit, layered in the order listed, the outer layer over the rest.',
-    'Let each piece fit and drape the way its cut would on his body, with natural creases and no smoothing.',
+    NATURAL_FIT,
   ]
     .filter((line): line is string => line !== null)
     .join('\n')
+}
+
+/**
+ * The instruction for pieces he chose himself, in layer order. They need not
+ * make a whole outfit (a saved jacket over the tee he has on is a fair
+ * question), so each goes in place of the matching thing he is wearing and
+ * the rest of what he has on stays.
+ */
+export function outfitTryOnPrompt(pieces: PieceSent[]): string {
+  const { lines, lastImage } = pieceLines(pieces)
+  const owned = pieces.some((piece) => piece.piece_id !== null && piece.shown.kind !== 'words')
+  const saved = pieces.some((piece) => piece.piece_id === null && piece.shown.kind !== 'words')
+  const one = lastImage === 2
+  const photos =
+    lastImage < 2
+      ? null
+      : owned && saved
+        ? `Images 2 to ${lastImage} are photos of clothes: some he owns, laid flat, on a hanger or in a shop's photo, and some a shop's photo of a piece he is thinking of buying.`
+        : saved
+          ? one
+            ? "Image 2 is a shop's photo of a piece he is thinking of buying."
+            : `Images 2 to ${lastImage} are shops' photos of pieces he is thinking of buying.`
+          : one
+            ? "Image 2 is a photo of a piece he owns, laid flat, on a hanger or in a shop's photo."
+            : `Images 2 to ${lastImage} are photos of clothes he owns, some laid flat or on a hanger, some a shop's photo.`
+  return [
+    ['Image 1 is a photo of a man.', photos].filter(Boolean).join(' '),
+    `Make a photograph of the man in image 1 wearing ${pieces.length === 1 ? 'this piece' : 'these pieces together'}, so he can judge honestly how ${pieces.length === 1 ? 'it looks' : 'they look'} on him. ${pieces.length === 1 ? 'The piece:' : 'The pieces, from the outermost layer in:'}`,
+    ...lines,
+    KEEP_HIM,
+    EACH_AS_PHOTOGRAPHED,
+    `Put each piece on in place of the matching thing he is wearing${pieces.length === 1 ? '' : ', layered in the order listed, the outer layer over the rest'}. Change nothing else he is wearing.`,
+    NATURAL_FIT,
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n')
+}
+
+/** How far out a garment is worn: outer layers first, then down to the shoes and what is carried. */
+export function layer(garmentType: string | null): number {
+  switch (garmentType) {
+    case 'coat':
+      return 0
+    case 'jacket':
+    case 'tailoring':
+      return 1
+    case 'overshirt':
+      return 2
+    case 'knitwear':
+    case 'sweatshirt':
+      return 3
+    case 'shirt':
+    case 'polo':
+      return 4
+    case 'tee':
+    case 'activewear':
+      return 5
+    case 'trousers':
+    case 'jeans':
+    case 'shorts':
+      return 6
+    case 'shoes':
+    case 'boots':
+    case 'sneakers':
+      return 7
+    case 'bag':
+    case 'accessory':
+      return 8
+    default:
+      return 9
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -422,7 +518,7 @@ type LookForTryOn = {
   title: string
   styling: string | null
   piece_count: number
-  pieces: (Omit<LookPieceSent, 'shown'> & { photo_id: number | null; image: string | null })[]
+  pieces: (Omit<PieceSent, 'shown'> & { photo_id: number | null; image: string | null })[]
 }
 
 async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTryOn | null> {
@@ -448,7 +544,7 @@ async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTryOn | nu
  * he owns, as it is now), else the shop's photo, else in words. Past the
  * editor's image limit, the rest go in words.
  */
-export function showPieces(pieces: LookForTryOn['pieces']): LookPieceSent[] {
+export function showPieces(pieces: (Omit<PieceSent, 'shown'> & { photo_id: number | null; image: string | null })[]): PieceSent[] {
   let images = 0
   return pieces.map(({ photo_id, image, ...piece }) => {
     const room = images < MAX_GARMENT_IMAGES
@@ -505,10 +601,138 @@ export async function startLookTryOn(lookId: number, sql: Sql = db()): Promise<S
   }
 }
 
+/** The most pieces one outfit try-on takes: a full outfit with a layer and a bag is seven. */
+export const MAX_OUTFIT_PIECES = 8
+
+export type OutfitChoice = { piece_ids: number[]; product_ids: number[] }
+
+/**
+ * A saved find's colour, for a product aliased `p`: as its latest score read
+ * it, else the colours its listing names (a pasted link is never scored), as
+ * the Saved list on Today shows it.
+ */
+export const findColour = (sql: Sql) => sql`
+  coalesce(
+    (select s.colour_option from product_scores s where s.product_id = p.id order by s.scored_at desc limit 1),
+    (select string_agg(colour, ', ' order by first_id) from (
+       select option_colour as colour, min(id) as first_id from product_variants
+       where product_id = p.id and option_colour is not null group by option_colour
+     ) listed)
+  )
+`
+
+type Choosable = Omit<PieceSent, 'shown'> & { photo_id: number | null; image: string | null }
+
+/** The chosen wardrobe pieces still in the wardrobe, and the chosen finds still saved. */
+async function chosenPieces(sql: Sql, choice: OutfitChoice): Promise<Choosable[]> {
+  const [pieces, finds] = await Promise.all([
+    choice.piece_ids.length === 0
+      ? []
+      : sql<Choosable[]>`
+          select p.id::int as piece_id, p.name, p.garment_type, p.colour_name, p.colour_hex, p.fabric, p.fit,
+                 p.photo_id::int as photo_id, pr.images -> 0 ->> 'src' as image
+          from wardrobe_pieces p left join products pr on pr.id = p.product_id
+          where p.id = any (${choice.piece_ids}::bigint[]) and p.set_aside_at is null
+        `,
+    choice.product_ids.length === 0
+      ? []
+      : sql<Choosable[]>`
+          with latest_action as (
+            select distinct on (product_id) product_id, slot_id, action
+            from feed_actions where product_id = any (${choice.product_ids}::bigint[])
+            order by product_id, created_at desc, id desc
+          )
+          select null::int as piece_id, p.id::int as product_id, p.title as name,
+                 coalesce(p.garment_type, bs.garment_type) as garment_type,
+                 ${findColour(sql)} as colour_name,
+                 null::text as colour_hex, null::text as fabric, null::text as fit,
+                 null::int as photo_id, p.images -> 0 ->> 'src' as image
+          from latest_action a
+          join products p on p.id = a.product_id
+          left join blueprint_slots bs on bs.id = a.slot_id
+          where a.action = 'saved'
+        `,
+  ])
+  return [...pieces, ...finds]
+}
+
+/**
+ * Record a request for a try-on of pieces he chose: wardrobe pieces and saved
+ * finds, put on in layer order. Refuses when there is no key, no full-length
+ * photo, nothing or too much chosen, something chosen has since left the
+ * wardrobe or his saved finds, or another try-on is still being made.
+ */
+export async function startOutfitTryOn(choice: OutfitChoice, sql: Sql = db()): Promise<Started> {
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
+  }
+  const wanted = { piece_ids: [...new Set(choice.piece_ids)], product_ids: [...new Set(choice.product_ids)] }
+  const count = wanted.piece_ids.length + wanted.product_ids.length
+  if (count === 0) return { ok: false, message: 'Choose at least one piece.' }
+  if (count > MAX_OUTFIT_PIECES) return { ok: false, message: `Choose up to ${MAX_OUTFIT_PIECES} pieces.` }
+
+  const [photo, found] = await Promise.all([fullLengthPhoto(sql), chosenPieces(sql, wanted)])
+  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
+  if (found.length < count) {
+    return { ok: false, message: 'Something you chose is no longer in your wardrobe or saved. Choose again.' }
+  }
+
+  // Outermost first, as a look is; the order chosen breaks a tie.
+  const order = [...wanted.piece_ids.map((id) => `p${id}`), ...wanted.product_ids.map((id) => `f${id}`)]
+  const key = (piece: Choosable) => (piece.piece_id !== null ? `p${piece.piece_id}` : `f${piece.product_id}`)
+  const sorted = [...found].sort(
+    (a, b) => layer(a.garment_type) - layer(b.garment_type) || order.indexOf(key(a)) - order.indexOf(key(b)),
+  )
+
+  await sweepStale(sql)
+  const size = outputSize(photo.width, photo.height)
+  const pieces = showPieces(sorted)
+  try {
+    const [row] = await sql<{ id: number }[]>`
+      insert into try_ons ${sql({
+        photo_id: photo.id,
+        pieces: sql.json(pieces),
+        provider: PROVIDER,
+        model: MODEL,
+        prompt: outfitTryOnPrompt(pieces),
+        settings: sql.json({ size: `${size.width}x${size.height}`, quality: QUALITY }),
+      })}
+      returning id::int as id
+    `
+    return { ok: true, id: row!.id }
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      return { ok: false, message: 'Another try-on is still being made. One at a time.' }
+    }
+    throw error
+  }
+}
+
+/**
+ * "Make it again" from the On me page: the same find, the same look, or the
+ * same chosen pieces, as they are now, on his newest full-length photo.
+ */
+export async function startAgain(tryOnId: number, sql: Sql = db()): Promise<Started> {
+  const [row] = await sql<{ product_id: number | null; look_id: number | null; pieces: PieceSent[] | null }[]>`
+    select product_id::int as product_id, look_id::int as look_id, pieces from try_ons where id = ${tryOnId}
+  `
+  if (!row) return { ok: false, message: 'That picture could not be found.' }
+  if (row.product_id !== null) return startTryOn(row.product_id, sql)
+  if (row.look_id !== null) return startLookTryOn(row.look_id, sql)
+  const pieces = row.pieces ?? []
+  return startOutfitTryOn(
+    {
+      piece_ids: pieces.flatMap((piece) => (piece.piece_id !== null ? [piece.piece_id] : [])),
+      product_ids: pieces.flatMap((piece) => (piece.piece_id === null && piece.product_id ? [piece.product_id] : [])),
+    },
+    sql,
+  )
+}
+
 type Making = {
   id: number
   product_image: string | null
-  pieces: LookPieceSent[] | null
+  pieces: PieceSent[] | null
   prompt: string
   settings: { size?: string }
   photo_path: string

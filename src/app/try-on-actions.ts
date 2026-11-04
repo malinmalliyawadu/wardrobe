@@ -1,16 +1,28 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { after } from 'next/server'
 import { z } from 'zod'
 
-import { makeTryOn, startLookTryOn, startTryOn, type Started } from '@/lib/try-on'
+import type { ActionState } from '@/lib/action-state'
+import {
+  MAX_OUTFIT_PIECES,
+  makeTryOn,
+  startAgain,
+  startLookTryOn,
+  startOutfitTryOn,
+  startTryOn,
+  type Started,
+} from '@/lib/try-on'
 
 /*
- * "See it on me", on a find and on a look. Each records the request and
- * answers at once; the image is made after the response, because it takes up
+ * "See it on me", on a find, on a look, and on pieces he chose on the On me
+ * page. Each records the request and answers at once; the image is made after the response, because it takes up
  * to two minutes, and the card asks /photos/try-ons/:id/status until it is
- * ready. Nothing is revalidated: the card holds the state, and the next render
- * reads it from the row.
+ * ready. On a card nothing is revalidated: the card holds the state, and the
+ * next render reads it from the row. From the On me page the new picture is
+ * a row on that page, so it is revalidated and shown there, in the making.
  */
 
 const Id = z.number().int().positive()
@@ -34,4 +46,30 @@ export async function seeLookOnMe(lookId: number): Promise<Started> {
   const id = Id.safeParse(lookId)
   if (!id.success) return { ok: false, message: 'That look could not be read.' }
   return makeAfter(await startLookTryOn(id.data))
+}
+
+/** "p12" is wardrobe piece 12, "f34" saved find 34. */
+const ChoiceKey = z.string().regex(/^[pf][1-9]\d{0,15}$/)
+
+/** The On me page's form: the pieces and saved finds ticked. */
+export async function tryChosenOn(_state: ActionState, form: FormData): Promise<ActionState> {
+  const keys = z.array(ChoiceKey).safeParse(form.getAll('choice'))
+  if (!keys.success) return { ok: false, message: 'That choice could not be read. Choose again.' }
+  if (keys.data.length === 0) return { ok: false, message: 'Choose at least one piece.' }
+  if (keys.data.length > MAX_OUTFIT_PIECES) return { ok: false, message: `Choose up to ${MAX_OUTFIT_PIECES} pieces.` }
+  const ids = (prefix: string) => keys.data.filter((key) => key.startsWith(prefix)).map((key) => Number(key.slice(1)))
+
+  const started = makeAfter(await startOutfitTryOn({ piece_ids: ids('p'), product_ids: ids('f') }))
+  if (!started.ok) return { ok: false, message: started.message }
+  revalidatePath('/', 'layout')
+  redirect('/looks/on-me')
+}
+
+/** "Make it again" on a picture's own page: the same find, look or pieces. */
+export async function makeItAgain(tryOnId: number): Promise<Started> {
+  const id = Id.safeParse(tryOnId)
+  if (!id.success) return { ok: false, message: 'That picture could not be read.' }
+  const started = makeAfter(await startAgain(id.data))
+  if (started.ok) revalidatePath('/', 'layout')
+  return started
 }
