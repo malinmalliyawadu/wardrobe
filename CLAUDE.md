@@ -54,8 +54,10 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
 - Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
   `src/lib/try-on.ts`, only on Malin's tap, one at a time, of a find or of a
-  whole look. The photo rule in docs/plan.md 1.1 is what he agreed; do not
-  send his photos anywhere else.
+  whole look. The one image made without a tap is the outfit of the day's
+  flat lay (`src/lib/look-image.ts`), from photos of his clothes, never of
+  him. The photo rule in docs/plan.md 1.1 is what he agreed; do not send his
+  photos anywhere else.
 - Fonts are committed under `src/fonts` and loaded with `next/font/local`; the
   Docker build runs with the network off and will fail on any build-time fetch.
 - Plain dash, never an em dash, in copy and comments.
@@ -232,3 +234,16 @@ shop. The work runs in `after()`; the page refreshes itself while it runs.
 Verdicts go in `search_results`, never `product_scores`. No slot is made;
 results save without one, and "Add to blueprint" prefills `/blueprint/new`.
 First real search: 51 judged, 7 finds, US$0.33, 40 s.
+
+Outfit of the day built 2026-11-05 (migration 0011); gate pending (a week of
+days he wears what it suggests). On Today between the hero and the finds
+(`src/components/day/`, `src/lib/day-outfit.ts`): the first opening of a day
+(from 6pm, tomorrow) starts it through an action, never a render; Opus makes
+three options from his pieces against Open-Meteo's forecast for 7am to 10pm
+(`src/lib/weather.ts`), the season and his week, in `after()`, and the card
+refreshes until it is there. Each option is a look (a saved one when it
+matches piece for piece); day sets are `look_sets.kind = 'day'` and never
+the Looks tab's newest set. The option on show gets a flat lay drawn by
+OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
+served at `/photos/looks/:id`): the photo rule's one no-tap exception,
+docs/plan.md 1.1. About US$0.14 a day.

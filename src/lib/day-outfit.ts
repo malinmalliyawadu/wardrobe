@@ -1,0 +1,404 @@
+import type Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
+
+import { MODELS, callUsd } from './claude.ts'
+import { db, type Sql } from './db.ts'
+import {
+  getLooks,
+  insertLook,
+  LookDraftSchema,
+  pieceForPrompt,
+  readHistory,
+  readiness,
+  signature,
+  tidyLooks,
+  wellingtonToday,
+  type History,
+  type Look,
+  type LookDismissReason,
+} from './looks.ts'
+import { ensureLookImage, latestLookImages, type LookImage } from './look-image.ts'
+import { listPieces, type Piece } from './pieces.ts'
+import { getProfile, type Profile } from './profile.ts'
+import { GenerationError, generate, type GenerationMeta } from './structured.ts'
+import { getGuide, profileBrief, type Guide } from './style-guide.ts'
+import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type Forecast } from './weather.ts'
+
+/*
+ * The outfit of the day (migration 0011). Opus dresses him for one day from
+ * the pieces he owns: that day's Wellington forecast for the hours he is out,
+ * the season, the day of the week against his week, and what he said is on.
+ * Three options, best first; Today shows one and "Another" turns to the next.
+ *
+ * Each option is a look, so Save and "Wore it today" are the looks' own and
+ * the next set of looks learns from them. When an option is piece for piece a
+ * look he saved, it is that look, not a copy. The option on show gets a
+ * picture, a flat lay of the outfit drawn by OpenAI (look-image.ts), made
+ * after the outfit and kept with the look. Made the first time Today is
+ * opened for a day (after six in the evening, for tomorrow), in the
+ * background; the card refreshes until it is there.
+ */
+
+export const DAY_OPTIONS = 3
+
+/** A making row older than this died with its process; the next start closes it. */
+const STALE_MINUTES = 5
+
+/** How far back an outfit he wore is not offered again. */
+const NOT_AGAIN_DAYS = 6
+
+// ---------------------------------------------------------------------------
+// Claude's output format
+// ---------------------------------------------------------------------------
+
+export const DayOptionSchema = LookDraftSchema.omit({ better_with: true }).extend({
+  today: z
+    .string()
+    .describe(
+      'One sentence for this day only, tying the outfit to the forecast and what is on: "Showers from 3pm and a 40 km/h southerly: the shell over the knit, and the leather boots rather than the suede."',
+    ),
+})
+
+export const DaySchema = z.object({
+  options: z.array(DayOptionSchema).describe(`${DAY_OPTIONS} outfits for the day, best first, each a different outfit.`),
+})
+
+export type DayOption = z.infer<typeof DayOptionSchema>
+
+export const DAY_SYSTEM_PROMPT = `You are an experienced menswear stylist dressing one client for one day from clothes he already owns. You have his confirmed profile (colouring, proportions, sizes, his week), the style guide written for him, the list of his pieces, the looks he saved and dismissed, what he wore this past week, the day and its forecast. A private app shows him the first option on its Today page each morning (or the evening before), with the others a tap away.
+
+Give ${DAY_OPTIONS} options for the day, best first. Each is one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, and an outer layer when the day asks for it. Accessories only when they add something, and then in his metal. Use only the pieces on the list, by id, each at most once in an outfit; never invent a garment. The options must differ: no two share more than two pieces.
+
+Dress him for the forecast, not the month. You are given the hours he is likely out, 7am to 10pm, with temperature, feels-like temperature, rain chance and wind. In Wellington the wind decides as much as the thermometer: a southerly is cold whatever the number says, and wind cuts through an open knit. Rain likely while he is out calls for an outer layer that sheds water, if he owns one, and shoes that cope (no suede). A day that swings, cool morning and warm afternoon, wants a layer he can take off and carry. Warm days want lighter fabrics and fewer layers. A UV index of 6 or more is strong in New Zealand: sunglasses or a cap if he has them. When no forecast could be read you are given the month's usual weather instead; dress for an ordinary day of it.
+
+The season sets the fabric weights and the mood within his palette: the lighter and brighter of his colours in spring and summer, the deeper ones in autumn and winter. Never step outside his palette to follow a season.
+
+Work out the day from the weekday and his week: an office day, a weekend, or a day with an evening out. Where his week is empty, weekdays are office days. Office means smart casual unless his profile says otherwise. If he said what is on, that decides; dress for the most demanding part of the day and say how to adjust for the rest.
+
+He may re-wear a look he saved, piece for piece, when it suits the day; it is often the best option. Never offer an outfit he wore in the past week, piece for piece, nor one he dismissed, and learn from the reasons he gave. Prefer pieces he has worn less lately.
+
+For each option: today is one sentence on why it suits this day, naming the weather or the plan it answers; why is two sentences that hold on any day, the colour story in his palette and then the proportion or fit move from his guide; weather is the kind of day it is dressed for in a few words; styling is one short instruction for wearing it, or null.
+
+Write to him in the second person, plainly, without praise or sales talk. Plain hyphens only.`
+
+// ---------------------------------------------------------------------------
+// The call
+// ---------------------------------------------------------------------------
+
+export type Worn = { date: string; title: string; piece_ids: number[] }
+
+export type DayInput = {
+  profile: Profile
+  guide: Guide
+  pieces: Piece[]
+  history: History
+  /** Looks he wore in the past week, newest first. */
+  wornThisWeek: Worn[]
+  /** The day it dresses him for, YYYY-MM-DD in New Zealand. */
+  date: string
+  forecast: Forecast | null
+  note: string | null
+  now?: Date
+}
+
+/** The forecast for the prompt: the summary line, the day's figures and the hours. */
+function forecastForPrompt(forecast: Forecast) {
+  return {
+    in_short: forecastLine(forecast),
+    temperature_c: { low: forecast.low, high: forecast.high, feels_like_low: forecast.feels_low, feels_like_high: forecast.feels_high },
+    rain: { highest_chance_pct: forecast.rain_chance, total_mm: forecast.rain_mm },
+    wind: { strongest_kmh: forecast.wind_kmh, gusts_kmh: forecast.gust_kmh, from: forecast.wind_from },
+    sky: forecast.sky,
+    uv_index: forecast.uv,
+    hours: forecast.hours,
+  }
+}
+
+export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessageParam[] {
+  const now = input.now ?? new Date()
+  const active = input.pieces.filter((piece) => !piece.set_aside_at && piece.garment_type !== 'activewear')
+  const body = {
+    day: {
+      date: input.date,
+      weekday: weekday(input.date),
+      dressing_for: input.date === nzDate(now) ? 'today' : 'tomorrow, laid out the evening before',
+      season_in_new_zealand: nzSeason(input.date),
+    },
+    ...(input.forecast
+      ? { forecast_wellington: forecastForPrompt(input.forecast) }
+      : { usual_weather: `${wellingtonToday(new Date(`${input.date}T12:00:00+12:00`)).weather} (no forecast could be read)` }),
+    profile: profileBrief(input.profile),
+    style_guide: {
+      palette: input.guide.palette,
+      silhouette: input.guide.silhouette,
+      shoes: input.guide.shoes,
+      accessories: input.guide.accessories,
+      fit_vocabulary: input.guide.fit_vocabulary,
+    },
+    pieces: active.map((piece) => pieceForPrompt(piece, input.guide, input.history.worn)),
+    looks_he_saved: input.history.saved,
+    looks_he_dismissed: input.history.dismissed,
+    worn_this_week: input.wornThisWeek,
+  }
+  const ask = input.note
+    ? `He says this is on: "${input.note}". Dress him for the day with that in mind: ${DAY_OPTIONS} options, best first.`
+    : `Dress him for the day: ${DAY_OPTIONS} options, best first.`
+  return [{ role: 'user', content: `${JSON.stringify(body, null, 2)}\n\n${ask}` }]
+}
+
+export type DayDraft = { options: DayOption[]; proposed: number; meta: GenerationMeta; usd: number }
+
+export async function draftDay(input: DayInput): Promise<DayDraft> {
+  const { data, meta } = await generate({
+    schema: DaySchema,
+    system: DAY_SYSTEM_PROMPT,
+    messages: buildDayMessages(input),
+    maxTokens: 16000,
+    what: 'outfit of the day',
+    model: MODELS.day,
+  })
+  const usd = callUsd(MODELS.day, { input_tokens: meta.input_tokens, output_tokens: meta.output_tokens })
+  return { options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek), proposed: data.options.length, meta, usd }
+}
+
+/**
+ * Holds the options to what a look must be (tidyLooks), with the day's own
+ * rules on what has gone before: a look he saved may come back, one he
+ * dismissed or wore this past week may not. At most DAY_OPTIONS are kept.
+ */
+export function tidyDay(
+  options: DayOption[],
+  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at'>[],
+  history: Pick<History, 'dismissed'>,
+  wornThisWeek: Pick<Worn, 'piece_ids'>[],
+): DayOption[] {
+  const notAgain = [
+    ...history.dismissed,
+    ...wornThisWeek.map((look) => ({ title: '', piece_ids: look.piece_ids, reason: 'not_me' as LookDismissReason })),
+  ]
+  return tidyLooks(
+    options.map((option) => ({ ...option, title: option.title.trim(), better_with: null })),
+    pieces,
+    [],
+    { saved: [], dismissed: notAgain },
+  ).slice(0, DAY_OPTIONS)
+}
+
+// ---------------------------------------------------------------------------
+// Storage
+// ---------------------------------------------------------------------------
+
+/** Looks he wore in the past week, newest first, so the day does not repeat one. */
+export async function wornThisWeek(sql: Sql = db()): Promise<Worn[]> {
+  return sql<Worn[]>`
+    select to_char(w.worn_on, 'YYYY-MM-DD') as date, l.title,
+           array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids
+    from look_wears w join looks l on l.id = w.look_id
+    where w.worn_on > (now() at time zone 'Pacific/Auckland')::date - ${NOT_AGAIN_DAYS + 1}::int
+    order by w.worn_on desc
+  `
+}
+
+export type DayStarted = { ok: true; id: number } | { ok: false; message: string }
+
+async function sweepStale(sql: Sql): Promise<void> {
+  await sql`
+    update day_outfits set status = 'failed', finished_at = now(), error = 'It stopped part way. Try again.'
+    where status = 'making' and started_at < now() - make_interval(mins => ${STALE_MINUTES})
+  `
+}
+
+/**
+ * Records a day in the making, with its forecast, or says why it cannot be
+ * made. The outfit itself is made by runDay, after the response. Without
+ * `again`, a day that already has an outfit (or one in the making) is left
+ * as it is, so a second tab or a refresh never pays twice.
+ */
+export async function startDay(
+  options: { note?: string | null; again?: boolean; now?: Date } = {},
+  sql: Sql = db(),
+): Promise<DayStarted> {
+  const date = dressDate(options.now)
+  const [guide, pieces] = await Promise.all([getGuide(), listPieces(sql)])
+  if (!guide) return { ok: false, message: 'Draft your style guide first. The outfit is put together against it.' }
+  const ready = readiness(pieces)
+  if (!ready.ready) return { ok: false, message: `Add ${ready.missing.join(', ')} first.` }
+
+  await sweepStale(sql)
+  if (!options.again) {
+    const [existing] = await sql<{ id: number }[]>`
+      select id::int as id from day_outfits
+      where for_date = ${date} and status in ('making', 'ready')
+      order by started_at desc limit 1
+    `
+    if (existing) return { ok: true, id: existing.id }
+  }
+
+  const forecast = await fetchForecast(date)
+  const note = options.note?.trim().replace(/\s+/g, ' ').slice(0, 200) || null
+  try {
+    const [row] = await sql<{ id: number }[]>`
+      insert into day_outfits (for_date, note, forecast)
+      values (${date}, ${note}, ${forecast ? sql.json(forecast) : null})
+      returning id::int as id
+    `
+    return { ok: true, id: row!.id }
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      return { ok: false, message: 'An outfit is already being put together. It will be here in a moment.' }
+    }
+    throw error
+  }
+}
+
+export type DayDeps = {
+  draft: (input: DayInput) => Promise<DayDraft>
+  /** Draws the picture of the option on show; the tests pass one that does not call OpenAI. */
+  draw: (lookId: number, sql: Sql) => Promise<void>
+}
+
+/**
+ * Makes the day's outfit, then the picture of its first option. The outfit
+ * is shown as soon as it is in; the picture follows. Never throws: a failure
+ * is recorded on the row, in words for him.
+ */
+export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps> = {}): Promise<void> {
+  const { draft = draftDay, draw = ensureLookImage } = deps
+  const started = Date.now()
+  try {
+    const [day] = await sql<{ for_date: string; note: string | null; forecast: Forecast | null }[]>`
+      select to_char(for_date, 'YYYY-MM-DD') as for_date, note, forecast from day_outfits where id = ${id} and status = 'making'
+    `
+    if (!day) return
+    const [profile, guide, pieces, history, worn] = await Promise.all([
+      getProfile(),
+      getGuide(),
+      listPieces(sql),
+      readHistory(sql),
+      wornThisWeek(sql),
+    ])
+    if (!guide) throw new GenerationError('Draft your style guide first.')
+    const made = await draft({
+      profile,
+      guide,
+      pieces,
+      history,
+      wornThisWeek: worn,
+      date: day.for_date,
+      forecast: day.forecast,
+      note: day.note,
+    })
+    if (made.options.length === 0) {
+      console.warn(JSON.stringify({ event: 'day.none_kept', id, proposed: made.proposed, usd: made.usd }))
+      throw new GenerationError('None of the outfits Claude put together held up. Try again.')
+    }
+    const first = await saveDay(id, made, pieces.filter((piece) => !piece.set_aside_at).length, sql)
+    console.info(
+      JSON.stringify({ event: 'day.ready', id, options: made.options.length, proposed: made.proposed, usd: made.usd, ms: Date.now() - started }),
+    )
+    await draw(first, sql)
+  } catch (error) {
+    const message = error instanceof GenerationError ? error.message : 'Something went wrong putting it together. Try again.'
+    console.warn(JSON.stringify({ event: 'day.failed', id, message: (error as Error).message, cause: (error as Error).cause ?? null }))
+    await sql`
+      update day_outfits set status = 'failed', error = ${message}, finished_at = now() where id = ${id} and status = 'making'
+    `
+  }
+}
+
+/**
+ * The call as a set of the day's kind, then each option: the saved look it
+ * matches piece for piece, else a new look. The day is ready once all of it
+ * is in. Returns the first option's look, the one on show.
+ */
+export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: Sql = db()): Promise<number> {
+  return sql.begin(async (tx) => {
+    const [day] = await tx<{ for_date: string; forecast: Forecast | null }[]>`
+      select to_char(for_date, 'YYYY-MM-DD') as for_date, forecast from day_outfits where id = ${id} for update
+    `
+    if (!day) throw new Error(`day ${id} is gone`)
+    const [set] = await tx<{ id: number }[]>`
+      insert into look_sets ${tx({
+        kind: 'day',
+        note: null,
+        context: tx.json({ date: day.for_date, weather: day.forecast ? forecastLine(day.forecast) : null, pieces }),
+        model: draft.meta.model,
+        served_by: draft.meta.served_by,
+        input_tokens: draft.meta.input_tokens,
+        output_tokens: draft.meta.output_tokens,
+        usd: Number(draft.usd.toFixed(6)),
+        proposed: draft.proposed,
+      })}
+      returning id::int as id
+    `
+    if (!set) throw new Error('set insert returned nothing')
+    const saved = await tx<{ id: number; piece_ids: number[] }[]>`
+      select l.id::int as id, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
+      from looks l where l.status = 'saved' order by l.acted_at desc
+    `
+    const savedBySignature = new Map<string, number>()
+    for (const look of saved) {
+      const key = signature(look.piece_ids)
+      if (!savedBySignature.has(key)) savedBySignature.set(key, look.id)
+    }
+    const lookIds: number[] = []
+    for (const [position, option] of draft.options.entries()) {
+      const lookId = savedBySignature.get(signature(option.piece_ids)) ?? (await insertLook(tx, set.id, position, option))
+      await tx`insert into day_outfit_options ${tx({ day_id: id, position, look_id: lookId, today: option.today })}`
+      lookIds.push(lookId)
+    }
+    await tx`update day_outfits set status = 'ready', set_id = ${set.id}, shown = 0, finished_at = now() where id = ${id}`
+    return lookIds[0]!
+  })
+}
+
+export type DayOutfit = {
+  id: number
+  for_date: string
+  status: 'making' | 'ready' | 'failed'
+  note: string | null
+  forecast: Forecast | null
+  error: string | null
+  shown: number
+  usd: number | null
+  started_at: Date
+  options: { look: Look; today: string; image: LookImage | null }[]
+}
+
+/** The newest outfit for a day, with its options, or null when there is none yet. */
+export async function readDay(date: string, sql: Sql = db()): Promise<DayOutfit | null> {
+  const [row] = await sql<(Omit<DayOutfit, 'options'> & { option_rows: { look_id: number; today: string }[] | null })[]>`
+    select d.id::int as id, to_char(d.for_date, 'YYYY-MM-DD') as for_date, d.status, d.note, d.forecast, d.error, d.shown,
+           s.usd::float as usd, d.started_at,
+           (select json_agg(json_build_object('look_id', o.look_id::int, 'today', o.today) order by o.position)
+            from day_outfit_options o where o.day_id = d.id) as option_rows
+    from day_outfits d left join look_sets s on s.id = d.set_id
+    where d.for_date = ${date}
+    order by d.started_at desc, d.id desc
+    limit 1
+  `
+  if (!row) return null
+  const { option_rows, ...day } = row
+  const lookIds = (option_rows ?? []).map((option) => option.look_id)
+  const [looks, images] = await Promise.all([getLooks(lookIds, sql), latestLookImages(lookIds, sql)])
+  const byId = new Map(looks.map((look) => [look.id, look]))
+  const options = (option_rows ?? []).flatMap((option) =>
+    byId.has(option.look_id)
+      ? [{ look: byId.get(option.look_id)!, today: option.today, image: images.get(option.look_id) ?? null }]
+      : [],
+  )
+  return { ...day, shown: options.length > 0 ? day.shown % options.length : 0, options }
+}
+
+/** Turns the day to its next option, round to the first after the last. Returns the look now on show. */
+export async function showNext(id: number, sql: Sql = db()): Promise<number | null> {
+  const [row] = await sql<{ look_id: number }[]>`
+    with turned as (
+      update day_outfits d set shown = (d.shown + 1) % greatest(1, (select count(*) from day_outfit_options o where o.day_id = d.id))
+      where d.id = ${id} and d.status = 'ready'
+      returning d.id, d.shown
+    )
+    select o.look_id::int as look_id from turned t join day_outfit_options o on o.day_id = t.id and o.position = t.shown
+  `
+  return row?.look_id ?? null
+}

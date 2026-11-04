@@ -2,6 +2,7 @@ import { connection } from 'next/server'
 import { Suspense, type CSSProperties } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
+import { DayOutfit } from '@/components/day/day-outfit'
 import { Feed } from '@/components/feed/feed'
 import { FeedSkeleton } from '@/components/feed/feed-skeleton'
 import { SwatchFan } from '@/components/swatch-fan'
@@ -17,6 +18,11 @@ export default function TodayPage() {
           either width), held empty so the feed below does not jump when it lands. */}
       <Suspense fallback={<div className="h-[29.5rem]" aria-hidden />}>
         <Hero />
+      </Suspense>
+      {/* Empty until it streams in: it sits below the fold on the phone, and
+          a fixed reservation would leave a gap on the days it shows nothing. */}
+      <Suspense fallback={null}>
+        <DayOutfit />
       </Suspense>
       <Suspense fallback={<FeedSkeleton />}>
         <Feed />

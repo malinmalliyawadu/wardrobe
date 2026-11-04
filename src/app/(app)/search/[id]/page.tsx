@@ -6,11 +6,10 @@ import { Suspense, type CSSProperties } from 'react'
 import { BackLink } from '@/components/back-link'
 import { ButtonLink } from '@/components/button-link'
 import { FindCard } from '@/components/feed/find-card'
+import { Refresh } from '@/components/refresh'
 import { Bone, Skeleton, TextBone } from '@/components/skeleton'
 import { usdText } from '@/lib/finder/settings'
 import { getSearch, RUNNING, SCORE_USD_ESTIMATE, targetLine, type SearchView } from '@/lib/search'
-
-import { Refresh } from './refresh'
 
 export const metadata: Metadata = { title: 'Search' }
 
