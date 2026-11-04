@@ -33,7 +33,13 @@ export const WellingtonStoreSchema = z
 export const RetailerSeedSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
-  platform: z.enum(['shopify', 'custom']),
+  /**
+   * How a product is read. "shopify": the whole catalogue from /products.json
+   * every night, and one product from /products/<handle>.js. "uniqlo": one
+   * product at a time from its own page, only for a link he pastes; never
+   * walked, so never on the finder's switches.
+   */
+  platform: z.enum(['shopify', 'uniqlo']),
   base_url: url,
   /** Where /products.json is read, when it is not the public site. */
   feed_url: url.optional(),
@@ -61,7 +67,7 @@ export type Retailer = {
   id: number
   slug: string
   name: string
-  platform: 'shopify' | 'custom'
+  platform: 'shopify' | 'uniqlo'
   base_url: string
   feed_url: string | null
   feed_collections: string[]
@@ -71,6 +77,11 @@ export type Retailer = {
   catalogue: 'menswear' | 'mixed'
   wellington_store: WellingtonStore | null
   enabled: boolean
+}
+
+/** Whether the nightly finder reads the store's whole catalogue, and so whether it has a switch. */
+export function walkedNightly(retailer: Pick<Retailer, 'platform'>): boolean {
+  return retailer.platform === 'shopify'
 }
 
 /** The store to name in "try on at", only once its address is verified. */

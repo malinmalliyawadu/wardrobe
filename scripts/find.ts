@@ -44,7 +44,7 @@ import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/find
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
 import { getFinderSettings, getSpend, runBudget } from '../src/lib/finder/settings.ts'
 import { getProfile } from '../src/lib/profile.ts'
-import { listRetailers, seedRetailers } from '../src/lib/retailers.ts'
+import { listRetailers, seedRetailers, walkedNightly } from '../src/lib/retailers.ts'
 import { colourNameFor, getGuide } from '../src/lib/style-guide.ts'
 
 import { readRetailerFile } from './seed-retailers.ts'
@@ -101,7 +101,10 @@ let exitCode = 0
 try {
   const seeded = await seedRetailers(sql, readRetailerFile())
   log({ event: 'find.retailers', ...seeded })
-  const retailers = (await listRetailers(sql)).filter((retailer) => retailer.enabled)
+  const allRetailers = await listRetailers(sql)
+  // Only a store the finder walks can be switched on; one read only from
+  // pasted links (Uniqlo) never is, whatever its row says.
+  const retailers = allRetailers.filter((retailer) => retailer.enabled && walkedNightly(retailer))
 
   // 1. Ingest. Stores run side by side; each host gets its own one-a-second queue.
   if (!options.skipIngest) {
@@ -126,7 +129,7 @@ try {
     }
     // Saved products the walk did not cover (a pasted link outside the men's
     // collection) are read one by one, so their price and stock stay current.
-    stats.saved_refreshed = await refreshSaved(sql, client, await listRetailers(sql), runStartedAt)
+    stats.saved_refreshed = await refreshSaved(sql, client, allRetailers, runStartedAt)
     log({ event: 'ingest.saved', ...(stats.saved_refreshed as object) })
     stats.saved_price_drops = await savedPriceDrops()
   }
@@ -148,7 +151,9 @@ try {
   const budget = runBudget(settings, spend.thisMonth, options.maxUsd)
   stats.budget = budget
   stats.stores_on = retailers.length
-  const fx = await loadRates(sql, retailers.map((retailer) => retailer.currency))
+  // Every store's currency, not only the walked ones': Saved shows links from
+  // stores switched off, and from Uniqlo, in NZD at this run's rate.
+  const fx = await loadRates(sql, allRetailers.map((retailer) => retailer.currency))
   stats.fx = fx
   const targets = slotTargets(
     slots,

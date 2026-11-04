@@ -85,6 +85,17 @@ export class PoliteClient {
     }
   }
 
+  /** GET a page's HTML (a store with no JSON endpoint, such as Uniqlo), after checking robots.txt for its path. */
+  async text(url: string): Promise<string> {
+    const target = new URL(url)
+    const robots = await this.robots(target.origin)
+    if (!isAllowed(robots, target.pathname + target.search)) {
+      throw new DisallowedError(`robots.txt disallows ${target.pathname} on ${target.host}`)
+    }
+    const response = await this.request(url, { allowMissing: false, accept: 'text/html, */*;q=0.8' })
+    return response.text()
+  }
+
   /** GET a file's bytes (a product photo), after checking robots.txt for its path. */
   async bytes(url: string): Promise<Buffer> {
     const target = new URL(url)
@@ -96,7 +107,10 @@ export class PoliteClient {
     return Buffer.from(await response.arrayBuffer())
   }
 
-  private async request(url: string, { allowMissing }: { allowMissing: boolean }): Promise<Response> {
+  private async request(
+    url: string,
+    { allowMissing, accept = 'application/json, text/plain;q=0.9, image/*;q=0.8' }: { allowMissing: boolean; accept?: string },
+  ): Promise<Response> {
     const target = new URL(url)
     const fetcher = this.options.fetch ?? fetch
     let lastError: Error | null = null
@@ -106,7 +120,7 @@ export class PoliteClient {
       let response: Response
       try {
         response = await fetcher(url, {
-          headers: { 'user-agent': USER_AGENT, accept: 'application/json, text/plain;q=0.9, image/*;q=0.8' },
+          headers: { 'user-agent': USER_AGENT, accept },
           redirect: 'follow',
           signal: AbortSignal.timeout(TIMEOUT_MS),
         })

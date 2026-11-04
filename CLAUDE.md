@@ -151,7 +151,12 @@ Postgres advisory lock for its life (`src/lib/finder/runs.ts`), so a second
 run logs `find.busy` and exits, and a `running` row without the lock is a run
 that died; the next run closes it. Saved on Today also takes a pasted
 product link from any of the shops (`src/lib/finder/product-link.ts`), with
-or without a slot; the nightly run keeps those current too. The feed
+or without a slot; the nightly run keeps those current too. Uniqlo (added
+2026-11-05, migration 0010) is links only: platform `uniqlo`, never walked
+and no switch, since it has no NZ online store. `src/lib/finder/uniqlo.ts`
+reads the AU product page's preloaded state (any region's link maps there),
+stores each colour as its own product, and has no per-size stock, so cards
+say the sizes it makes rather than what is in stock. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with
 recorded candidates, including one still scoring; save, dismiss with a reason
 and bought move the slot's status. First pass numbers and what is left to

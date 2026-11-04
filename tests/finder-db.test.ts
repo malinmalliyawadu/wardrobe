@@ -5,7 +5,7 @@ import { after, before, test } from 'node:test'
 
 import { connect, type Sql } from '../src/lib/db.ts'
 import { db } from '../src/lib/db.ts'
-import { getFeed, recordAction } from '../src/lib/feed.ts'
+import { getFeed, recordAction, runRates } from '../src/lib/feed.ts'
 import { findCandidates, photoKey, slotTargets } from '../src/lib/finder/filter.ts'
 import { PoliteClient } from '../src/lib/finder/http.ts'
 import { writePage } from '../src/lib/finder/ingest.ts'
@@ -13,7 +13,7 @@ import { closeInterrupted, holdFinderLock, liveRun } from '../src/lib/finder/run
 import { startFinderRun } from '../src/lib/finder/start.ts'
 import { addProductFromLink, ProductLinkError, refreshSaved } from '../src/lib/finder/product-link.ts'
 import { getFinderSettings, saveFinderSettings, storeCounts } from '../src/lib/finder/settings.ts'
-import { listRetailers, seedRetailers, type RetailerSeed } from '../src/lib/retailers.ts'
+import { listRetailers, RetailerFileSchema, seedRetailers, type RetailerSeed } from '../src/lib/retailers.ts'
 import { normaliseProduct, ShopifyProductSchema } from '../src/lib/finder/shopify.ts'
 import type { Slot } from '../src/lib/blueprint.ts'
 
@@ -342,6 +342,94 @@ test('a pasted link is read from its shop, stored, saved without a slot, and kep
     where v.product_id = ${added.productId} order by o.observed_at desc, o.id desc limit 1
   `
   assert.equal(last?.available, false, 'and recorded as out, so Saved can say when it went')
+})
+
+test('a currency the run did not record is converted at the conservative rate, never one to one', () => {
+  const run = { stats: { fx: { rates: { NZD: 1, GBP: 2.3848 } } } } as unknown as Parameters<typeof runRates>[0]
+  const rates = runRates(run)
+  assert.deepEqual([rates.NZD, rates.GBP], [1, 2.3848], 'what the run recorded wins')
+  assert.ok((rates.AUD ?? 1) > 1, 'a Uniqlo price in AUD is not shown as NZD')
+  assert.equal(runRates(null).NZD, 1)
+})
+
+/** Uniqlo's site: robots.txt, and a product page per product id, from the saved fixtures. */
+function fakeUniqlo(pages: Record<string, string | null>, seen: string[] = []) {
+  return new PoliteClient({
+    sleep: async () => {},
+    fetch: (async (input: string | URL | Request) => {
+      const url = new URL(String(input))
+      seen.push(url.pathname + url.search)
+      if (url.pathname === '/robots.txt') return new Response('User-agent: *\nDisallow: /*/*/cart')
+      const id = /\/products\/([^/]+)\//.exec(url.pathname)?.[1] ?? ''
+      const html = pages[id]
+      return html ? new Response(html, { headers: { 'content-type': 'text/html' } }) : new Response(fixturePage('uniqlo-not-found.html'), { status: 404 })
+    }) as typeof fetch,
+  })
+}
+
+function fixturePage(name: string): string {
+  return readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
+}
+
+test('a Uniqlo link is read from its page, one product per colour, never walked or switched', async () => {
+  const file = RetailerFileSchema.parse(JSON.parse(readFileSync(new URL('../data/retailers.json', import.meta.url), 'utf8')))
+  const seed = file.retailers.find((store) => store.slug === 'uniqlo')!
+  assert.deepEqual([seed.platform, seed.enabled, seed.ships_to_nz], ['uniqlo', false, false])
+  await seedRetailers(sql, [seed])
+  const stores = await listRetailers(sql)
+  let pages: Record<string, string | null> = { 'E475296-000': fixturePage('uniqlo-sweater.html') }
+  const seen: string[] = []
+  const client = () => fakeUniqlo(pages, seen)
+
+  await assert.rejects(
+    addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/au/en/products/E475296-000/00'),
+    (error: unknown) => error instanceof ProductLinkError && /grey, black, natural, green and navy\. Choose yours/.test(error.message),
+    'five colours and the link names none',
+  )
+  await assert.rejects(
+    addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/au/en/men/tops'),
+    (error: unknown) => error instanceof ProductLinkError && /not a product page/.test(error.message),
+  )
+
+  // A UK link is read from the Australian page for the same product.
+  const black = await addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/uk/en/products/E475296-000/00?colorDisplayCode=09')
+  assert.deepEqual([black.title, black.retailer], ['3D KNIT Crew Neck Sweater', 'Uniqlo'])
+  assert.equal(seen.at(-1), '/au/en/products/E475296-000/00?colorDisplayCode=09')
+  const navy = await addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/au/en/products/E475296-000/00?colorDisplayCode=69')
+  assert.notEqual(navy.productId, black.productId, 'another colour is another product')
+  const again = await addProductFromLink(sql, client(), stores, 'https://uniqlo.com/au/en/products/E475296-000/00?colorDisplayCode=09&sizeDisplayCode=004')
+  assert.equal(again.productId, black.productId, 'the same colour twice is the same product')
+
+  const [stored] = await sql<{ url: string; handle: string; colours: string[]; image: string }[]>`
+    select p.url, p.handle, array_agg(distinct v.option_colour) as colours, p.images -> 0 ->> 'src' as image
+    from products p join product_variants v on v.product_id = p.id
+    where p.id = ${black.productId} group by p.id
+  `
+  assert.deepEqual(stored, {
+    url: 'https://www.uniqlo.com/au/en/products/E475296-000/00?colorDisplayCode=09',
+    handle: 'E475296-000/00/09',
+    colours: ['Black'],
+    image: 'https://image.uniqlo.com/UQ/ST3/au/imagesgoods/475296/item/augoods_09_475296_3x4.jpg',
+  })
+
+  assert.equal((await storeCounts(sql)).some((store) => store.slug === 'uniqlo'), false, 'no switch on /you/finder')
+
+  // Saved, then gone from Uniqlo: the nightly refresh reads the page and marks it removed.
+  await recordAction({ action: 'saved', product_id: black.productId, slot_id: null }, sql)
+  const state = async () =>
+    (await sql<{ seen: Date; removed: boolean }[]>`
+      select last_seen_at as seen, removed_at is not null as removed from products where id = ${black.productId}
+    `)[0]!
+  const before = await state()
+  seen.length = 0
+  await refreshSaved(sql, client(), await listRetailers(sql), new Date(Date.now() + 1000))
+  assert.ok(seen.includes('/au/en/products/E475296-000/00?colorDisplayCode=09'), 'read again from its stored handle')
+  const read = await state()
+  assert.ok(read.seen > before.seen && !read.removed, 'and kept current')
+  pages = {}
+  await refreshSaved(sql, client(), await listRetailers(sql), new Date(Date.now() + 2000))
+  assert.equal((await state()).removed, true, 'a product Uniqlo no longer has is marked gone')
+  await recordAction({ action: 'cleared', product_id: black.productId, slot_id: null }, sql)
 })
 
 test('Saved tracks his size: a drop, selling out and coming back are each news on the night they happen', async () => {

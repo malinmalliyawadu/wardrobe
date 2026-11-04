@@ -182,6 +182,8 @@ export async function storeCounts(sql: Sql = db()): Promise<StoreCount[]> {
     from retailers r
     left join products p on p.retailer_id = r.id
     left join finder_candidates c on c.product_id = p.id and c.run_id = (select id from latest)
+    -- A store read only from pasted links (Uniqlo) is never walked, so it has no switch.
+    where r.platform = 'shopify'
     group by r.id
     order by count(c.product_id) desc, r.name
   `
