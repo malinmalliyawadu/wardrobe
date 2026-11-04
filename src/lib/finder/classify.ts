@@ -31,7 +31,7 @@ type Rule = { pattern: RegExp; garment: GarmentType | null; kind?: string }
 
 /** Never a slot: judged on the product type and title together. */
 const NOT_CLOTHING =
-  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|tank|singlets?|vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights)\b/i
+  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights)\b/i
 
 /** Words that only exclude when they are the product type, because they turn up in titles ("Ring Spun Tee", "Book Club Shirt"). */
 const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|magazines?|accessories - other|gift)\b/i
@@ -56,7 +56,7 @@ const RULES: Rule[] = [
     pattern: /\b(bags?|backpacks?|totes?|holdalls?|duffle|duffel|messenger|cross ?body|rucksacks?|satchels?|briefcases?|pouch|sacoche)\b/i,
     garment: 'bag',
   },
-  { pattern: /\bbelts?\b/i, garment: 'accessory', kind: 'belt' },
+  { pattern: /\bbelts?\b/i, garment: 'belt' },
   { pattern: /\b(scarf|scarves|snood)\b/i, garment: 'accessory', kind: 'scarf' },
   { pattern: /\b(beanies?|watch caps?|toques?)\b/i, garment: 'accessory', kind: 'beanie' },
   { pattern: /\b(caps?|hats?|bucket)\b/i, garment: 'accessory', kind: 'cap' },
@@ -73,6 +73,7 @@ const RULES: Rule[] = [
   { pattern: /\b(blazers?|suits?|sport ?coats?|tuxedos?|waistcoats?)\b/i, garment: 'tailoring' },
   { pattern: /\b(over ?shirts?|over-shirts?|shackets?|shirt jackets?|cpo)\b/i, garment: 'overshirt' },
   { pattern: /\b(polos?|rugby)\b/i, garment: 'polo' },
+  { pattern: /\b(tanks?|singlets?)\b/i, garment: 'tank' },
   { pattern: /\b(t-?shirts?|tees?|henleys?)\b/i, garment: 'tee' },
   {
     pattern: /\b(sweat ?shirts?|sweats?|sweat tops?|hoodies?|hoody|hoods?|hooded sweat|crew sweat|fleece)\b/i,
@@ -180,6 +181,7 @@ export function sizeGroup(garment: GarmentType | null): SizeGroup {
     case 'boots':
     case 'sneakers':
       return 'feet'
+    case 'belt':
     case 'accessory':
     case 'bag':
     case null:

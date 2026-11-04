@@ -49,15 +49,15 @@ export const LOOKS_PER_SET = 6
 
 /** Outermost layer first, then down the body, then what is carried. A look's pieces are shown in this order. */
 const LAYER_ORDER: GarmentType[] = [
-  'coat', 'jacket', 'tailoring', 'overshirt', 'knitwear', 'sweatshirt', 'shirt', 'polo', 'tee',
-  'trousers', 'jeans', 'shorts', 'boots', 'shoes', 'sneakers', 'accessory', 'bag',
+  'coat', 'jacket', 'tailoring', 'overshirt', 'knitwear', 'sweatshirt', 'shirt', 'polo', 'tee', 'tank',
+  'activewear', 'trousers', 'jeans', 'shorts', 'belt', 'boots', 'shoes', 'sneakers', 'accessory', 'bag',
 ]
 
-const TOPS: GarmentType[] = ['tee', 'polo', 'shirt', 'knitwear', 'sweatshirt', 'overshirt']
+const TOPS: GarmentType[] = ['tee', 'tank', 'polo', 'shirt', 'knitwear', 'sweatshirt', 'overshirt']
 const BOTTOMS: GarmentType[] = ['trousers', 'jeans', 'shorts']
 const FOOTWEAR: GarmentType[] = ['boots', 'shoes', 'sneakers']
 const OUTER: GarmentType[] = ['coat', 'jacket']
-const CARRIED: GarmentType[] = ['accessory', 'bag']
+const CARRIED: GarmentType[] = ['belt', 'accessory', 'bag']
 
 export type Readiness = { ready: boolean; missing: string[] }
 

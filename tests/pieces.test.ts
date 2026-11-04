@@ -267,11 +267,11 @@ describe('pieces and slots together', () => {
     assert.equal(count, 1)
 
     // A slot already filled by a placeholder gives it up to the real thing.
-    const belt = await slot('Espresso leather belt', 'accessory', 'owned')
+    const belt = await slot('Espresso leather belt', 'belt', 'owned')
     await setSlotStatus(belt, 'owned')
     const [beltProduct] = await sql<{ id: number }[]>`
       insert into products (retailer_id, external_id, title, url, content_hash, garment_type)
-      values (${retailer!.id}, '2', 'Leather Belt', 'https://shop.test/p/2', 'h2', 'accessory') returning id::int as id
+      values (${retailer!.id}, '2', 'Leather Belt', 'https://shop.test/p/2', 'h2', 'belt') returning id::int as id
     `
     const [placeholder] = await piecesOf(belt)
     await recordAction({ action: 'bought', product_id: beltProduct!.id, slot_id: belt }, sql)
