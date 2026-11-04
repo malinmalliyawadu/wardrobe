@@ -273,6 +273,15 @@ unique index). The prompt asks for him unchanged, the garment exactly as sold
 (colour first) and no flattery. Images are served only through
 `/photos/try-ons/:id`. Cost per image is on /you/finder.
 
+First real try-on, 2026-11-04 (The North Face Antora Jacket from Area 51, on
+his beach full-length photo): 34 seconds; 267 text and 2,973 image tokens in,
+1,629 image tokens out at high quality, 1152x1536, so US$0.074 an image. Face,
+build, pose, shorts and background held; the navy panel averaged #161f3e on
+the shop's photo and #1f2942 on him, the same hue a little lighter in midday
+sun. He is small in that photo, so detail such as the chest logo is hard to
+judge; a plain-background full-length photo in fitted clothes would give the
+model more of him to work with.
+
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
