@@ -106,7 +106,8 @@ export type RequestRead = z.infer<typeof RequestReadSchema>
 export const READ_SYSTEM_PROMPT = `You read one shopping request Malin typed into his private menswear app, and turn it into the terms the app's filter uses. The app then searches New Zealand menswear shops and END. (UK, ships to New Zealand) for products in his size, and a stylist judges the closest against his request and his style guide.
 
 Garment types, and what each covers:
-- tee: t-shirts and singlets
+- tee: t-shirts
+- tank: tank tops and singlets
 - polo: polo shirts, including knitted polos
 - shirt: shirts with a collar and buttons, short or long sleeved
 - overshirt: overshirts and shirt jackets (shackets), worn over a tee
@@ -122,7 +123,8 @@ Garment types, and what each covers:
 - shoes: dress and casual shoes, loafers, derbies
 - boots: boots, including chelsea and chukka
 - sneakers: sneakers and trainers
-- accessory: belts, scarves, beanies, caps, watches, socks, ties, sunglasses
+- belt: belts
+- accessory: scarves, beanies, caps, watches, socks, ties, sunglasses
 - bag: bags
 
 Prices are in New Zealand dollars: "under $300" is a maximum of 300; "around $200" is about 160 to 240. A request may name a colour, a cut, a fabric, a price, all of these or none.

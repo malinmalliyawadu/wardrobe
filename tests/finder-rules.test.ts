@@ -12,6 +12,8 @@ import { readPhoto } from '../src/lib/finder/photo-colour.ts'
 test('garment types from real titles and product types', () => {
   const cases: [string, string | null, string | null, string?][] = [
     ['NIGHT CAMO BOX TEE 220 BLACK', 'HUFFER BY HUFFER', 'tee'],
+    ['HFR TANK 190/BILLED WHITE', 'HUFFER BY HUFFER', 'tank'],
+    ['Merino Singlet', null, 'tank'],
     ['Australian Cotton Crew Sweat', 'Sweat - Casual', 'sweatshirt'],
     ['Sweat Short', 'Shorts', 'shorts'],
     ['Merino Crew', 'Knitwear', 'knitwear'],
@@ -30,7 +32,7 @@ test('garment types from real titles and product types', () => {
     ['CLASSIC HOOD / BASIS BLACK', 'CLUBHOUSE CLASSICS', 'sweatshirt'],
     ['Merino Watch Cap', null, 'accessory', 'beanie'],
     ['Logo Cap', 'Caps', 'accessory', 'cap'],
-    ['Leather Belt', null, 'accessory', 'belt'],
+    ['Leather Belt', null, 'belt'],
   ]
   for (const [title, type, garment, kind] of cases) {
     const result = garmentOf(title, type)
@@ -39,11 +41,10 @@ test('garment types from real titles and product types', () => {
   }
 })
 
-test('never a slot: swimwear, socks, tanks, jewellery, sunglasses, towels', () => {
+test('never a slot: swimwear, socks, jewellery, sunglasses, towels', () => {
   for (const [title, type] of [
     ['Geo Swim Short', 'Short - Casual'],
     ['Marcoliani Luxury Stripe Socks', 'Footwear'],
-    ['HFR TANK 190/BILLED WHITE', 'HUFFER BY HUFFER'],
     ['Serge DeNimes Onyx Armour Ring', 'Rings'],
     ['Port Tanger Ayreen Sunglasses', null],
     ['Barkers Beach Towel', 'Accessories / General Accessories'],
@@ -94,7 +95,7 @@ test('size keys by garment', () => {
   assert.equal(sizeKey('Default Title', null), 'ONE')
   assert.equal(sizeKey('34"', 'jeans'), 'W34')
   assert.equal(sizeKey('30 inch Waist x 32 inch Leg', 'jeans'), 'W30')
-  assert.equal(sizeKey('32"', 'accessory'), 'W32', 'a belt is sized by the waist')
+  assert.equal(sizeKey('32"', 'belt'), 'W32', 'a belt is sized by the waist')
   assert.equal(sizeKey('2 (S)', 'knitwear'), 'S')
   assert.equal(sizeKey('XXXX LARGE', 'tee'), null)
   assert.equal(sizeKey('OSA', 'bag'), 'ONE')
@@ -114,7 +115,8 @@ test('his sizes: the tee size covers neighbouring pairs and chest numbers; unkno
 
 test('accessory slots name their kind', () => {
   assert.equal(slotKind('accessory', 'Espresso fine merino beanie'), 'beanie')
-  assert.equal(slotKind('accessory', 'Espresso leather belt with antique brass buckle'), 'belt')
+  assert.equal(slotKind('accessory', 'Ink merino scarf'), 'scarf')
+  assert.equal(slotKind('belt', 'Espresso leather belt with antique brass buckle'), null, 'a belt is its own type')
   assert.equal(slotKind('accessory', 'Brushed gold cream-dial watch on dark brown leather strap'), 'watch')
   assert.equal(slotKind('knitwear', 'Pine fine-gauge merino crewneck'), null)
 })

@@ -90,7 +90,7 @@ to read instead of the whole catalogue: Country Road's is 2,700 products of
 22,600, and END.'s whole catalogue is past Shopify's 25,000-product page
 limit while its men's collection is not), and `catalogue` (`menswear` when
 every product is men's or unisex). Products carry the `garment_type` and
-`garment_kind` (belt, scarf, beanie, cap, watch for accessories) the rules in
+`garment_kind` (scarf, beanie, cap, gloves, watch, tie for accessories) the rules in
 `src/lib/finder/classify.ts` gave them, and variants a normalised `size_key`
 ("S", "S/M", "W32", "EU42", "C46", "ONE"), so the filter is one SQL statement
 over keys rather than string matching. The rules run at every ingest, so a

@@ -53,12 +53,12 @@ test('a cut he names replaces the guide’s; prices given backwards are put righ
 })
 
 test('an accessory request narrows to its kind', () => {
-  const belt = searchTarget(
-    { ...overshirt, garment_type: 'accessory', words: ['belt'], fabrics: ['leather'], summary: 'A brown leather belt' },
+  const beanie = searchTarget(
+    { ...overshirt, garment_type: 'accessory', words: ['beanie'], fabrics: ['merino'], summary: 'A brown merino beanie' },
     {},
     () => [],
   )
-  assert.equal(belt.kind, 'belt')
+  assert.equal(beanie.kind, 'beanie')
 })
 
 test('candidates go to Claude closest to his words first, so the cap cuts the furthest', () => {

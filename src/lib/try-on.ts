@@ -112,6 +112,7 @@ type Placement = { noun: string; how: string }
 export function placement(garmentType: string | null): Placement {
   switch (garmentType) {
     case 'tee':
+    case 'tank':
     case 'polo':
     case 'shirt':
     case 'knitwear':
@@ -132,6 +133,8 @@ export function placement(garmentType: string | null): Placement {
       return { noun: 'pair of shoes', how: 'in place of the shoes he is wearing' }
     case 'bag':
       return { noun: 'bag', how: 'carried the way it is meant to be carried' }
+    case 'belt':
+      return { noun: 'belt', how: 'through the belt loops of the trousers he is wearing' }
     case 'accessory':
       return { noun: 'accessory', how: 'worn the way it is meant to be worn' }
     default:
@@ -287,6 +290,7 @@ export function layer(garmentType: string | null): number {
     case 'polo':
       return 4
     case 'tee':
+    case 'tank':
     case 'activewear':
       return 5
     case 'trousers':
@@ -297,6 +301,7 @@ export function layer(garmentType: string | null): number {
     case 'boots':
     case 'sneakers':
       return 7
+    case 'belt':
     case 'bag':
     case 'accessory':
       return 8

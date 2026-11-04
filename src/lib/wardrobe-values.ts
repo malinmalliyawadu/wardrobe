@@ -9,6 +9,7 @@ import type { Budget } from './profile.ts'
 
 export const GARMENT_TYPES = [
   'tee',
+  'tank',
   'polo',
   'shirt',
   'overshirt',
@@ -24,6 +25,7 @@ export const GARMENT_TYPES = [
   'shoes',
   'boots',
   'sneakers',
+  'belt',
   'accessory',
   'bag',
 ] as const
@@ -39,6 +41,7 @@ export type Metal = (typeof METALS)[number]
 
 export const GARMENT_LABELS: Record<GarmentType, string> = {
   tee: 'Tee',
+  tank: 'Tank top',
   polo: 'Polo',
   shirt: 'Shirt',
   overshirt: 'Overshirt',
@@ -54,6 +57,7 @@ export const GARMENT_LABELS: Record<GarmentType, string> = {
   shoes: 'Shoes',
   boots: 'Boots',
   sneakers: 'Sneakers',
+  belt: 'Belt',
   accessory: 'Accessory',
   bag: 'Bag',
 }
@@ -74,6 +78,7 @@ export const PRIORITY_LABELS: Record<Priority, { title: string; hint: string }> 
 /** Which budget ceiling on the profile governs each garment type. */
 export const BUDGET_CATEGORY: Record<GarmentType, keyof Omit<Budget, 'monthly'>> = {
   tee: 'tees',
+  tank: 'tees',
   polo: 'tees',
   activewear: 'tees',
   shirt: 'shirts',
@@ -89,6 +94,7 @@ export const BUDGET_CATEGORY: Record<GarmentType, keyof Omit<Budget, 'monthly'>>
   shoes: 'shoes',
   boots: 'shoes',
   sneakers: 'shoes',
+  belt: 'accessories',
   accessory: 'accessories',
   bag: 'accessories',
 }
@@ -121,11 +127,11 @@ export const PIECE_SOURCES = ['slot', 'find', 'link', 'photo', 'typed'] as const
 export type PieceSource = (typeof PIECE_SOURCES)[number]
 
 export const GARMENT_GROUPS: { title: string; types: GarmentType[] }[] = [
-  { title: 'Tops', types: ['tee', 'polo', 'shirt'] },
+  { title: 'Tops', types: ['tee', 'tank', 'polo', 'shirt'] },
   { title: 'Knitwear', types: ['knitwear', 'sweatshirt'] },
   { title: 'Layers and outerwear', types: ['overshirt', 'jacket', 'coat', 'tailoring'] },
   { title: 'Trousers', types: ['trousers', 'jeans', 'shorts'] },
   { title: 'Shoes', types: ['shoes', 'boots', 'sneakers'] },
-  { title: 'Accessories', types: ['accessory', 'bag'] },
+  { title: 'Accessories', types: ['belt', 'accessory', 'bag'] },
   { title: 'Activewear', types: ['activewear'] },
 ]

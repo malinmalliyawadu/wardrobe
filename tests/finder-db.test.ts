@@ -118,7 +118,7 @@ test('the filter keeps what fits and drops each thing that does not, for its own
   const end = await retailer('end', 'GBP', 'mixed')
   const tee = await slot({ name: 'Ecru heavyweight cotton crew tee', garment_type: 'tee', colour_family: 'ecru', fit: 'slim', sizes: { labels: ['S'] }, budget_min_cents: 4500, budget_max_cents: 8500 })
   const chino = await slot({ name: 'Putty cotton twill chinos', garment_type: 'trousers', colour_family: 'putty', budget_min_cents: 12000, budget_max_cents: 23000 })
-  const belt = await slot({ name: 'Espresso leather belt', garment_type: 'accessory', colour_family: 'dark brown', budget_min_cents: 6000, budget_max_cents: 15000 })
+  const belt = await slot({ name: 'Espresso leather belt', garment_type: 'belt', colour_family: 'dark brown', budget_min_cents: 6000, budget_max_cents: 15000 })
   await slot({ name: 'Ecru crew tee', garment_type: 'tee', colour_family: 'ecru', status: 'owned' })
 
   const local = { base_url: 'https://shop.test', catalogue: 'menswear' as const }
