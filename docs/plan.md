@@ -43,7 +43,9 @@ Captured once, edited rarely.
 Photos are sensitive. They live on a Coolify volume, never in the database,
 are sent to the Claude API only for the analysis call, and the profile page has
 a "delete photos, keep the derived profile" action. The Anthropic API does not
-train on API traffic.
+train on API traffic. Try-on (M3.5) would also send a full-length photo to an
+image-generation provider; that changes this rule and needs Malin's agreement
+on the provider first.
 
 ### 1.2 Style guide (what suits you)
 
@@ -179,6 +181,22 @@ actually buy, in roughly that order.
 dismiss. Run it locally for a week against the eleven stores. Gate: the daily
 feed has a hit rate Malin is happy with and the cost per night is known.
 
+**M3.5 Try-on.** "See it on me" on a feed item: the product's own image and
+one of Malin's full-length photos go to an image-generation provider, which
+returns him wearing that product. It comes after the finder because a try-on
+is only worth deciding a purchase on when it shows a real product in his size;
+a picture of an archetype slot would be the model inventing the garment.
+Claude cannot generate images, so this adds a second provider. Step one is
+choosing it, before any code: try-on quality on menswear (fit, drape, colour
+held true to the product photo, since colour is the point of the app), and its
+data terms (retention, training on inputs, deletion). Malin agrees the provider
+and the change to the photo rule in section 1.1 first. Then: generated on
+request only, never in bulk; cached on the photos volume with a row per image
+(product, source photo, provider, cost); deleted along with his photos by the
+existing "delete photos" action; cost per image recorded like the finder's.
+Gate: Malin tries on a week of feed picks and finds the images honest enough to
+change what he buys.
+
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
@@ -210,3 +228,5 @@ None block M0.
    deleted automatically.
 5. Do we want a Claude-written weekly "state of the wardrobe" note in the app,
    or is the feed enough.
+6. Which try-on provider for M3.5, judged on menswear quality, colour fidelity
+   and data terms, and whether its terms are acceptable for his photos.
