@@ -19,7 +19,11 @@ export function FinderForm({
   const [state, action] = useActionState(submitFinderSettings, null)
   const e = state?.errors ?? {}
   const v = withEcho(
-    { max_usd_per_run: settings.max_usd_per_run, max_usd_per_month: settings.max_usd_per_month },
+    {
+      max_usd_per_run: settings.max_usd_per_run,
+      max_usd_per_month: settings.max_usd_per_month,
+      max_usd_per_search: settings.max_usd_per_search,
+    },
     state?.values,
   )
   const nightly = perScore && perScore > 0 ? Math.floor(settings.max_usd_per_run / perScore) : null
@@ -38,8 +42,16 @@ export function FinderForm({
         >
           <NumberInput name="max_usd_per_run" defaultValue={v.max_usd_per_run} unit="US$" error={e.max_usd_per_run} />
         </Field>
-        <Field label="Most in a month" name="max_usd_per_month" error={e.max_usd_per_month} hint="Leave empty for no monthly limit.">
+        <Field label="Most in a month" name="max_usd_per_month" error={e.max_usd_per_month} hint="Nights and searches together. Empty for no limit.">
           <NumberInput name="max_usd_per_month" defaultValue={v.max_usd_per_month} unit="US$" error={e.max_usd_per_month} />
+        </Field>
+        <Field
+          label="Most in one search"
+          name="max_usd_per_search"
+          error={e.max_usd_per_search}
+          hint={searchHint(settings.max_usd_per_search, perScore)}
+        >
+          <NumberInput name="max_usd_per_search" defaultValue={v.max_usd_per_search} unit="US$" error={e.max_usd_per_search} />
         </Field>
       </div>
       {perScore ? (
@@ -56,6 +68,12 @@ export function FinderForm({
       </div>
     </form>
   )
+}
+
+function searchHint(perSearch: number, perScore: number | null): string {
+  if (!perScore || perScore <= 0) return '0 turns search off.'
+  const pieces = Math.floor(perSearch / perScore)
+  return `About ${pieces.toLocaleString('en-NZ')} pieces judged. 0 turns search off.`
 }
 
 /**

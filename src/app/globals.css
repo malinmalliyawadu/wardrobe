@@ -722,3 +722,33 @@
     }
   }
 }
+
+@layer components {
+  /*
+   * A search's progress: a brass hairline filled to --share (0 to 1) by
+   * transform alone, so each step it takes is a short slide on the compositor.
+   * With reduced motion it jumps.
+   */
+  .progress-line {
+    transform: scaleX(var(--share, 0));
+    transition: transform 250ms var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .progress-line {
+      transition: none;
+    }
+  }
+}
+
+/* A search field looks like every other field: no native clear button or rounded inset. */
+@layer components {
+  input[type='search'].field {
+    appearance: none;
+  }
+
+  input[type='search'].field::-webkit-search-decoration,
+  input[type='search'].field::-webkit-search-cancel-button {
+    appearance: none;
+  }
+}

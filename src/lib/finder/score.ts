@@ -271,8 +271,25 @@ type Log = (fields: Record<string, unknown>) => void
  * Highest-priority slot first, so a spending cap cuts the least important.
  */
 export async function unscored(sql: Sql, candidates: Candidate[], slots: Slot[]): Promise<ProductForScoring[]> {
-  if (candidates.length === 0) return []
   const rank = new Map(slots.map((slot, index) => [slot.id, index]))
+  const products = await forScoring(sql, candidates, { onlyUnscored: true })
+  return products.sort(
+    (a, b) => firstRank(a.slot_ids, rank) - firstRank(b.slot_ids, rank) || a.product_id - b.product_id,
+  )
+}
+
+/**
+ * What the scorer is shown of each candidate, in the candidates' order. With
+ * onlyUnscored, those whose current version already has a verdict newer than
+ * every slot it is offered are left out (the nightly run); a search scores
+ * all of them against its own request.
+ */
+export async function forScoring(
+  sql: Sql,
+  candidates: Candidate[],
+  { onlyUnscored }: { onlyUnscored: boolean },
+): Promise<ProductForScoring[]> {
+  if (candidates.length === 0) return []
   const offered = candidates.map((candidate) => ({ product_id: candidate.product_id, slot_ids: candidate.slot_ids }))
   const rows = await sql<(Omit<ProductForScoring, 'slot_ids' | 'sizes' | 'colours'> & { colours: string[] | null })[]>`
     with offered as (
@@ -285,7 +302,7 @@ export async function unscored(sql: Sql, candidates: Candidate[], slots: Slot[])
     from offered o
     join products p on p.id = o.product_id
     join retailers r on r.id = p.retailer_id
-    where not exists (
+    where not ${onlyUnscored} or not exists (
       select 1 from product_scores s
       where s.product_id = p.id and s.content_hash = p.content_hash
         and s.scored_at >= (
@@ -294,13 +311,11 @@ export async function unscored(sql: Sql, candidates: Candidate[], slots: Slot[])
         )
     )
   `
-  const byId = new Map(candidates.map((candidate) => [candidate.product_id, candidate]))
-  return rows
-    .map((row) => {
-      const candidate = byId.get(row.product_id)!
-      return { ...row, colours: row.colours ?? [], slot_ids: candidate.slot_ids, sizes: candidate.sizes }
-    })
-    .sort((a, b) => firstRank(a.slot_ids, rank) - firstRank(b.slot_ids, rank) || a.product_id - b.product_id)
+  const byId = new Map(rows.map((row) => [row.product_id, row]))
+  return candidates.flatMap((candidate) => {
+    const row = byId.get(candidate.product_id)
+    return row ? [{ ...row, colours: row.colours ?? [], slot_ids: candidate.slot_ids, sizes: candidate.sizes }] : []
+  })
 }
 
 function firstRank(slotIds: number[], rank: Map<number, number>): number {
@@ -395,7 +410,9 @@ export async function scoreAll(
   const worker = async () => {
     for (;;) {
       if (stats.usd >= options.maxUsd) {
-        stats.skipped_for_budget = queue.length
+        // Every worker comes here once the cap is reached; only the first finds
+        // anything left, so add rather than set, or the last word is zero.
+        stats.skipped_for_budget += queue.length
         queue.length = 0
         return
       }

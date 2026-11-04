@@ -26,6 +26,8 @@ Three layers, each derived from the one above, then the finder's tables.
 | `look_sets` | one per "Make new looks" | His note, the weather it was dressed for, tokens and cost |
 | `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion, weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
 | `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
+| `searches` | one per search on the Search tab | What he typed, what it was read as, its limit, what it spent |
+| `search_results` | up to 150 a search | The products a search offered Claude, in order, each with its verdict and a re-checked price |
 
 ## Decisions
 
@@ -193,6 +195,22 @@ and saves it. The Looks page shows the newest set less what he dismissed,
 then the looks he saved from earlier sets; the next set is told his saved and
 dismissed looks (with reasons) and how often each piece was worn in the last
 three weeks.
+
+**Searches (migration 0010)** are the request and its own target, never a
+blueprint slot: the read (garment, colour words and families, price, cut,
+words to rank by) is stored on the search as the same `SlotTarget` the filter
+takes for a slot, with slot id 0, and the scorer is shown it as the only slot.
+Their verdicts go in `search_results`, not `product_scores`: they answer his
+words, not a slot, and must not stand in for a nightly verdict. A row is
+written for every product offered, in the order offered (closest to his
+words first), so the page can count progress and a capped search shows what
+it did not reach. `in_stock`, `sizes` and the price are rewritten by the
+re-check after scoring. One search runs at a time (a unique index on the
+running statuses, like the one try-on in the making), and one still running
+after 15 minutes is read as failed. `finder_settings.max_usd_per_search` is
+the per-search limit; the month's spend counts `searches.usd` with the runs'.
+A saved search result is an ordinary `feed_actions` row with no slot, saved at
+the price and size the search found.
 
 ## Expected growth
 

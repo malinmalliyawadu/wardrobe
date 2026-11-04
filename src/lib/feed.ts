@@ -110,13 +110,15 @@ export type Feed = {
   openSlots: { id: number; name: string }[]
 }
 
-type Row = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
+export type FindRow = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
   image: ProductImage | null
   currency: string
   wellington_store: WellingtonStore | null
   price_cents: number
   compare_at_cents: number | null
 }
+
+type Row = FindRow
 
 /**
  * A saved product that was not on the shortlist (a pasted link) is checked
@@ -168,7 +170,8 @@ export function findPrice(row: Pick<Row, 'price_cents' | 'compare_at_cents' | 'c
   }
 }
 
-function card(row: Row, rates: Rates): FindCard {
+/** A find card from its row, priced in NZD at the given rates. Search results use it too. */
+export function findCard(row: Row, rates: Rates): FindCard {
   return {
     product_id: row.product_id,
     slot_id: row.slot_id,
@@ -285,7 +288,7 @@ export async function getFeed(): Promise<Feed> {
   for (const row of rows) {
     if (row.slot_id === null) continue
     const list = bySlot.get(row.slot_id) ?? []
-    if (list.length < CARDS_PER_SLOT) list.push(card(row, rates))
+    if (list.length < CARDS_PER_SLOT) list.push(findCard(row, rates))
     bySlot.set(row.slot_id, list)
   }
   const saved = await getSaved(sql, run, rates)
@@ -406,7 +409,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
     const history = savedHistory(observations.get(row.product_id) ?? [], { savedAt: saved_at, sizeKeys })
     const events = history.events.map((event) => nzdEvent(event, row.currency))
     return {
-      ...card(withYourSize(row, garment_type, listed ?? [], sizes), rates),
+      ...findCard(withYourSize(row, garment_type, listed ?? [], sizes), rates),
       colour: colour ? titleCase(colour) : null,
       yourSizeOut: yourSizeOut(row.size_known, garment_type, listed ?? [], sizes),
       saved_at,
@@ -471,8 +474,16 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
           select price_cents, sizes from finder_candidates where run_id = ${run.id} and product_id = ${action.product_id}
         `
       : []
-    // Not on the shortlist (a pasted link): the lowest price in stock is what it was saved at.
-    const [variant] = candidate
+    // Not on the shortlist: a search result is saved at the price and size the
+    // search found in his size; a pasted link at the lowest price in stock.
+    const [searched] = candidate
+      ? []
+      : await tx<{ price_cents: number; sizes: string[] }[]>`
+          select r.price_cents, r.sizes from search_results r join searches s on s.id = r.search_id
+          where r.product_id = ${action.product_id} and r.in_stock
+          order by s.started_at desc limit 1
+        `
+    const [variant] = candidate || searched
       ? []
       : await tx<{ price_cents: number | null }[]>`
           select min(price_cents)::int as price_cents from product_variants
@@ -485,14 +496,18 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
         slot_id: action.slot_id,
         action: action.action,
         reason: action.action === 'dismissed' ? action.reason : null,
-        price_cents: candidate?.price_cents ?? variant?.price_cents ?? null,
-        size: candidate?.sizes[0] ?? null,
+        price_cents: candidate?.price_cents ?? searched?.price_cents ?? variant?.price_cents ?? null,
+        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? null,
       })}
     `
 
     if (action.action === 'bought') {
       // The product he bought is a piece in the wardrobe now, with or without a slot.
-      await pieceFromPurchase(tx, { product_id: action.product_id, slot_id: action.slot_id, size: candidate?.sizes[0] ?? null })
+      await pieceFromPurchase(tx, {
+        product_id: action.product_id,
+        slot_id: action.slot_id,
+        size: candidate?.sizes[0] ?? searched?.sizes[0] ?? null,
+      })
     }
     if (action.slot_id === null) return
     if (action.action === 'saved') {

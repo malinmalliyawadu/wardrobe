@@ -208,3 +208,18 @@ its own page shows the prompt and "Make it again". "Choose pieces" puts any
 mix of his pieces and saved finds on him in one image (migration 0009: a
 try-on with neither a find nor a look, only `pieces`), in layer order, with
 whatever he did not choose left as it is in his photo.
+
+M5 Reach built 2026-11-04 (migration 0010); gate pending (a week of searches
+whose finds he would buy, at a cost he is happy with). The three store
+adapters were researched (docs/plan.md, M5) and not built, Malin's call:
+THE ICONIC's terms forbid robots and scraping, Uniqlo does not sell to NZ,
+and Hallensteins was left out; the finder stays on the eleven Shopify stores.
+On-demand search is a Search tab (`src/app/(app)/search/`, `src/lib/search.ts`):
+Sonnet reads the request into a `SlotTarget` (slot id 0, never a real slot),
+the nightly filter runs with it over what the last run read, Sonnet judges
+the closest to his words first within `finder_settings.max_usd_per_search`
+(US$0.50, counted in the month), and what will be shown is re-read from the
+shop. The work runs in `after()`; the page refreshes itself while it runs.
+Verdicts go in `search_results`, never `product_scores`. No slot is made;
+results save without one, and "Add to blueprint" prefills `/blueprint/new`.
+First real search: 51 judged, 7 finds, US$0.33, 40 s.

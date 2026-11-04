@@ -44,7 +44,8 @@ function useFeedAction() {
   return { gone, failed, send }
 }
 
-export function FindCard({ find, slotName }: { find: Find; slotName: string }) {
+/** slotName is null for a search result, which fills no slot. */
+export function FindCard({ find, slotName }: { find: Find; slotName: string | null }) {
   const [mode, setMode] = useState<Mode>('actions')
   const { gone, failed, send } = useFeedAction()
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
@@ -108,7 +109,9 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string }) {
             </div>
           ) : (
             <div>
-              <p className="text-[0.8125rem] leading-snug text-ink-2">This fills your {slotName.toLowerCase()} slot.</p>
+              <p className="text-[0.8125rem] leading-snug text-ink-2">
+                {slotName ? `This fills your ${slotName.toLowerCase()} slot.` : 'It goes into your wardrobe as a piece.'}
+              </p>
               <div className="-ml-2 mt-1 flex items-center gap-1">
                 <button type="button" className="text-button" onClick={() => send({ action: 'bought', ...ids })}>
                   Yes, I bought it

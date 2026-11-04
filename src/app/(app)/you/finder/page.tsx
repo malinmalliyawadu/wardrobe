@@ -14,7 +14,7 @@ export default function FinderPage() {
   return (
     <SubPage
       title="Finder"
-      intro="What the nightly finder may spend on Claude, and which shops it reads. It judges the most important slots first and stops at the limit; whatever is left waits for the next night."
+      intro="What the nightly finder and your searches may spend on Claude, and which shops they read. The finder judges the most important slots first and stops at the limit; whatever is left waits for the next night."
     >
       <Live>
         <Loaded />
@@ -36,7 +36,7 @@ async function Loaded() {
       <SpendSummary spend={spend} />
       <RunNow run={run} />
       <FinderForm
-        key={[settings.max_usd_per_run, settings.max_usd_per_month, ...stores.filter((store) => store.enabled).map((store) => store.slug)].join('|')}
+        key={[settings.max_usd_per_run, settings.max_usd_per_month, settings.max_usd_per_search, ...stores.filter((store) => store.enabled).map((store) => store.slug)].join('|')}
         settings={settings}
         stores={stores}
         perScore={spend.perScore}

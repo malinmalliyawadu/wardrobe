@@ -253,7 +253,11 @@ test('feed actions move the slot: save makes it a candidate, removing the save u
 })
 
 test('finder settings round-trip; the shop switches survive a re-seed and come with their numbers', async () => {
-  assert.deepEqual(await getFinderSettings(sql), { max_usd_per_run: 1, max_usd_per_month: null }, 'the default row')
+  assert.deepEqual(
+    await getFinderSettings(sql),
+    { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0.5 },
+    'the default row',
+  )
   const seed: RetailerSeed = {
     slug: 'seeded',
     name: 'Seeded',
@@ -270,8 +274,8 @@ test('finder settings round-trip; the shop switches survive a re-seed and come w
   await seedRetailers(sql, [seed])
   const others = (await listRetailers(sql)).map((retailer) => retailer.slug).filter((slug) => slug !== 'seeded')
 
-  await saveFinderSettings({ max_usd_per_run: 0.5, max_usd_per_month: 8, stores: others }, sql)
-  assert.deepEqual(await getFinderSettings(sql), { max_usd_per_run: 0.5, max_usd_per_month: 8 })
+  await saveFinderSettings({ max_usd_per_run: 0.5, max_usd_per_month: 8, max_usd_per_search: 0.25, stores: others }, sql)
+  assert.deepEqual(await getFinderSettings(sql), { max_usd_per_run: 0.5, max_usd_per_month: 8, max_usd_per_search: 0.25 })
   const off = async () => (await listRetailers(sql)).find((retailer) => retailer.slug === 'seeded')?.enabled
   assert.equal(await off(), false)
   await seedRetailers(sql, [{ ...seed, name: 'Seeded Again' }])

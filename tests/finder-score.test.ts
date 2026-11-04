@@ -147,3 +147,18 @@ test('one odd product does not stop the run', async () => {
   assert.equal(stats.stopped, null)
   assert.equal(stats.scored + stats.failed, 30)
 })
+
+test('a run that reaches its cap says how many it left, with every worker stopping', async () => {
+  const products = Array.from({ length: 20 }, (_, index) => ({ ...product, product_id: index + 1 }))
+  // Each score costs US$0.02 (10,000 fresh input tokens at $2 a million); the cap allows four.
+  const stats = await scoreAll({} as Sql, 1, 'context', products, {
+    maxUsd: 0.08,
+    concurrency: 6,
+    log: () => {},
+    save: async () => {},
+    scoreOne: async () => ({ output, usage: { input: 10_000, output: 0, cacheWrite: 0, cacheRead: 0 }, servedBy: MODELS.scoring }),
+  })
+  assert.ok(stats.scored >= 4, 'at least what the cap allows')
+  assert.equal(stats.scored + stats.skipped_for_budget, 20, 'every product is either judged or counted as left')
+  assert.ok(stats.skipped_for_budget > 0)
+})
