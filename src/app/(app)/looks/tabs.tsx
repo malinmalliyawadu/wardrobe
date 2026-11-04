@@ -1,16 +1,19 @@
 import Link from 'next/link'
 
 /**
- * The tab's two pages as its title: the open one in ink over a brass rule,
- * the other quiet beside it. Switching is a plain navigation, so nothing moves.
+ * The tab's three pages as its title: the open one in ink over a brass rule,
+ * the others quiet beside it. Switching is a plain navigation, so nothing
+ * moves. Three display-size words only just fit a phone, so the gap is
+ * tighter there.
  */
-export function LooksTabs({ current }: { current: 'looks' | 'pieces' }) {
+export function LooksTabs({ current }: { current: 'looks' | 'pieces' | 'on-me' }) {
   const items = [
     { key: 'looks', href: '/looks', label: 'Looks' },
     { key: 'pieces', href: '/looks/pieces', label: 'Pieces' },
+    { key: 'on-me', href: '/looks/on-me', label: 'On me' },
   ] as const
   return (
-    <nav aria-label="Looks and pieces" className="flex items-baseline gap-7">
+    <nav aria-label="Looks, pieces and pictures of you" className="flex items-baseline gap-5 whitespace-nowrap sm:gap-7">
       {items.map((item) =>
         item.key === current ? (
           <h1

@@ -61,7 +61,11 @@ form he checks. Looks are made from the pieces' words, not their photos.
 "See it on me" on a look sends his full-length photo to OpenAI with the photos
 of that look's pieces (or the shop's photo for a piece he never
 photographed), only when he taps it, one image at a time, under the same terms
-as a find's try-on. (Asked for by Malin on 2026-11-04.)
+as a find's try-on. (Asked for by Malin on 2026-11-04.) The same holds for
+pieces he chooses himself on the On me page, any mix of his pieces and the
+finds he saved: his full-length photo goes with his photo of each piece, or
+the shop's photo, on his tap only, one image at a time. (Asked for by Malin on
+2026-11-04.)
 
 ### 1.2 Style guide (what suits you)
 

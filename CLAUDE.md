@@ -195,3 +195,10 @@ else words). Looks
 (`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
 only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
 minute or two and US$0.15 to 0.32.
+
+On me (`/looks/on-me`, the Looks tab's third page, `src/lib/on-me.ts`) lists
+every try-on still kept, newest first, each with what it was made from, and
+its own page shows the prompt and "Make it again". "Choose pieces" puts any
+mix of his pieces and saved finds on him in one image (migration 0009: a
+try-on with neither a find nor a look, only `pieces`), in layer order, with
+whatever he did not choose left as it is in his photo.
