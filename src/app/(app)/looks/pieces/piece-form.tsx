@@ -170,10 +170,13 @@ function SwatchRadios({ title, swatches, chosen }: { title: string; swatches: Sw
       <p className="mb-2 text-sm text-ink-3">{title}</p>
       <div className="grid grid-cols-6 gap-x-3 gap-y-4 sm:grid-cols-8">
         {swatches.map((swatch) => (
-          <label key={swatch.hex} className="swatch-toggle cursor-pointer" title={swatch.name}>
+          <label key={swatch.hex} className="swatch-toggle cursor-pointer">
             <input type="radio" name="colour_hex" value={swatch.hex} defaultChecked={chosen === swatch.hex} className="sr-only" />
             <span className="sr-only">{swatch.name}</span>
             <Cloth colour={swatch.hex} className="aspect-[3/4] w-full rounded-[0.4rem]" />
+            <span className="swatch-tip" aria-hidden>
+              {swatch.name}
+            </span>
           </label>
         ))}
       </div>

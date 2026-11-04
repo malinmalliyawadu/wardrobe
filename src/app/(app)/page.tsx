@@ -39,7 +39,7 @@ async function Hero() {
     const info = SEASON_INFO[season]
     // Once a guide exists the fan wears its best colours, which are Malin's
     // own; until then, the season's representative ones.
-    const colours = guide ? guide.palette.best.map((colour) => colour.hex) : info.swatches
+    const colours = guide ? guide.palette.best : info.swatches
     const next = nextStep(guide !== null, slots)
     return (
       <>

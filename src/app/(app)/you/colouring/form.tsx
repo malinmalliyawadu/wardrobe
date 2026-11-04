@@ -142,10 +142,12 @@ function SeasonStrip({ season }: { season: Season }) {
       <div className="flex gap-1.5" aria-hidden>
         {info.swatches.map((colour) => (
           <span
-            key={colour}
-            className="h-8 flex-1 rounded-md border border-black/10 transition-colors duration-200 ease-out"
-            style={{ backgroundColor: colour }}
-          />
+            key={colour.hex}
+            className="relative h-8 flex-1 rounded-md border border-black/10 transition-colors duration-200 ease-out"
+            style={{ backgroundColor: colour.hex }}
+          >
+            <span className="swatch-tip">{colour.name}</span>
+          </span>
         ))}
       </div>
       <p className="mt-2 text-sm text-ink-2">
