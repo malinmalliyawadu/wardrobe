@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 
 import { Nav, NavShell, Wordmark } from '@/components/nav'
 
-/** The three tabs and their frame. The sign-in page sits outside it, with no nav to show. */
+/** The four tabs and their frame. The sign-in page sits outside it, with no nav to show. */
 export default function AppLayout({ children }: LayoutProps<'/'>) {
   return (
     <div className="lg:grid lg:min-h-dvh lg:grid-cols-[13rem_minmax(0,1fr)]">

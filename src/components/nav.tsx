@@ -4,16 +4,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ComponentType, SVGProps } from 'react'
 
-import { BlueprintIcon, HangerIcon, PersonIcon } from './icons.tsx'
+import { BlueprintIcon, HangerIcon, PersonIcon, ShirtIcon } from './icons.tsx'
 
 type Item = {
-  href: '/' | '/blueprint' | '/you'
+  href: '/' | '/looks' | '/blueprint' | '/you'
   label: string
   Icon: ComponentType<SVGProps<SVGSVGElement>>
 }
 
 const items: Item[] = [
   { href: '/', label: 'Today', Icon: HangerIcon },
+  { href: '/looks', label: 'Looks', Icon: ShirtIcon },
   { href: '/blueprint', label: 'Blueprint', Icon: BlueprintIcon },
   { href: '/you', label: 'You', Icon: PersonIcon },
 ]
@@ -27,7 +28,7 @@ export function Wordmark() {
 }
 
 /**
- * Three destinations. A bottom tab bar on the phone, a left rail from the
+ * Four destinations. A bottom tab bar on the phone, a left rail from the
  * laptop breakpoint up. Switching tabs happens tens of times a day, so the
  * only motion is a 150ms colour change and the press feedback.
  *

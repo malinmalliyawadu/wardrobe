@@ -5,6 +5,7 @@ import { db } from './db.ts'
 import { finish, list, number, text, type ParseResult } from './form-parse.ts'
 import { FITS, type Fit } from './profile-values.ts'
 import type { Profile } from './profile.ts'
+import { syncSlotPieces } from './pieces.ts'
 import { generate, type GenerationMeta } from './structured.ts'
 import { guideColours, profileBrief, type Guide } from './style-guide.ts'
 import {
@@ -330,6 +331,8 @@ export async function replaceDraft(drafts: SlotDraft[]): Promise<void> {
       const row = insertRow(draft, max + index + 1, 'claude')
       await sql`insert into blueprint_slots ${sql(row)}`
     }
+    // A staple he listed as owned is drafted owned, so it is a piece too.
+    await syncSlotPieces(sql)
   })
 }
 
@@ -340,6 +343,7 @@ export async function insertRefill(retired: Slot, draft: SlotDraft): Promise<num
     const row = insertRow(draft, retired.position + 1, 'claude', retired.id)
     const [inserted] = await sql<{ id: number }[]>`insert into blueprint_slots ${sql(row)} returning id::int as id`
     if (!inserted) throw new Error('refill insert returned nothing')
+    await syncSlotPieces(sql)
     return inserted.id
   })
 }
@@ -380,14 +384,17 @@ function valuesRow(values: SlotValues) {
 
 /** A slot Malin added himself goes to the end of its priority. */
 export async function createSlot(values: SlotValues): Promise<number> {
-  const sql = db()
-  const [{ max } = { max: 0 }] = await sql<{ max: number }[]>`
-    select coalesce(max(position), 0)::int as max from blueprint_slots
-  `
-  const row = { ...valuesRow(values), status: values.status ?? 'wanted', position: max + 1, source: 'malin' }
-  const [inserted] = await sql<{ id: number }[]>`insert into blueprint_slots ${sql(row)} returning id::int as id`
-  if (!inserted) throw new Error('slot insert returned nothing')
-  return inserted.id
+  return db().begin(async (sql) => {
+    const [{ max } = { max: 0 }] = await sql<{ max: number }[]>`
+      select coalesce(max(position), 0)::int as max from blueprint_slots
+    `
+    const row = { ...valuesRow(values), status: values.status ?? 'wanted', position: max + 1, source: 'malin' }
+    const [inserted] = await sql<{ id: number }[]>`insert into blueprint_slots ${sql(row)} returning id::int as id`
+    if (!inserted) throw new Error('slot insert returned nothing')
+    // "I already own this" makes it a piece in the wardrobe.
+    await syncSlotPieces(sql)
+    return inserted.id
+  })
 }
 
 /** An edit marks the slot as Malin's, so a redraft keeps it. Changing priority moves it to the end of the new group. */
@@ -407,8 +414,12 @@ export async function updateSlot(id: number, values: SlotValues): Promise<void> 
   })
 }
 
+/** Owned brings a piece into the wardrobe; leaving owned lets it go (see syncSlotPieces). */
 export async function setSlotStatus(id: number, status: SlotStatus): Promise<void> {
-  await db()`update blueprint_slots set status = ${status} where id = ${id}`
+  await db().begin(async (sql) => {
+    await sql`update blueprint_slots set status = ${status} where id = ${id}`
+    await syncSlotPieces(sql)
+  })
 }
 
 export async function deleteSlot(id: number): Promise<void> {

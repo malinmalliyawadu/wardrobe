@@ -48,3 +48,13 @@ export function PersonIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** A shirt laid flat: looks from what he owns. */
+export function ShirtIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M8.6 3.8 4.2 6.1a1.4 1.4 0 0 0-.7.9l-.9 3.4 3.3 1.1V19a1.5 1.5 0 0 0 1.5 1.5h9.2A1.5 1.5 0 0 0 18.1 19v-7.5l3.3-1.1-.9-3.4a1.4 1.4 0 0 0-.7-.9l-4.4-2.3" />
+      <path d="M8.6 3.8c.6 1.5 1.9 2.4 3.4 2.4s2.8-.9 3.4-2.4" />
+    </svg>
+  )
+}

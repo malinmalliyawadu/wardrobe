@@ -33,14 +33,17 @@ export async function generate<T extends z.ZodType>(options: {
   maxTokens: number
   /** Names the thing in error messages: "style guide", "blueprint". */
   what: string
+  /** An Opus model from MODELS; the profile's unless the call names its own. */
+  model?: typeof MODELS.profile
 }): Promise<{ data: z.infer<T>; meta: GenerationMeta }> {
+  const model = options.model ?? MODELS.profile
   // Without `parse`, the SDK passes the schema through but leaves the text alone.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { parse: _parse, ...format } = zodOutputFormat(options.schema)
 
   const response = await claude()
     .beta.messages.stream({
-      model: MODELS.profile,
+      model,
       max_tokens: options.maxTokens,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
@@ -60,13 +63,15 @@ export async function generate<T extends z.ZodType>(options: {
 
   const parsed = options.schema.safeParse(plainDashes(parseJson(finalText(response.content))))
   if (!parsed.success) {
-    throw new GenerationError(`Claude answered in a shape the app did not expect. Try again.`)
+    throw new GenerationError(`Claude answered in a shape the app did not expect. Try again.`, {
+      cause: parsed.error.issues.slice(0, 5),
+    })
   }
 
   return {
     data: parsed.data,
     meta: {
-      model: MODELS.profile,
+      model,
       served_by: response.model,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,

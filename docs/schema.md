@@ -21,6 +21,11 @@ Three layers, each derived from the one above, then the finder's tables.
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
 | `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
+| `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, the slot it fills, the product it was bought as |
+| `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
+| `look_sets` | one per "Make new looks" | His note, the weather it was dressed for, tokens and cost |
+| `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion, weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
+| `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
 
 ## Decisions
 
@@ -147,6 +152,47 @@ under `PHOTOS_DIR/try-ons`, served only through `/photos/try-ons/:id`.
 Deleting a photo deletes the try-ons made from it, and "delete photos" all of
 them; the rows stay, with `path` cleared and `deleted_at` set, so the spend is
 still counted. A remake is a new row, so an id's bytes never change.
+
+**The wardrobe (migration 0006)** is what he owns; the blueprint is what he
+should own. A piece fills at most one slot, and a slot is filled by at most
+one piece still in the wardrobe (a unique index on `slot_id` where
+`set_aside_at` is null). The rule tying them is "a slot is owned exactly when
+a piece fills it", held in `src/lib/pieces.ts` from both sides: anything that
+changes slot statuses (a status tap, a redraft, a refill, "Bought it") runs
+`syncSlotPieces`, which makes a piece from each owned slot that has none and
+lets go of pieces whose slot is no longer owned; a piece made only from its
+slot (never edited, no photo) is deleted then, one he has touched is kept and
+unlinked. From the piece side, linking owns the slot, and unlinking, setting
+aside or deleting hands it back (or retires it, his choice on set aside).
+"Bought it" makes the product a piece (`source = 'find'`) with the shop's
+title, brand and photo, the slot's colour and cloth and the size in stock.
+The migration made a piece of every slot already owned.
+
+**Piece colours are guide hexes where they fit.** A colour read from a photo
+(on our own server by `photo-colour.ts`, or named by Claude from the palette
+list) is snapped to the nearest best colour or neutral within a CIE76
+distance of 12, and kept as its own hex otherwise, so the Pieces page can say
+how much of the wardrobe is in his palette.
+
+**Piece photos are their own table**, not `profile_photos`: they are not
+pictures of him, so "delete photos" leaves them, and a piece's photo goes
+with the piece. The row exists before the piece: the add form reads the photo
+first and he confirms, so a photo no piece took is cleared after a day. The
+row keeps the local colour read and Claude's read with its tokens and cost,
+to compare with what he saved. A piece bought from a shop shows the shop's
+photo until he adds his own.
+
+**Looks (migration 0007)** are made a set at a time, on his tap. A set keeps
+what it cost and the context it was made in, so the spend is on the page. A
+look's pieces are rows in `look_pieces` in layer order (outermost first, then
+down to the shoes, then what is carried); deleting a piece deletes its row
+there, and `piece_count` lets the look say a piece is gone. Status is `new`,
+`saved` or `dismissed`, and a dismissal must carry its reason (a check
+constraint). Wearing a look logs the New Zealand date, once a day per look,
+and saves it. The Looks page shows the newest set less what he dismissed,
+then the looks he saved from earlier sets; the next set is told his saved and
+dismissed looks (with reasons) and how often each piece was worn in the last
+three weeks.
 
 ## Expected growth
 

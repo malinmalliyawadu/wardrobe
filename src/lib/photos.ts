@@ -39,30 +39,32 @@ export function photosDir(): string {
   return path.resolve(/*turbopackIgnore: true*/ process.env.PHOTOS_DIR ?? './data/photos')
 }
 
-function photoPath(file: string): string {
+export function photoPath(file: string): string {
   return path.join(/*turbopackIgnore: true*/ photosDir(), file)
 }
 
-/**
- * Normalise an upload into two JPEGs on disk and one row in profile_photos.
- *
- * sharp's rotate() bakes the EXIF orientation in, so Claude never sees a
- * sideways photo, and the output carries no metadata at all: no location, no
- * device, no timestamp. The file name is the content hash, so the same photo
- * uploaded twice is one file and one row.
- */
-export async function storePhoto(input: { bytes: Buffer; mime: string; kind: PhotoKind }): Promise<Photo> {
+export type Normalised = { master: { data: Buffer; info: OutputInfo }; thumb: Buffer; sha256: string }
+
+/** The type and size rules every upload follows, his photos and his clothes alike. */
+export function checkUpload(input: { bytes: Buffer; mime: string }): void {
   if (!ACCEPTED_MIMES.includes(input.mime)) {
     throw new PhotoError('Use a JPEG, PNG, WebP or HEIC photo.')
   }
   if (input.bytes.byteLength > MAX_UPLOAD_BYTES) {
     throw new PhotoError('Photos must be under 20 MB.')
   }
+}
 
+/**
+ * An upload as a master JPEG and a thumb, both without metadata. sharp's
+ * rotate() bakes the EXIF orientation in, and the output carries no location,
+ * device or timestamp. The hash is of the master, for the file name.
+ */
+export async function normaliseImage(bytes: Buffer): Promise<Normalised> {
   let master: { data: Buffer; info: OutputInfo }
   let thumb: Buffer
   try {
-    const source = sharp(input.bytes, { failOn: 'none' }).rotate()
+    const source = sharp(bytes, { failOn: 'none' }).rotate()
     master = await source
       .clone()
       .resize({ width: MASTER_EDGE, height: MASTER_EDGE, fit: 'inside', withoutEnlargement: true })
@@ -75,8 +77,18 @@ export async function storePhoto(input: { bytes: Buffer; mime: string; kind: Pho
   } catch {
     throw new PhotoError('That file could not be read as a photo.')
   }
+  return { master, thumb, sha256: createHash('sha256').update(master.data).digest('hex') }
+}
 
-  const sha256 = createHash('sha256').update(master.data).digest('hex')
+/**
+ * Normalise an upload into two JPEGs on disk and one row in profile_photos.
+ * The file name is the content hash, so the same photo uploaded twice is one
+ * file and one row.
+ */
+export async function storePhoto(input: { bytes: Buffer; mime: string; kind: PhotoKind }): Promise<Photo> {
+  checkUpload(input)
+
+  const { master, thumb, sha256 } = await normaliseImage(input.bytes)
   const name = sha256.slice(0, 24)
   const relative = `${name}.jpg`
 
@@ -189,7 +201,7 @@ async function removeTryOns(sql: Sql, photoIds: number[] | null): Promise<number
   return rows.filter((row) => row.path).length
 }
 
-async function unlinkPair(relative: string): Promise<void> {
+export async function unlinkPair(relative: string): Promise<void> {
   await Promise.all(
     [relative, thumbName(relative)].map((file) =>
       unlink(/*turbopackIgnore: true*/ photoPath(file)).catch((error: NodeJS.ErrnoException) => {
@@ -199,6 +211,6 @@ async function unlinkPair(relative: string): Promise<void> {
   )
 }
 
-function thumbName(relative: string): string {
+export function thumbName(relative: string): string {
   return relative.replace(/\.jpg$/, '.thumb.jpg')
 }

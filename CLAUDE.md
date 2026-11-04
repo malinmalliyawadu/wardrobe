@@ -174,3 +174,16 @@ worker. Saved finds are tracked by replaying `price_observations` in his size
 (`src/lib/saved-history.ts`): the newest change from the latest run is news,
 on the row and summed up under Saved. Loading states are skeletons from
 `src/components/skeleton.tsx`, held back 300 ms so a quick load shows nothing.
+
+M5 wardrobe and looks built 2026-11-04 (migrations 0006, 0007), agreed with
+Malin first; gate pending (he adds what he owns and would wear the looks). A
+Looks tab with two pages, Looks and Pieces (`src/app/(app)/looks/`). Pieces
+(`src/lib/pieces.ts`) hold the rule that a slot is owned exactly when a piece
+fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
+slot themselves, and "Bought it" makes the find a piece. Clothing photos
+(`src/lib/piece-photos.ts`) are their own table and files under
+`PHOTOS_DIR/wardrobe`, read once by Sonnet on add (agreed extension of the
+photo rule, docs/plan.md 1.1), never sent to OpenAI. Looks
+(`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
+only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
+minute or two and US$0.15 to 0.32.

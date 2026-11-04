@@ -102,3 +102,30 @@ export function normaliseHex(value: string): string | null {
   const digits = match[1].toLowerCase()
   return `#${digits.length === 3 ? [...digits].map((d) => d + d).join('') : digits}`
 }
+
+/*
+ * The wardrobe (migration 0006): the pieces he owns. Warmth is for dressing
+ * Wellington's weather; the groups are how the Pieces page shelves them.
+ */
+
+export const WARMTHS = ['light', 'mid', 'warm'] as const
+export type Warmth = (typeof WARMTHS)[number]
+
+export const WARMTH_LABELS: Record<Warmth, string> = {
+  light: 'Light',
+  mid: 'Mid',
+  warm: 'Warm',
+}
+
+export const PIECE_SOURCES = ['slot', 'find', 'link', 'photo', 'typed'] as const
+export type PieceSource = (typeof PIECE_SOURCES)[number]
+
+export const GARMENT_GROUPS: { title: string; types: GarmentType[] }[] = [
+  { title: 'Tops', types: ['tee', 'polo', 'shirt'] },
+  { title: 'Knitwear', types: ['knitwear', 'sweatshirt'] },
+  { title: 'Layers and outerwear', types: ['overshirt', 'jacket', 'coat', 'tailoring'] },
+  { title: 'Trousers', types: ['trousers', 'jeans', 'shorts'] },
+  { title: 'Shoes', types: ['shoes', 'boots', 'sneakers'] },
+  { title: 'Accessories', types: ['accessory', 'bag'] },
+  { title: 'Activewear', types: ['activewear'] },
+]
