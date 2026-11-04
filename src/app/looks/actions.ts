@@ -14,6 +14,7 @@ import {
   createPiece,
   deletePiece,
   draftFromProduct,
+  listPieces,
   parseOrigin,
   parsePieceForm,
   PieceError,
@@ -23,7 +24,20 @@ import {
   type PieceDraft,
 } from '@/lib/pieces'
 import { PhotoError, unlinkPair } from '@/lib/photos'
+import { text } from '@/lib/form-parse'
+import {
+  actOnLook,
+  draftLooks,
+  readHistory,
+  readiness,
+  saveSet,
+  wantedSlots,
+  wellingtonToday,
+  type LookAction,
+} from '@/lib/looks'
+import { getProfile } from '@/lib/profile'
 import { listRetailers } from '@/lib/retailers'
+import { GenerationError } from '@/lib/structured'
 import { getGuide } from '@/lib/style-guide'
 import { fetchProductImage } from '@/lib/try-on'
 
@@ -172,4 +186,52 @@ export async function removePiece(form: FormData): Promise<void> {
   }
   refreshAll()
   redirect('/looks/pieces')
+}
+
+// ---------------------------------------------------------------------------
+// Looks
+// ---------------------------------------------------------------------------
+
+/** A new set of looks from what he owns. Opus, about a minute; the page waits with a note. */
+export async function makeLooks(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const note = text(form, 'note')?.slice(0, 300) ?? null
+  try {
+    const [profile, guide, pieces, wanted, history] = await Promise.all([
+      getProfile(),
+      getGuide(),
+      listPieces(),
+      wantedSlots(),
+      readHistory(),
+    ])
+    if (!guide) return { ok: false, message: 'Draft your style guide first. Looks are put together against it.' }
+    const ready = readiness(pieces)
+    if (!ready.ready) return { ok: false, message: `Add ${ready.missing.join(', ')} first.` }
+    const draft = await draftLooks({ profile, guide, pieces, wanted, history, note })
+    if (draft.looks.length === 0) {
+      console.warn(JSON.stringify({ event: 'looks.none_kept', proposed: draft.proposed, usd: draft.usd }))
+      return { ok: false, message: 'None of the looks Claude made held together. Try again.', values: echo(form) }
+    }
+    const { date, weather } = wellingtonToday()
+    const active = pieces.filter((piece) => !piece.set_aside_at).length
+    await saveSet(draft, { note, pieces: active, date, weather })
+  } catch (error) {
+    if (error instanceof GenerationError) {
+      console.warn(JSON.stringify({ event: 'looks.failed', message: error.message, cause: error.cause ?? null }))
+      return { ok: false, message: error.message, values: echo(form) }
+    }
+    throw error
+  }
+  refreshAll()
+  return { ok: true }
+}
+
+/** Save, un-save, dismiss with a reason, wore it. The card shows it at once; this makes it so. */
+export async function lookAction(input: LookAction): Promise<{ ok: boolean }> {
+  try {
+    await actOnLook(input)
+  } catch {
+    return { ok: false }
+  }
+  refreshAll()
+  return { ok: true }
 }

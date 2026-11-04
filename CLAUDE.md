@@ -156,3 +156,16 @@ M3.5 try-on built 2026-11-04 with OpenAI (`gpt-image-2.5-sunburst`, high,
 his photo's aspect), chosen by Malin over the recommended FASHN; the research
 and the agreed photo rule are in docs/plan.md. Gate pending: a week of
 try-ons he finds honest enough to change what he buys.
+
+M5 wardrobe and looks built 2026-11-04 (migrations 0006, 0007), agreed with
+Malin first; gate pending (he adds what he owns and would wear the looks). A
+Looks tab with two pages, Looks and Pieces (`src/app/looks/`). Pieces
+(`src/lib/pieces.ts`) hold the rule that a slot is owned exactly when a piece
+fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
+slot themselves, and "Bought it" makes the find a piece. Clothing photos
+(`src/lib/piece-photos.ts`) are their own table and files under
+`PHOTOS_DIR/wardrobe`, read once by Sonnet on add (agreed extension of the
+photo rule, docs/plan.md 1.1), never sent to OpenAI. Looks
+(`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
+only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
+minute or two and US$0.15 to 0.32.

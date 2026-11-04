@@ -16,6 +16,7 @@ export const MODELS = {
   profile: OPUS,
   scoring: SONNET,
   piece: SONNET,
+  looks: OPUS,
 } as const
 
 /** List prices, USD per million tokens. */

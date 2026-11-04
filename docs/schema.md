@@ -23,6 +23,9 @@ Three layers, each derived from the one above, then the finder's tables.
 | `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
 | `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
+| `look_sets` | one per "Make new looks" | His note, the weather it was dressed for, tokens and cost |
+| `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion, weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
+| `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
 
 ## Decisions
 
@@ -167,6 +170,18 @@ first and he confirms, so a photo no piece took is cleared after a day. The
 row keeps the local colour read and Claude's read with its tokens and cost,
 to compare with what he saved. A piece bought from a shop shows the shop's
 photo until he adds his own.
+
+**Looks (migration 0007)** are made a set at a time, on his tap. A set keeps
+what it cost and the context it was made in, so the spend is on the page. A
+look's pieces are rows in `look_pieces` in layer order (outermost first, then
+down to the shoes, then what is carried); deleting a piece deletes its row
+there, and `piece_count` lets the look say a piece is gone. Status is `new`,
+`saved` or `dismissed`, and a dismissal must carry its reason (a check
+constraint). Wearing a look logs the New Zealand date, once a day per look,
+and saves it. The Looks page shows the newest set less what he dismissed,
+then the looks he saved from earlier sets; the next set is told his saved and
+dismissed looks (with reasons) and how often each piece was worn in the last
+three weeks.
 
 ## Expected growth
 

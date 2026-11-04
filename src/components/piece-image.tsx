@@ -25,11 +25,14 @@ export function PieceImage({
   sizes,
   className = '',
   thumb = true,
+  label,
 }: {
   piece: PieceLook
   sizes: string
   className?: string
   thumb?: boolean
+  /** Shown on the cloth when there is no photo, where nothing else says what the piece is. */
+  label?: string
 }) {
   if (piece.photo) {
     return (
@@ -59,6 +62,15 @@ export function PieceImage({
       aria-label={piece.name}
       className={`cloth relative overflow-hidden ${className}`}
       style={{ '--swatch': piece.colour_hex ?? 'var(--surface)' } as CSSProperties}
-    />
+    >
+      {label ? (
+        <span
+          aria-hidden
+          className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-full bg-ground/80 px-2 py-0.5 text-[0.6875rem] font-medium text-ink-2 backdrop-blur-sm"
+        >
+          {label}
+        </span>
+      ) : null}
+    </div>
   )
 }
