@@ -181,8 +181,17 @@ export async function refreshSaved(
       const raw = await fetchProduct(client, retailer, row.handle)
       stats.checked += 1
       if (!raw) {
-        await sql`update products set removed_at = coalesce(removed_at, now()) where id = ${row.id}`
-        await sql`update product_variants set available = false where product_id = ${row.id}`
+        await sql.begin(async (tx) => {
+          await tx`update products set removed_at = coalesce(removed_at, now()) where id = ${row.id}`
+          // Each size it still had is now out, and recorded so, so Saved can say when it went.
+          const gone = await tx<{ variant_id: number; price_cents: number }[]>`
+            update product_variants set available = false where product_id = ${row.id} and available
+            returning id::int as variant_id, price_cents
+          `
+          if (gone.length > 0) {
+            await tx`insert into price_observations ${tx(gone.map((variant) => ({ ...variant, available: false })))}`
+          }
+        })
         stats.removed += 1
         continue
       }

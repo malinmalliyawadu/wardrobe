@@ -5,7 +5,8 @@ import { useState, useTransition } from 'react'
 import { feedAction } from '@/app/feed-actions'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
 
-import { nzd, PriceLine, ProductPhoto } from './product'
+import { PriceLine, ProductPhoto } from './product'
+import type { ChangeLine } from './saved-change'
 import { SeeItOnMe } from './try-on'
 
 /*
@@ -139,12 +140,10 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string }) {
 }
 
 /** A saved find: a compact row, with what changed since he saved it. */
-export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string | null }) {
+export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName: string | null; change: ChangeLine | null }) {
   const [mode, setMode] = useState<'actions' | 'bought'>('actions')
   const { gone, failed, send } = useFeedAction()
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
-  const dropped =
-    find.inStock && find.savedNzdCents !== null && find.price.nzdCents < find.savedNzdCents ? find.savedNzdCents : null
 
   return (
     <li data-gone={gone} aria-hidden={gone || undefined} className="find flex gap-4 py-4">
@@ -159,7 +158,12 @@ export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string
           {find.title}
         </a>
         <div className="mt-1">
-          {find.inStock ? <PriceLine find={find} /> : <p className="text-[0.9375rem] text-ink-3">Not in your size right now</p>}
+          {find.inStock ? (
+            <PriceLine find={find} />
+          ) : (
+            // Out of stock, the change line is the whole story: when it sold out.
+            <p className="text-[0.9375rem] text-ink-3">{change?.text ?? 'Not in your size right now'}</p>
+          )}
         </div>
         {find.inStock && (find.colour || find.sizes.length > 0) ? (
           <p className="mt-1 text-[0.8125rem] text-ink-3">
@@ -172,8 +176,10 @@ export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string
               .join('. ')}
           </p>
         ) : null}
-        {dropped !== null ? (
-          <p className="mt-1 text-[0.8125rem] font-medium text-brass">Down from {nzd(dropped)} when you saved it</p>
+        {change && find.inStock ? (
+          <p className={`mt-1 text-[0.8125rem] ${change.tone === 'good' ? 'font-medium text-brass' : 'text-ink-3'}`}>
+            {change.text}
+          </p>
         ) : null}
         <div className="mt-1">
           <SeeItOnMe find={find} />

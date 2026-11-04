@@ -11,6 +11,7 @@ import { PRIORITY_LABELS } from '@/lib/wardrobe-values'
 
 import { AddLink } from './add-link'
 import { FindCard, SavedRow } from './find-card'
+import { changeLine, newsSummary } from './saved-change'
 
 /**
  * Last night's finds on Today, under the hero. Streams in after the shell;
@@ -21,6 +22,8 @@ export async function Feed() {
   await connection()
   const [feed, guide, profile] = await Promise.all([getFeed(), getGuide(), getProfile()])
   const name = (hex: string) => colourNameFor(guide, hex)
+  const now = new Date()
+  const news = newsSummary(feed.saved, feed.run?.started_at ?? null, now)
 
   // Until there is a blueprint there is nothing to look for; the hero says what comes first.
   if (Object.keys(feed.slotNames).length === 0) return null
@@ -30,6 +33,7 @@ export async function Feed() {
       <h2 id="saved" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
         Saved
       </h2>
+      {news ? <p className="mt-2 text-[0.9375rem] font-medium text-brass">{news}</p> : null}
       {feed.saved.length > 0 ? (
         <ul className="mt-2 divide-y divide-line">
           {feed.saved.map((find) => (
@@ -37,13 +41,14 @@ export async function Feed() {
               key={find.product_id}
               find={find}
               slotName={find.slot_id === null ? null : (feed.slotNames[find.slot_id] ?? null)}
+              change={changeLine(find, now)}
             />
           ))}
         </ul>
       ) : (
         <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
-          What you save from the finds lands here, and anything else you want from the shops: paste its link. Prices
-          and stock are checked every night.
+          What you save from the finds lands here, and anything else you want from the shops: paste its link. Every
+          night it is checked for a lower price, and for your size coming back in stock.
         </p>
       )}
       <AddLink key={feed.saved.length} slots={feed.openSlots} />

@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
 
 import { connect, type Sql } from '../src/lib/db.ts'
-import { recordAction } from '../src/lib/feed.ts'
+import { db } from '../src/lib/db.ts'
+import { getFeed, recordAction } from '../src/lib/feed.ts'
 import { findCandidates, photoKey, slotTargets } from '../src/lib/finder/filter.ts'
 import { PoliteClient } from '../src/lib/finder/http.ts'
 import { writePage } from '../src/lib/finder/ingest.ts'
@@ -36,6 +37,7 @@ before(async () => {
 })
 
 after(async () => {
+  await db().end()
   await sql?.end()
   await admin.unsafe(`drop database if exists ${scratch} with (force)`)
   await admin.end()
@@ -333,4 +335,60 @@ test('a pasted link is read from its shop, stored, saved without a slot, and kep
     from products p where id = ${added.productId}
   `
   assert.deepEqual(gone, { removed: true, in_stock: 0 }, 'a product the shop no longer has is marked gone')
+  const [last] = await sql<{ available: boolean }[]>`
+    select o.available from price_observations o join product_variants v on v.id = o.variant_id
+    where v.product_id = ${added.productId} order by o.observed_at desc, o.id desc limit 1
+  `
+  assert.equal(last?.available, false, 'and recorded as out, so Saved can say when it went')
+})
+
+test('Saved tracks his size: a drop, selling out and coming back are each news on the night they happen', async () => {
+  const shop = await retailer('tracked', 'NZD', 'menswear')
+  const local = { base_url: 'https://tracked.test', catalogue: 'menswear' as const }
+  const knit = await slot({ name: 'Rust lambswool crewneck', garment_type: 'knitwear', sizes: { labels: ['M'] } })
+  const product = raw('Rust Lambswool Crew', { S: { price: '249.00' }, M: { price: '249.00' } })
+  await writePage(sql, shop, [normaliseProduct(product, local)])
+  const id = await productId('Rust Lambswool Crew')
+  await recordAction({ action: 'saved', product_id: id, slot_id: knit }, sql)
+
+  /** One night: a run starts, the store is read with these prices, and Today is read back. */
+  const night = async (sizes: Record<string, { price: string; available?: boolean }>) => {
+    const [run] = await sql<{ id: number }[]>`
+      insert into finder_runs (status, finished_at) values ('succeeded', now()) returning id::int as id
+    `
+    const page = { ...product, variants: product.variants.map((variant) => ({ ...variant, price: sizes[variant.option1!]!.price, available: sizes[variant.option1!]!.available ?? true })) }
+    await writePage(sql, shop, [normaliseProduct(page, local)])
+    // The feed shows the newest run that recorded a candidate.
+    await sql`
+      insert into finder_candidates (run_id, product_id, content_hash, slot_ids, size_known, price_cents)
+      select ${run!.id}, id, content_hash, ${[knit]}::bigint[], true, 0 from products where id = ${id}
+    `
+    const feed = await getFeed()
+    return feed.saved.find((find) => find.product_id === id)!
+  }
+
+  const quiet = await night({ S: { price: '249.00' }, M: { price: '249.00' } })
+  assert.equal(quiet.news, null)
+  assert.equal(quiet.sizeTracked, true)
+
+  const sale = await night({ S: { price: '249.00' }, M: { price: '199.00' } })
+  assert.deepEqual(sale.news && { kind: sale.news.kind, from: 'from' in sale.news ? sale.news.from : null, to: 'to' in sale.news ? sale.news.to : null }, {
+    kind: 'cheaper',
+    from: 24900,
+    to: 19900,
+  })
+
+  const smallOnly = await night({ S: { price: '149.00' }, M: { price: '199.00', available: false } })
+  assert.equal(smallOnly.news?.kind, 'sold_out', 'S getting cheaper is not his news; M selling out is')
+
+  const back = await night({ S: { price: '149.00' }, M: { price: '199.00' } })
+  assert.equal(back.news?.kind, 'back')
+  assert.deepEqual(
+    back.events.map((event) => event.kind),
+    ['back', 'sold_out', 'cheaper'],
+    'the whole story since saving, newest first',
+  )
+
+  const after = await night({ S: { price: '149.00' }, M: { price: '199.00' } })
+  assert.equal(after.news, null, 'the next quiet night has no news')
 })
