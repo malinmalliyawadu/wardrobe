@@ -167,6 +167,7 @@ export function applyProductRules(
     const fromPhoto = image_src && image_colour_src === photoKey(image_src) ? familiesOfColours(image_colours ?? []) : []
     const offered = fromWords.length > 0 ? fromWords : fromPhoto
     const cut = namedCut([title, ...tags].join(' | '))
+    candidate.sizes = [...new Set(candidate.sizes)]
     const slotIds = candidate.slot_ids.filter(
       (id) => colourCompatible(families.get(id) ?? null, offered) && cutCompatible(fits.get(id) ?? null, cut),
     )
@@ -191,7 +192,7 @@ async function matchInSql(sql: Sql, targets: SlotTarget[], rates: Rates): Promis
       select p.id as product_id, p.content_hash, p.title, p.vendor, p.tags,
              p.images -> 0 ->> 'src' as image_src, p.image_colour_src, p.image_colours, t.slot_id,
              t.sizes is not null as size_checked,
-             v.option_size, v.option_colour, v.size_key, v.price_cents, v.compare_at_cents
+             v.id as variant_id, v.option_size, v.option_colour, v.size_key, v.price_cents, v.compare_at_cents
       from products p
       join retailers r on r.id = p.retailer_id and r.enabled
       join rates x on x.currency = r.currency
@@ -213,7 +214,10 @@ async function matchInSql(sql: Sql, targets: SlotTarget[], rates: Rates): Promis
            content_hash, title, vendor, tags, image_src, image_colour_src, image_colours,
            coalesce(array_agg(distinct option_colour) filter (where option_colour is not null), '{}') as colours,
            array_agg(distinct slot_id::int order by slot_id::int) as slot_ids,
-           coalesce(array_agg(distinct option_size) filter (where option_size is not null), '{}') as sizes,
+           -- In the store's own order (variants are stored as it lists them),
+           -- not alphabetical; one row per slot repeats them, so they are
+           -- de-duplicated when the rules run.
+           coalesce(array_agg(option_size order by variant_id) filter (where option_size is not null), '{}') as sizes,
            bool_or(size_checked) or bool_and(coalesce(size_key = 'ONE', false)) as size_known,
            min(price_cents)::int as price_cents,
            (array_agg(compare_at_cents order by price_cents))[1]::int as compare_at_cents

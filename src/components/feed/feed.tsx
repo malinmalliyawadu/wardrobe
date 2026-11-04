@@ -9,6 +9,7 @@ import { getProfile } from '@/lib/profile'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { PRIORITY_LABELS } from '@/lib/wardrobe-values'
 
+import { AddLink } from './add-link'
 import { FindCard, SavedRow } from './find-card'
 
 /**
@@ -24,17 +25,45 @@ export async function Feed() {
   // Until there is a blueprint there is nothing to look for; the hero says what comes first.
   if (Object.keys(feed.slotNames).length === 0) return null
 
+  const saved = (
+    <section aria-labelledby="saved" className="mt-16 border-t border-line pt-8">
+      <h2 id="saved" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
+        Saved
+      </h2>
+      {feed.saved.length > 0 ? (
+        <ul className="mt-2 divide-y divide-line">
+          {feed.saved.map((find) => (
+            <SavedRow
+              key={find.product_id}
+              find={find}
+              slotName={find.slot_id === null ? null : (feed.slotNames[find.slot_id] ?? null)}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
+          What you save from the finds lands here, and anything else you want from the shops: paste its link. Prices
+          and stock are checked every night.
+        </p>
+      )}
+      <AddLink key={feed.saved.length} slots={feed.openSlots} />
+    </section>
+  )
+
   if (!feed.run) {
     return (
-      <section aria-labelledby="finds" className="mt-16 border-t border-line pt-8">
-        <h2 id="finds" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
-          No finds yet
-        </h2>
-        <p className="mt-3 max-w-[38ch] text-ink-2">
-          Every night the finder reads eleven shops for the slots in your blueprint. Its first finds will be here in
-          the morning.
-        </p>
-      </section>
+      <>
+        {saved}
+        <section aria-labelledby="finds" className="mt-16 border-t border-line pt-8">
+          <h2 id="finds" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
+            No finds yet
+          </h2>
+          <p className="mt-3 max-w-[38ch] text-ink-2">
+            Every night the finder reads the shops for the slots in your blueprint. Its first finds will be here in
+            the morning.
+          </p>
+        </section>
+      </>
     )
   }
 
@@ -48,22 +77,7 @@ export async function Feed() {
 
   return (
     <>
-      {feed.saved.length > 0 ? (
-        <section aria-labelledby="saved" className="mt-16 border-t border-line pt-8">
-          <h2 id="saved" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
-            Saved
-          </h2>
-          <ul className="mt-2 divide-y divide-line">
-            {feed.saved.map((find) => (
-              <SavedRow
-                key={find.product_id}
-                find={find}
-                slotName={feed.slotNames[find.slot_id] ?? 'blueprint'}
-              />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {saved}
 
       <section aria-labelledby="finds" className="mt-16 border-t border-line pt-8">
         <h2 id="finds" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">

@@ -33,6 +33,7 @@ import { findCandidates, recordCandidates, slotTargets } from '../src/lib/finder
 import { loadRates } from '../src/lib/finder/fx.ts'
 import { PoliteClient } from '../src/lib/finder/http.ts'
 import { readPhoto } from '../src/lib/finder/photo-colour.ts'
+import { refreshSaved } from '../src/lib/finder/product-link.ts'
 import { imageAt } from '../src/lib/finder/shopify.ts'
 import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
@@ -73,11 +74,12 @@ function log(fields: Record<string, unknown>): void {
 // and ends it on the way out.
 const sql = db()
 
-const [run] = await sql<{ id: number }[]>`
-  insert into finder_runs (options) values (${sql.json(options)}) returning id::int as id
+const [run] = await sql<{ id: number; started_at: Date }[]>`
+  insert into finder_runs (options) values (${sql.json(options)}) returning id::int as id, started_at
 `
 if (!run) throw new Error('could not start a finder run')
 log({ event: 'find.start', run: run.id, options })
+const runStartedAt = run.started_at
 
 const stats: Record<string, unknown> = {}
 let exitCode = 0
@@ -108,6 +110,10 @@ try {
       observations: sum(results, 'observations'),
       retailers: results,
     }
+    // Saved products the walk did not cover (a pasted link outside the men's
+    // collection) are read one by one, so their price and stock stay current.
+    stats.saved_refreshed = await refreshSaved(sql, client, await listRetailers(sql), runStartedAt)
+    log({ event: 'ingest.saved', ...(stats.saved_refreshed as object) })
     stats.saved_price_drops = await savedPriceDrops()
   }
 

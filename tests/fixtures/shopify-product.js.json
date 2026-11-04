@@ -1,0 +1,125 @@
+{
+ "id": 9823913509105,
+ "title": "Cot Strap Knit Shirt",
+ "handle": "cot-strap-knit-shirt-60321701",
+ "description": "<p>Cot Strap Knit Shirt.</p>",
+ "vendor": "CR",
+ "type": "Knit - Urban",
+ "tags": [
+  "brand:CR",
+  "combined-listing-parent",
+  "locations_mapped",
+  "needs-category-review",
+  "needs-description-review",
+  "needs-photography-review",
+  "New Arrival",
+  "source:RMS",
+  "style:60321701"
+ ],
+ "options": [
+  {
+   "name": "Colour",
+   "position": 1,
+   "values": [
+    "Stone"
+   ]
+  },
+  {
+   "name": "Size",
+   "position": 2,
+   "values": [
+    "X-Small",
+    "Small",
+    "Medium",
+    "Large",
+    "XL",
+    "XX-Large",
+    "XXX-Large"
+   ]
+  }
+ ],
+ "images": [
+  "//cdn.shopify.com/s/files/1/0792/4449/3041/files/60321701_118_1.jpg?v=1792732316"
+ ],
+ "variants": [
+  {
+   "id": 48783896936689,
+   "title": "Stone / X-Small",
+   "option1": "Stone",
+   "option2": "X-Small",
+   "option3": null,
+   "sku": "55493826",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": true
+  },
+  {
+   "id": 48783896969457,
+   "title": "Stone / Small",
+   "option1": "Stone",
+   "option2": "Small",
+   "option3": null,
+   "sku": "55493770",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": true
+  },
+  {
+   "id": 48783897002225,
+   "title": "Stone / Medium",
+   "option1": "Stone",
+   "option2": "Medium",
+   "option3": null,
+   "sku": "55493797",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": true
+  },
+  {
+   "id": 48783897034993,
+   "title": "Stone / Large",
+   "option1": "Stone",
+   "option2": "Large",
+   "option3": null,
+   "sku": "55493762",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": true
+  },
+  {
+   "id": 48783897067761,
+   "title": "Stone / XL",
+   "option1": "Stone",
+   "option2": "XL",
+   "option3": null,
+   "sku": "55493818",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": true
+  },
+  {
+   "id": 48783897100529,
+   "title": "Stone / XX-Large",
+   "option1": "Stone",
+   "option2": "XX-Large",
+   "option3": null,
+   "sku": "55493834",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": false
+  },
+  {
+   "id": 48783897133297,
+   "title": "Stone / XXX-Large",
+   "option1": "Stone",
+   "option2": "XXX-Large",
+   "option3": null,
+   "sku": "55493789",
+   "price": 17900,
+   "compare_at_price": null,
+   "available": false
+  }
+ ],
+ "price": 17900,
+ "available": true
+}
