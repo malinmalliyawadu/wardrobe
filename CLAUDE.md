@@ -53,8 +53,9 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
 - Claude calls go through `src/lib/claude.ts`. Models are named once there:
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
 - Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
-  `src/lib/try-on.ts`, only on Malin's tap, one at a time. The photo rule in
-  docs/plan.md 1.1 is what he agreed; do not send his photos anywhere else.
+  `src/lib/try-on.ts`, only on Malin's tap, one at a time, of a find or of a
+  whole look. The photo rule in docs/plan.md 1.1 is what he agreed; do not
+  send his photos anywhere else.
 - Fonts are committed under `src/fonts` and loaded with `next/font/local`; the
   Docker build runs with the network off and will fail on any build-time fetch.
 - Plain dash, never an em dash, in copy and comments.
@@ -188,7 +189,9 @@ fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
 slot themselves, and "Bought it" makes the find a piece. Clothing photos
 (`src/lib/piece-photos.ts`) are their own table and files under
 `PHOTOS_DIR/wardrobe`, read once by Sonnet on add (agreed extension of the
-photo rule, docs/plan.md 1.1), never sent to OpenAI. Looks
+photo rule, docs/plan.md 1.1), and sent to OpenAI only for a look's "See it
+on me" (migration 0008, his own photo of a piece first, else the shop's,
+else words). Looks
 (`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
 only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
 minute or two and US$0.15 to 0.32.

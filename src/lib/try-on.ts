@@ -9,10 +9,11 @@ import { db, type Sql } from './db.ts'
 import { photosDir } from './photos.ts'
 
 /*
- * Try-on: "See it on me" on a feed find. One of Malin's full-length photos and
- * the product's own photo go to OpenAI's image editor, which returns him
- * wearing it. Agreed with Malin on 2026-11-04, with the photo rule in
- * docs/plan.md section 1.1: made on request only, one at a time (a unique
+ * Try-on: "See it on me" on a feed find or on a look. One of Malin's
+ * full-length photos goes to OpenAI's image editor with the product's own
+ * photo (a find), or with the photos of the look's pieces (a look), and it
+ * returns him wearing it. Agreed with Malin on 2026-11-04, with the photo rule
+ * in docs/plan.md section 1.1: made on request only, one at a time (a unique
  * index holds that), kept on the photos volume, deleted with his photos.
  * OpenAI does not train on API data and keeps requests up to 30 days for
  * abuse monitoring.
@@ -39,6 +40,9 @@ const CALL_TIMEOUT_MS = 4 * 60 * 1000
 export const STALE_MINUTES = 6
 
 export const TRY_ON_DIR = 'try-ons'
+
+/** The editor takes at most 16 images: him, and up to 15 garments. */
+export const MAX_GARMENT_IMAGES = 15
 
 export class TryOnError extends Error {}
 
@@ -152,6 +156,58 @@ export function tryOnPrompt(product: { title: string; garment_type: string | nul
   ].join('\n')
 }
 
+/** A piece of a look as it was sent, kept on the row so a remake can be compared. */
+export type LookPieceSent = {
+  piece_id: number
+  name: string
+  garment_type: string
+  colour_name: string | null
+  colour_hex: string | null
+  fabric: string | null
+  fit: string | null
+  /** How it was shown: his own photo of it, the shop's photo, or only in words. */
+  shown: { kind: 'photo'; photo_id: number } | { kind: 'product'; src: string } | { kind: 'words' }
+}
+
+/** "ink navy (#1f2942)", "#1f2942", "ink navy", or null. */
+function colourWords(piece: Pick<LookPieceSent, 'colour_name' | 'colour_hex'>): string | null {
+  if (piece.colour_name && piece.colour_hex) return `${piece.colour_name} (${piece.colour_hex})`
+  return piece.colour_name ?? piece.colour_hex
+}
+
+/**
+ * The instruction for a whole look. Image 1 is him; the pieces with a photo
+ * follow in the look's order, outermost first, and a piece with no photo is
+ * described in words. The same priorities as a find: him unchanged, every
+ * piece exactly as it is (colour first), a believable fit, no flattery.
+ */
+export function lookTryOnPrompt(look: { title: string; styling: string | null; pieces: LookPieceSent[] }): string {
+  let image = 1
+  const lines = look.pieces.map((piece) => {
+    const { noun } = placement(piece.garment_type)
+    const colour = colourWords(piece)
+    if (piece.shown.kind === 'words') {
+      const cloth = [piece.fit ? `${piece.fit} fit` : null, piece.fabric].filter(Boolean).join(', ')
+      return `- No photo: "${piece.name}", the ${noun}${colour ? `, in ${colour}` : ''}${cloth ? `, ${cloth}` : ''}.`
+    }
+    image += 1
+    return `- Image ${image}: "${piece.name}", the ${noun}${colour ? `, ${colour}` : ''}.`
+  })
+  const photos = image > 1 ? `Images 2 to ${image} are photos of clothes he owns, some laid flat or on a hanger, some a shop's photo.` : null
+  return [
+    ['Image 1 is a photo of a man.', photos].filter(Boolean).join(' '),
+    `Make a photograph of the man in image 1 dressed in this whole outfit, "${look.title}", so he can judge honestly how it looks on him. The pieces, from the outermost layer in:`,
+    ...lines,
+    look.styling ? `Wear it this way: ${look.styling}` : null,
+    'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him.',
+    'Reproduce each piece exactly as in its photo: the same colour and shade, shown under the light of image 1 without shifting its hue, brightness or saturation; the same fabric, texture, weight, pattern, cut, length, collar, buttons, pockets, stitching and hardware. Take only the garment from each photo, nothing of the bed, floor, hanger, model or other clothes around it. Make a piece given only in words plainly, in exactly that colour, with no pattern, logos or details that are not described. Add no logos, text or details anywhere.',
+    'Replace everything he is wearing with this outfit, layered in the order listed, the outer layer over the rest.',
+    'Let each piece fit and drape the way its cut would on his body, with natural creases and no smoothing.',
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n')
+}
+
 // ---------------------------------------------------------------------------
 // The provider call
 // ---------------------------------------------------------------------------
@@ -167,7 +223,8 @@ const ErrorSchema = z.object({
 
 export type EditRequest = {
   person: Buffer
-  product: Buffer
+  /** The product photo, or the photos of a look's pieces, in the order the prompt names them. */
+  garments: Buffer[]
   prompt: string
   size: { width: number; height: number }
 }
@@ -198,7 +255,7 @@ export async function editImage(request: EditRequest, fetchImpl: typeof fetch = 
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        images: [{ image_url: dataUrl(request.person) }, { image_url: dataUrl(request.product) }],
+        images: [request.person, ...request.garments].map((bytes) => ({ image_url: dataUrl(bytes) })),
         prompt: request.prompt,
         size: `${request.size.width}x${request.size.height}`,
         quality: QUALITY,
@@ -257,15 +314,33 @@ export async function fetchProductImage(src: string, fetchImpl: typeof fetch = f
     throw new TryOnError('The shop’s photo could not be fetched. Try again.')
   }
   if (!response.ok) throw new TryOnError('The shop’s photo could not be fetched. Try again.')
+  return asJpeg(Buffer.from(await response.arrayBuffer()), 'The shop’s photo could not be read.')
+}
+
+/** Any garment photo as a plain JPEG held to the edge sent, transparency on white. */
+async function asJpeg(bytes: Buffer, unreadable: string): Promise<Buffer> {
   try {
-    return await sharp(Buffer.from(await response.arrayBuffer()), { failOn: 'none' })
+    return await sharp(bytes, { failOn: 'none' })
       .rotate()
       .resize({ width: PRODUCT_EDGE, height: PRODUCT_EDGE, fit: 'inside', withoutEnlargement: true })
       .flatten({ background: '#ffffff' })
       .jpeg({ quality: 92, mozjpeg: true })
       .toBuffer()
   } catch {
-    throw new TryOnError('The shop’s photo could not be read.')
+    throw new TryOnError(unreadable)
+  }
+}
+
+/** His own photo of a piece, the master on the photos volume. Never fetched from anywhere. */
+async function piecePhoto(sql: Sql, photoId: number): Promise<Buffer> {
+  const [row] = await sql<{ path: string }[]>`select path from wardrobe_photos where id = ${photoId}`
+  if (!row) throw new TryOnError('A piece’s photo has changed since you asked. Try again.')
+  try {
+    const bytes = await readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.path))
+    return await asJpeg(bytes, 'A piece’s photo could not be read.')
+  } catch (error) {
+    if (error instanceof TryOnError) throw error
+    throw new TryOnError('A piece’s photo could not be read.')
   }
 }
 
@@ -343,13 +418,113 @@ export async function startTryOn(productId: number, sql: Sql = db()): Promise<St
   }
 }
 
+type LookForTryOn = {
+  title: string
+  styling: string | null
+  piece_count: number
+  pieces: (Omit<LookPieceSent, 'shown'> & { photo_id: number | null; image: string | null })[]
+}
+
+async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTryOn | null> {
+  const [row] = await sql<LookForTryOn[]>`
+    select l.title, l.styling, l.piece_count,
+           coalesce(json_agg(json_build_object(
+             'piece_id', p.id, 'name', p.name, 'garment_type', p.garment_type,
+             'colour_name', p.colour_name, 'colour_hex', p.colour_hex, 'fabric', p.fabric, 'fit', p.fit,
+             'photo_id', p.photo_id, 'image', pr.images -> 0 ->> 'src'
+           ) order by lp.position) filter (where p.id is not null), '[]'::json) as pieces
+    from looks l
+    left join look_pieces lp on lp.look_id = l.id
+    left join wardrobe_pieces p on p.id = lp.piece_id
+    left join products pr on pr.id = p.product_id
+    where l.id = ${lookId}
+    group by l.id
+  `
+  return row ?? null
+}
+
+/**
+ * How each piece is shown to the editor: his own photo first (it is the piece
+ * he owns, as it is now), else the shop's photo, else in words. Past the
+ * editor's image limit, the rest go in words.
+ */
+export function showPieces(pieces: LookForTryOn['pieces']): LookPieceSent[] {
+  let images = 0
+  return pieces.map(({ photo_id, image, ...piece }) => {
+    const room = images < MAX_GARMENT_IMAGES
+    if (room && photo_id !== null) {
+      images += 1
+      return { ...piece, shown: { kind: 'photo', photo_id } }
+    }
+    if (room && image) {
+      images += 1
+      return { ...piece, shown: { kind: 'product', src: image } }
+    }
+    return { ...piece, shown: { kind: 'words' } }
+  })
+}
+
+/**
+ * Record a request for a try-on of a whole look. Refuses when there is no
+ * key, no full-length photo, a piece of the look has gone from the wardrobe,
+ * or another try-on is still being made.
+ */
+export async function startLookTryOn(lookId: number, sql: Sql = db()): Promise<Started> {
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
+  }
+  const [photo, look] = await Promise.all([fullLengthPhoto(sql), lookForTryOn(sql, lookId)])
+  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
+  if (!look) return { ok: false, message: 'That look could not be found.' }
+  if (look.pieces.length === 0 || look.pieces.length < look.piece_count) {
+    return { ok: false, message: 'A piece of this look is no longer in your wardrobe.' }
+  }
+
+  await sweepStale(sql)
+  const size = outputSize(photo.width, photo.height)
+  const pieces = showPieces(look.pieces)
+  try {
+    const [row] = await sql<{ id: number }[]>`
+      insert into try_ons ${sql({
+        look_id: lookId,
+        photo_id: photo.id,
+        pieces: sql.json(pieces),
+        provider: PROVIDER,
+        model: MODEL,
+        prompt: lookTryOnPrompt({ title: look.title, styling: look.styling, pieces }),
+        settings: sql.json({ size: `${size.width}x${size.height}`, quality: QUALITY }),
+      })}
+      returning id::int as id
+    `
+    return { ok: true, id: row!.id }
+  } catch (error) {
+    if ((error as { code?: string }).code === '23505') {
+      return { ok: false, message: 'Another try-on is still being made. One at a time.' }
+    }
+    throw error
+  }
+}
+
 type Making = {
   id: number
-  product_image: string
+  product_image: string | null
+  pieces: LookPieceSent[] | null
   prompt: string
   settings: { size?: string }
   photo_path: string
   photo_deleted: boolean
+}
+
+/** The garment images for a request, in the order its prompt names them. */
+async function garmentImages(sql: Sql, row: Making, fetchImpl: typeof fetch): Promise<Buffer[]> {
+  if (row.product_image) return [await fetchProductImage(row.product_image, fetchImpl)]
+  return Promise.all(
+    (row.pieces ?? []).flatMap((piece) => {
+      if (piece.shown.kind === 'photo') return [piecePhoto(sql, piece.shown.photo_id)]
+      if (piece.shown.kind === 'product') return [fetchProductImage(piece.shown.src, fetchImpl)]
+      return []
+    }),
+  )
 }
 
 /**
@@ -360,7 +535,7 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
   const sql = options.sql ?? db()
   const fetchImpl = options.fetch ?? fetch
   const [row] = await sql<Making[]>`
-    select t.id::int as id, t.product_image, t.prompt, t.settings,
+    select t.id::int as id, t.product_image, t.pieces, t.prompt, t.settings,
            ph.path as photo_path, ph.deleted_at is not null as photo_deleted
     from try_ons t join profile_photos ph on ph.id = t.photo_id
     where t.id = ${id} and t.status = 'making'
@@ -369,13 +544,13 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
 
   try {
     if (row.photo_deleted) throw new TryOnError('The photo was deleted before it was made.')
-    const [person, product] = await Promise.all([
+    const [person, garments] = await Promise.all([
       readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.photo_path)),
-      fetchProductImage(row.product_image, fetchImpl),
+      garmentImages(sql, row, fetchImpl),
     ])
     const [width, height] = (row.settings.size ?? `${OUTPUT_EDGE}x${OUTPUT_EDGE}`).split('x').map(Number)
     const result = await editImage(
-      { person, product, prompt: row.prompt, size: { width: width!, height: height! } },
+      { person, garments, prompt: row.prompt, size: { width: width!, height: height! } },
       fetchImpl,
     )
 
@@ -450,6 +625,18 @@ export async function latestTryOns(productIds: number[], sql: Sql = db()): Promi
     order by t.product_id, t.started_at desc, t.id desc
   `
   return new Map(rows.map(({ product_id, ...onMe }) => [product_id, onMe]))
+}
+
+/** The latest try-on of each of these looks that is still kept. */
+export async function latestLookTryOns(lookIds: number[], sql: Sql = db()): Promise<Map<number, OnMe>> {
+  if (lookIds.length === 0) return new Map()
+  const rows = await sql<(OnMe & { look_id: number })[]>`
+    select distinct on (t.look_id) t.look_id::int as look_id, ${ON_ME_COLUMNS(sql)}
+    from try_ons t join profile_photos ph on ph.id = t.photo_id
+    where t.look_id = any (${lookIds}::bigint[]) and t.deleted_at is null and ph.deleted_at is null
+    order by t.look_id, t.started_at desc, t.id desc
+  `
+  return new Map(rows.map(({ look_id, ...onMe }) => [look_id, onMe]))
 }
 
 /** The image file of a ready try-on, or null. */
