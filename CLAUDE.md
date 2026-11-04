@@ -143,7 +143,12 @@ context (profile, guide, open slots, recent dismissals) one cached system
 block, about $0.0074 a product; stops after ten API errors in a row.
 /you/finder sets the spend (a nightly cap, default US$1, and an optional
 monthly one) and switches stores on and off, with each store's shortlist,
-finds and cost from the last run. Saved on Today also takes a pasted
+finds and cost from the last run. Its "Run now" spawns `scripts/find.ts` as a
+child of the web server (`src/lib/finder/start.ts`) and polls
+`/api/finder/run` while it goes. One run at a time: the script holds a
+Postgres advisory lock for its life (`src/lib/finder/runs.ts`), so a second
+run logs `find.busy` and exits, and a `running` row without the lock is a run
+that died; the next run closes it. Saved on Today also takes a pasted
 product link from any of the shops (`src/lib/finder/product-link.ts`), with
 or without a slot; the nightly run keeps those current too. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with

@@ -20,7 +20,9 @@ import {
   saveTaste,
 } from '@/lib/profile'
 import { parseStoredAnalysis } from '@/lib/analysis'
+import { liveRun, type LiveRun } from '@/lib/finder/runs'
 import { parseFinderSettingsForm, saveFinderSettings } from '@/lib/finder/settings'
+import { startFinderRun } from '@/lib/finder/start'
 import { echo, type ActionState } from '@/lib/action-state'
 
 export type { ActionState }
@@ -137,4 +139,18 @@ export async function submitFinderSettings(_prev: ActionState, form: FormData): 
   await saveFinderSettings(parsed.data)
   refreshAll()
   redirect('/you')
+}
+
+export type RunNowState = { ok: true; run: LiveRun | null } | { ok: false; message: string } | null
+
+/**
+ * "Run now" on /you/finder: starts the nightly script and answers once it has
+ * begun, with the run as the page will show it. Refreshes the tree either
+ * way, so a run that was already going shows up too.
+ */
+export async function runFinderNow(): Promise<RunNowState> {
+  const started = await startFinderRun()
+  refreshAll()
+  if (!started.ok) return started
+  return { ok: true, run: await liveRun() }
 }
