@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { after, before, test } from 'node:test'
 
 import { connect, type Sql } from '../src/lib/db.ts'
 import { recordAction } from '../src/lib/feed.ts'
 import { findCandidates, photoKey, slotTargets } from '../src/lib/finder/filter.ts'
+import { PoliteClient } from '../src/lib/finder/http.ts'
 import { writePage } from '../src/lib/finder/ingest.ts'
+import { addProductFromLink, ProductLinkError, refreshSaved } from '../src/lib/finder/product-link.ts'
 import { getFinderSettings, saveFinderSettings, storeCounts } from '../src/lib/finder/settings.ts'
 import { listRetailers, seedRetailers, type RetailerSeed } from '../src/lib/retailers.ts'
 import { normaliseProduct, ShopifyProductSchema } from '../src/lib/finder/shopify.ts'
@@ -277,4 +280,57 @@ test('finder settings round-trip; the shop switches survive a re-seed and come w
   const row = counts.find((store) => store.slug === 'seeded')
   assert.deepEqual(row, { slug: 'seeded', name: 'Seeded Again', enabled: false, products: 1, shortlisted: 0, finds: 0, usd: 0 })
   assert.equal(counts.length, others.length + 1, 'every shop is listed, on or off')
+})
+
+/** A shop that answers robots.txt and one product's .js, with the product changeable between calls. */
+function fakeShop(product: () => unknown | null) {
+  return new PoliteClient({
+    sleep: async () => {},
+    fetch: (async (input: string | URL | Request) => {
+      const url = String(input)
+      if (url.endsWith('/robots.txt')) return new Response('User-agent: *\nDisallow: /checkout')
+      const body = product()
+      return body === null ? new Response('Not found', { status: 404 }) : Response.json(body)
+    }) as typeof fetch,
+  })
+}
+
+test('a pasted link is read from its shop, stored, saved without a slot, and kept current each night', async () => {
+  await retailer('linked', 'NZD', 'mixed')
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/shopify-product.js.json', import.meta.url), 'utf8'))
+  let current: unknown | null = fixture
+  const client = () => fakeShop(() => current)
+  const stores = await listRetailers(sql)
+
+  await assert.rejects(
+    addProductFromLink(sql, client(), stores, 'https://www.asos.com/products/anything'),
+    (error: unknown) => error instanceof ProductLinkError && /only read the shops it knows/.test(error.message),
+  )
+
+  const added = await addProductFromLink(sql, client(), stores, 'https://linked.test/products/cot-strap-knit-shirt-60321701?variant=1')
+  assert.equal(added.title, 'Cot Strap Knit Shirt')
+  await recordAction({ action: 'saved', product_id: added.productId, slot_id: null }, sql)
+  const [saved] = await sql<{ price_cents: number; slot_id: number | null }[]>`
+    select price_cents, slot_id from feed_actions where product_id = ${added.productId}
+  `
+  assert.deepEqual(saved, { price_cents: 17900, slot_id: null }, 'saved at its lowest price in stock, for no slot')
+
+  // The next night: the walk did not see it (it is not in a collection the walk reads).
+  const since = new Date(Date.now() + 1000)
+  current = { ...fixture, variants: fixture.variants.map((variant: { price: number }) => ({ ...variant, price: 14900 })) }
+  assert.deepEqual(await refreshSaved(sql, client(), await listRetailers(sql), since), { checked: 1, removed: 0, failed: 0 })
+  const [price] = await sql<{ price: number }[]>`
+    select min(price_cents)::int as price from product_variants where product_id = ${added.productId} and available
+  `
+  assert.equal(price?.price, 14900, 'a markdown is picked up, so Saved can show the drop')
+
+  current = null
+  const later = new Date(Date.now() + 2000)
+  assert.deepEqual(await refreshSaved(sql, client(), await listRetailers(sql), later), { checked: 1, removed: 1, failed: 0 })
+  const [gone] = await sql<{ removed: boolean; in_stock: number }[]>`
+    select removed_at is not null as removed,
+           (select count(*)::int from product_variants v where v.product_id = p.id and v.available) as in_stock
+    from products p where id = ${added.productId}
+  `
+  assert.deepEqual(gone, { removed: true, in_stock: 0 }, 'a product the shop no longer has is marked gone')
 })

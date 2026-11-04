@@ -3,11 +3,14 @@ import { z } from 'zod'
 
 import { listSlots, type Slot } from './blueprint.ts'
 import { db, type Sql } from './db.ts'
+import { wantedSizeKeys } from './finder/classify.ts'
 import { OPEN_STATUSES, type Rates } from './finder/filter.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
+import type { Sizes } from './profile.ts'
 import { tryOnAt, type WellingtonStore } from './retailers.ts'
 import { latestTryOns, type OnMe } from './try-on.ts'
+import type { GarmentType } from './wardrobe-values.ts'
 
 /*
  * The feed on Today: the latest run's candidates whose current score clears
@@ -40,7 +43,8 @@ export type Price = {
 
 export type FindCard = {
   product_id: number
-  slot_id: number
+  /** Null only for a saved link that is not for a slot. Feed finds always have one. */
+  slot_id: number | null
   score: number
   why: string | null
   colour_verdict: string | null
@@ -63,7 +67,12 @@ export type FindCard = {
 
 export type FeedGroup = { slot: Slot; cards: FindCard[] }
 
+/** A saved find: from the feed, or a link he pasted, which need not be for a slot. */
 export type SavedFind = FindCard & {
+  /** The colour as the store names it, so two colours of one product tell apart. */
+  colour: string | null
+  /** His size for this garment, when it is known and the store has sold out of it. */
+  yourSizeOut: string | null
   saved_at: Date
   /** The price it was saved at, converted at today's rate. */
   savedNzdCents: number | null
@@ -89,6 +98,8 @@ export type Feed = {
   /** Every find that clears the bar; each slot shows its best CARDS_PER_SLOT. */
   total: number
   slotNames: Record<number, string>
+  /** Wanted and candidate slots in blueprint order, for the "for which slot" choice. */
+  openSlots: { id: number; name: string }[]
 }
 
 type Row = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
@@ -97,6 +108,42 @@ type Row = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
   wellington_store: WellingtonStore | null
   price_cents: number
   compare_at_cents: number | null
+}
+
+/**
+ * A saved product that was not on the shortlist (a pasted link) is checked
+ * against his size here, the way the filter would: when his size for the
+ * garment is known and in stock, the card says "your S"; when it is known and
+ * sold out, it says so rather than listing sizes he cannot wear.
+ */
+function withYourSize<T extends Pick<Row, 'size_known' | 'sizes'>>(
+  row: T,
+  garment: GarmentType | null,
+  listed: { label: string; key: string | null }[],
+  sizes: Partial<Sizes>,
+): T {
+  if (row.size_known || !garment) return row
+  const wanted = wantedSizeKeys(garment, [], sizes)
+  if (!wanted) return row
+  const mine = listed.filter((size) => size.key !== null && wanted.includes(size.key)).map((size) => size.label)
+  return mine.length > 0 ? { ...row, size_known: true, sizes: mine } : row
+}
+
+function yourSizeOut(
+  onShortlist: boolean,
+  garment: GarmentType | null,
+  listed: { label: string; key: string | null }[],
+  sizes: Partial<Sizes>,
+): string | null {
+  if (onShortlist || !garment) return null
+  const wanted = wantedSizeKeys(garment, [], sizes)
+  if (!wanted || listed.some((size) => size.key !== null && wanted.includes(size.key))) return null
+  return wanted[0] ?? null
+}
+
+/** "FRENCH VANILLA" and "french vanilla" both read "French Vanilla". */
+function titleCase(value: string): string {
+  return value.toLowerCase().replace(/(^|[\s/-])(\p{L})/gu, (_, gap: string, letter: string) => gap + letter.toUpperCase())
 }
 
 export function toNzd(cents: number, currency: string, rates: Rates): number {
@@ -162,7 +209,14 @@ export async function getFeed(): Promise<Feed> {
   const sql = db()
   const [run, slots] = await Promise.all([latestRun(sql), listSlots()])
   const slotNames = Object.fromEntries(slots.map((slot) => [slot.id, slot.name]))
-  if (!run) return { run: null, groups: [], saved: [], quietSlots: 0, total: 0, slotNames }
+  const openSlots = slots
+    .filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
+    .map((slot) => ({ id: slot.id, name: slot.name }))
+  if (!run) {
+    const saved = await getSaved(sql, null, { NZD: 1 })
+    await attachTryOns(sql, saved)
+    return { run: null, groups: [], saved, quietSlots: 0, total: 0, slotNames, openSlots }
+  }
   const rates = runRates(run)
 
   const rows = await sql<Row[]>`
@@ -190,26 +244,56 @@ export async function getFeed(): Promise<Feed> {
 
   const bySlot = new Map<number, FindCard[]>()
   for (const row of rows) {
+    if (row.slot_id === null) continue
     const list = bySlot.get(row.slot_id) ?? []
     if (list.length < CARDS_PER_SLOT) list.push(card(row, rates))
     bySlot.set(row.slot_id, list)
   }
+  const saved = await getSaved(sql, run.id, rates)
   const shown = [...bySlot.values()].flat()
-  const onMe = await latestTryOns(shown.map((find) => find.product_id), sql)
-  for (const find of shown) find.on_me = onMe.get(find.product_id) ?? null
+  await attachTryOns(sql, [...shown, ...saved])
   const open = slots.filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
   const groups = open.flatMap((slot) => {
     const cards = bySlot.get(slot.id)
     return cards ? [{ slot, cards }] : []
   })
   const openIds = new Set(open.map((slot) => slot.id))
-  const total = rows.filter((row) => openIds.has(row.slot_id)).length
+  const total = rows.filter((row) => row.slot_id !== null && openIds.has(row.slot_id)).length
 
-  return { run, groups, saved: await getSaved(sql, run, rates), quietSlots: open.length - groups.length, total, slotNames }
+  return {
+    run,
+    groups,
+    saved,
+    quietSlots: open.length - groups.length,
+    total,
+    slotNames,
+    openSlots,
+  }
 }
 
-async function getSaved(sql: Sql, run: Run, rates: Rates): Promise<SavedFind[]> {
-  const rows = await sql<(Row & { saved_at: Date; saved_price_cents: number | null; in_stock: boolean })[]>`
+/** Each card's latest "See it on me" image, in one query. */
+async function attachTryOns(sql: Sql, finds: FindCard[]): Promise<void> {
+  const onMe = await latestTryOns([...new Set(finds.map((find) => find.product_id))], sql)
+  for (const find of finds) find.on_me = onMe.get(find.product_id) ?? null
+}
+
+/**
+ * What he saved, newest first. Price and sizes come from the latest run's
+ * shortlist when the find was on it (so "your size" holds), otherwise from the
+ * product's own variants: a link he pasted, or a find whose size sold out.
+ */
+async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<SavedFind[]> {
+  const [profile] = await sql<{ sizes: Partial<Sizes> }[]>`select sizes from profile where id = 1`
+  const rows = await sql<
+    (Row & {
+      saved_at: Date
+      saved_price_cents: number | null
+      in_stock: boolean
+      colour: string | null
+      garment_type: GarmentType | null
+      listed: { label: string; key: string | null }[] | null
+    })[]
+  >`
     with latest_action as (
       select distinct on (product_id) product_id, slot_id, action, price_cents, created_at
       from feed_actions order by product_id, created_at desc, id desc
@@ -219,14 +303,44 @@ async function getSaved(sql: Sql, run: Run, rates: Rates): Promise<SavedFind[]> 
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
            r.name as retailer, r.country, r.currency, r.wellington_store,
-           coalesce(c.price_cents, a.price_cents, 0) as price_cents,
-           c.compare_at_cents,
-           coalesce(c.sizes, '{}') as sizes, coalesce(c.size_known, true) as size_known,
-           (c.product_id is not null and p.removed_at is null) as in_stock
+           coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
+           coalesce(c.compare_at_cents, v.compare_at_cents) as compare_at_cents,
+           coalesce(c.sizes, v.sizes, '{}') as sizes, coalesce(c.size_known, false) as size_known,
+           (p.removed_at is null and (c.product_id is not null or v.price_cents is not null)) as in_stock,
+           coalesce(s.colour_option, (
+             select string_agg(colour, ', ' order by first_id) from (
+               select option_colour as colour, min(id) as first_id from product_variants
+               where product_id = a.product_id and option_colour is not null
+               group by option_colour
+             ) listed
+           )) as colour,
+           p.garment_type,
+           (
+             -- Every size in stock with its key, in the store's order, to check his against.
+             select json_agg(json_build_object('label', option_size, 'key', size_key) order by first_id) from (
+               select option_size, size_key, min(id) as first_id from product_variants
+               where product_id = a.product_id and available and option_size is not null
+               group by option_size, size_key
+             ) listed
+           ) as listed
     from latest_action a
     join products p on p.id = a.product_id
     join retailers r on r.id = p.retailer_id
-    left join finder_candidates c on c.run_id = ${run.id} and c.product_id = a.product_id
+    left join finder_candidates c on c.run_id = ${runId} and c.product_id = a.product_id
+    left join lateral (
+      select min(pv.price_cents)::int as price_cents,
+             (array_agg(pv.compare_at_cents order by pv.price_cents))[1]::int as compare_at_cents,
+             (
+               -- Each size once, in the order the store lists them.
+               select array_agg(option_size order by first_id) from (
+                 select option_size, min(id) as first_id from product_variants
+                 where product_id = a.product_id and available and option_size is not null
+                 group by option_size
+               ) listed
+             ) as sizes
+      from product_variants pv where pv.product_id = a.product_id and pv.available
+      having count(*) > 0
+    ) v on true
     left join lateral (
       select * from product_scores ps where ps.product_id = a.product_id
       order by ps.scored_at desc limit 1
@@ -234,12 +348,17 @@ async function getSaved(sql: Sql, run: Run, rates: Rates): Promise<SavedFind[]> 
     where a.action = 'saved'
     order by a.created_at desc
   `
-  return rows.map(({ saved_at, saved_price_cents, in_stock, ...row }) => ({
-    ...card(row, rates),
+  const sizes = profile?.sizes ?? {}
+  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, listed, ...row }) => {
+    return {
+      ...card(withYourSize(row, garment_type, listed ?? [], sizes), rates),
+      colour: colour ? titleCase(colour) : null,
+      yourSizeOut: yourSizeOut(row.size_known, garment_type, listed ?? [], sizes),
     saved_at,
-    savedNzdCents: saved_price_cents === null ? null : toNzd(saved_price_cents, row.currency, rates),
-    inStock: in_stock,
-  }))
+      savedNzdCents: saved_price_cents === null ? null : toNzd(saved_price_cents, row.currency, rates),
+      inStock: in_stock,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -247,13 +366,14 @@ async function getSaved(sql: Sql, run: Run, rates: Rates): Promise<SavedFind[]> 
 // ---------------------------------------------------------------------------
 
 export const ActionSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('saved'), product_id: z.number().int().positive(), slot_id: z.number().int().positive() }),
-  z.object({ action: z.literal('cleared'), product_id: z.number().int().positive(), slot_id: z.number().int().positive() }),
-  z.object({ action: z.literal('bought'), product_id: z.number().int().positive(), slot_id: z.number().int().positive() }),
+  // A saved link need not be for a slot, so saving, clearing and buying take one or none.
+  z.object({ action: z.literal('saved'), product_id: z.number().int().positive(), slot_id: z.number().int().positive().nullable() }),
+  z.object({ action: z.literal('cleared'), product_id: z.number().int().positive(), slot_id: z.number().int().positive().nullable() }),
+  z.object({ action: z.literal('bought'), product_id: z.number().int().positive(), slot_id: z.number().int().positive().nullable() }),
   z.object({
     action: z.literal('dismissed'),
     product_id: z.number().int().positive(),
-    slot_id: z.number().int().positive(),
+    slot_id: z.number().int().positive().nullable(),
     reason: z.enum(DISMISS_REASONS),
   }),
 ])
@@ -274,6 +394,13 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
           select price_cents, sizes from finder_candidates where run_id = ${run.id} and product_id = ${action.product_id}
         `
       : []
+    // Not on the shortlist (a pasted link): the lowest price in stock is what it was saved at.
+    const [variant] = candidate
+      ? []
+      : await tx<{ price_cents: number | null }[]>`
+          select min(price_cents)::int as price_cents from product_variants
+          where product_id = ${action.product_id} and available
+        `
 
     await tx`
       insert into feed_actions ${tx({
@@ -281,11 +408,12 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
         slot_id: action.slot_id,
         action: action.action,
         reason: action.action === 'dismissed' ? action.reason : null,
-        price_cents: candidate?.price_cents ?? null,
+        price_cents: candidate?.price_cents ?? variant?.price_cents ?? null,
         size: candidate?.sizes[0] ?? null,
       })}
     `
 
+    if (action.slot_id === null) return
     if (action.action === 'saved') {
       await tx`update blueprint_slots set status = 'candidate' where id = ${action.slot_id} and status = 'wanted'`
     } else if (action.action === 'bought') {

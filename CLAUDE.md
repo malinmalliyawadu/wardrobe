@@ -143,7 +143,9 @@ context (profile, guide, open slots, recent dismissals) one cached system
 block, about $0.0074 a product; stops after ten API errors in a row.
 /you/finder sets the spend (a nightly cap, default US$1, and an optional
 monthly one) and switches stores on and off, with each store's shortlist,
-finds and cost from the last run. The feed
+finds and cost from the last run. Saved on Today also takes a pasted
+product link from any of the shops (`src/lib/finder/product-link.ts`), with
+or without a slot; the nightly run keeps those current too. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with
 recorded candidates, including one still scoring; save, dismiss with a reason
 and bought move the slot's status. First pass numbers and what is left to

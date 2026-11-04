@@ -139,7 +139,7 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string }) {
 }
 
 /** A saved find: a compact row, with what changed since he saved it. */
-export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string }) {
+export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string | null }) {
   const [mode, setMode] = useState<'actions' | 'bought'>('actions')
   const { gone, failed, send } = useFeedAction()
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
@@ -153,7 +153,7 @@ export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string
       </a>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[0.8125rem] text-ink-3">
-          {find.retailer}, for your {slotName.toLowerCase()}
+          {slotName ? `${find.retailer}, for your ${slotName.toLowerCase()}` : find.retailer}
         </p>
         <a href={find.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium">
           {find.title}
@@ -161,10 +161,24 @@ export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string
         <div className="mt-1">
           {find.inStock ? <PriceLine find={find} /> : <p className="text-[0.9375rem] text-ink-3">Not in your size right now</p>}
         </div>
+        {find.inStock && (find.colour || find.sizes.length > 0) ? (
+          <p className="mt-1 text-[0.8125rem] text-ink-3">
+            {[
+              find.colour,
+              find.yourSizeOut ? `Your ${find.yourSizeOut} is sold out` : null,
+              find.sizes.length > 0 ? sizeLine(find) : null,
+            ]
+              .filter(Boolean)
+              .join('. ')}
+          </p>
+        ) : null}
         {dropped !== null ? (
           <p className="mt-1 text-[0.8125rem] font-medium text-brass">Down from {nzd(dropped)} when you saved it</p>
         ) : null}
-        <div key={mode} className="tray mt-1">
+        <div className="mt-1">
+          <SeeItOnMe find={find} />
+        </div>
+        <div key={mode} className="tray">
           {mode === 'actions' ? (
             <div className="-ml-2 flex items-center gap-1">
               <button type="button" className="text-button" onClick={() => setMode('bought')}>
@@ -177,7 +191,7 @@ export function SavedRow({ find, slotName }: { find: SavedFind; slotName: string
           ) : (
             <div className="-ml-2 flex flex-wrap items-center gap-1">
               <button type="button" className="text-button" onClick={() => send({ action: 'bought', ...ids })}>
-                Yes, it fills the slot
+                {slotName ? 'Yes, it fills the slot' : 'Yes, I bought it'}
               </button>
               <button type="button" className="text-button text-ink-3" onClick={() => setMode('actions')}>
                 Cancel

@@ -109,6 +109,14 @@ which is how a price drop is shown. Saving makes a wanted slot `candidate`,
 clearing or dismissing the last saved find makes it `wanted` again, and
 buying makes it `owned` (`recordAction` in `src/lib/feed.ts`).
 
+**A saved link is an ordinary product.** Pasting a product link from one of
+the shops into Saved reads that product from the shop's `/products/<handle>.js`
+and writes it through the same `writePage` as the nightly walk, then records
+a `saved` action whose `slot_id` may be null (a want that is not for a slot).
+The nightly run re-reads any saved product its walk did not see, one request
+each, so a linked product outside the men's collection keeps a current price
+and stock, and one the shop has delisted is marked removed. No new table.
+
 **Finder settings (migration 0004)** are a one-row table, like the profile:
 the nightly and monthly caps on Claude spend, in US dollars because that is
 what Anthropic bills. A run's budget is the nightly cap (or `--max-usd`), held
