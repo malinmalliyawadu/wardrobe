@@ -12,7 +12,7 @@ import { allowedFits, findCandidates, type Candidate, type Rates, type SlotTarge
 import { loadRates } from './finder/fx.ts'
 import { PoliteClient } from './finder/http.ts'
 import { writePage } from './finder/ingest.ts'
-import { fetchProduct, storedCatalogue } from './finder/product-link.ts'
+import { fetchProduct } from './finder/product-link.ts'
 import {
   costUsd,
   forScoring,
@@ -23,7 +23,7 @@ import {
   type ScoreOutput,
   type Usage,
 } from './finder/score.ts'
-import { normaliseProduct, type ProductImage } from './finder/shopify.ts'
+import { type ProductImage } from './finder/shopify.ts'
 import { getFinderSettings, getSpend } from './finder/settings.ts'
 import { getProfile, type Profile } from './profile.ts'
 import { FITS } from './profile-values.ts'
@@ -587,13 +587,13 @@ async function recheck(
       const retailer = retailers.get(row.retailer_id)
       if (!retailer || !row.handle) return
       try {
-        const raw = await fetchProduct(client, retailer, row.handle)
+        const product = await fetchProduct(client, retailer, row.handle)
         checked += 1
-        if (!raw) {
+        if (!product) {
           goneIds.add(row.id)
           return
         }
-        await writePage(sql, retailer.id, [normaliseProduct(raw, { base_url: retailer.base_url, catalogue: storedCatalogue(retailer) })])
+        await writePage(sql, retailer.id, [product])
       } catch {
         // The shop did not answer: last night's read stands.
       }
@@ -689,11 +689,13 @@ type ResultRow = {
   retailer: string
   country: string
   currency: string
+  ships_to_nz: boolean
   wellington_store: WellingtonStore | null
   price_cents: number
   compare_at_cents: number | null
   sizes: string[]
   size_known: boolean
+  stock_known: boolean
 }
 
 export async function getSearch(id: number, sql: Sql = db()): Promise<SearchView | null> {
@@ -715,7 +717,8 @@ export async function getSearch(id: number, sql: Sql = db()): Promise<SearchView
     ? await sql<ResultRow[]>`
         select r.product_id::int as product_id, r.score, r.why, r.colour_verdict, r.fit_verdict, r.fabric_notes,
                r.colour_option, p.title, p.vendor, p.url, p.images -> 0 as image,
-               rt.name as retailer, rt.country, rt.currency, rt.wellington_store,
+               rt.name as retailer, rt.country, rt.currency, rt.ships_to_nz, rt.wellington_store,
+               rt.platform = 'shopify' as stock_known,
                r.price_cents, r.compare_at_cents, r.sizes, r.size_known
         from search_results r
         join products p on p.id = r.product_id
