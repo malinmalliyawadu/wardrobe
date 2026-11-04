@@ -81,5 +81,24 @@ week, taste, budget). The Claude read (`src/lib/analysis.ts`, Opus at high
 effort with structured output and server-side fallback) was verified only
 against a fixture; the M1 gate is Malin running it on his own photos and
 agreeing with the read, including the season. Once confirmed, Today's swatch
-fan takes the season's colours. Next: M2 style guide and blueprint. Each
+fan takes the season's colours. Next: M2 style guide and blueprint.
+
+M1 gate, first real run 2026-11-04, on holiday photos (tropical midday sun,
+one golden-hour beach shot, later a boat selfie in a grey tee). Every read
+landed on deep autumn, runner-up deep winter, at 55 to 60; the photo notes
+caught every lighting caveat. Malin confirmed deep autumn from the last read
+(four photos, 60). Prompt changes after the first read, schema untouched:
+the season "why" must argue the pick against the runner-up on the dimension
+that separates them (it had only restated hair, skin and eyes); read the
+year-round colouring under a tan; take colouring from the other photo when one
+is under coloured light; the summary stays under 70 words, gives clothing
+advice only from calls at 60 or above (it had turned a 40-confidence
+torso-to-leg guess into trouser-rise advice), and ends with one daylight test
+when season or undertone is below 70. The first read ran before height was
+entered, so the Photos page now asks for height first. The deep autumn row in
+`seasons.ts` was corrected: not "high contrast" (deep autumn is defined by
+depth and warmth), gold metal rather than mixed, and a deep teal swatch in
+place of a blue-violet that belonged to winter. M1 gate passed. A window-light
+face photo would still firm up the season, since 60 on holiday light is a
+lean, not a lock. Each
 milestone ends with Malin using it and agreeing before the next starts.

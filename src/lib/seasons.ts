@@ -65,9 +65,9 @@ export const SEASON_INFO: Record<Season, SeasonInfo> = {
   },
   'deep autumn': {
     family: 'autumn',
-    traits: 'Warm and deep with high contrast. Burgundy, pine, bronze and ink navy.',
-    metal: 'mixed',
-    swatches: ['#7a2e1f', '#2f4a3a', '#8a6a1f', '#3b3a7a', '#d9c3a5', '#1f1a17'],
+    traits: 'Deep and warm, rich rather than stark. Burgundy, pine, bronze, deep teal and dark chocolate.',
+    metal: 'gold',
+    swatches: ['#7a2e1f', '#2f4a3a', '#8a6a1f', '#1f4f57', '#d9c3a5', '#33221a'],
   },
   'deep winter': {
     family: 'winter',

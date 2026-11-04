@@ -66,7 +66,9 @@ async function Sections() {
             ? 'Add a face photo to enable the read.'
             : bodies.length === 0
               ? 'A full-length photo improves the proportion read.'
-              : 'Takes about a minute. Face and full-length photos are sent; references are not.'}
+              : profile.height_cm === null
+                ? 'Add your height under Height and sizes first; the proportion read is a guess without it.'
+                : 'Takes about a minute. Face and full-length photos are sent; references are not.'}
         </p>
       </div>
 
