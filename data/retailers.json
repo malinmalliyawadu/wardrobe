@@ -203,6 +203,19 @@
       "enabled": false,
       "notes": "Links only, for pieces he owns or wants: Uniqlo has no NZ online store and does not ship here (its AU help centre says so), and the site is not Shopify, so the finder never walks it and it has no switch on /you/finder. A pasted link from any Uniqlo region is read from the Australian page for the same product, whose HTML carries the product (colours, sizes, price, photos) in window.__PRELOADED_STATE__; per-size stock is not in it. Each colour is stored as its own product, as Country Road lists them. Probed 2026-11-05: robots.txt allows /au/en/products/, and the page answers the finder's own User-Agent.",
       "wellington_store": null
+    },
+    {
+      "slug": "lululemon",
+      "name": "Lululemon",
+      "platform": "manual",
+      "base_url": "https://www.lululemon.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "enabled": false,
+      "notes": "Added by hand only. The site is Salesforce Commerce Cloud, not Shopify, and Cloudflare answers every request but robots.txt with a challenge page (403), sitemap included, to the finder's own User-Agent; getting past it would mean posing as a browser, which the finder does not do. Its affiliate feed (Commission Factory) needs a public site to promote it from. So a Lululemon link pasted on Saved opens a form for the photo, name, kind, price, colour and size, and the price is never checked. Probed 2026-11-05. Its Wellington store could not be checked on its own site, so none is shown.",
+      "wellington_store": null
     }
   ]
 }

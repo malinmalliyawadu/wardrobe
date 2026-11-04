@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react'
 import type { ProductImage } from '@/lib/finder/shopify'
 import type { PiecePhoto } from '@/lib/pieces'
 
-import { shopifyLoader } from './feed/product-photo'
+import { productLoader } from './feed/product-photo'
 
 export type PieceLook = {
   name: string
@@ -52,7 +52,7 @@ export function PieceImage({
   if (piece.image) {
     return (
       <div className={`photo relative overflow-hidden ${className}`}>
-        <Image loader={shopifyLoader} src={piece.image.src} alt={piece.image.alt ?? piece.name} fill sizes={sizes} className="object-contain" />
+        <Image loader={productLoader} src={piece.image.src} alt={piece.image.alt ?? piece.name} fill sizes={sizes} className="object-contain" />
       </div>
     )
   }

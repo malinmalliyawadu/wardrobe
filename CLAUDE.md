@@ -228,3 +228,14 @@ shop. The work runs in `after()`; the page refreshes itself while it runs.
 Verdicts go in `search_results`, never `product_scores`. No slot is made;
 results save without one, and "Add to blueprint" prefills `/blueprint/new`.
 First real search: 51 judged, 7 finds, US$0.33, 40 s.
+
+Lululemon added 2026-11-05 as a store added by hand (platform `manual`,
+migration 0011): its site answers only robots.txt past a Cloudflare challenge,
+which the finder does not pose as a browser to get through. A Lululemon link
+pasted on Saved opens fields in `AddLink` for the photo (stored on choice by
+`src/lib/find-photos.ts`, under `PHOTOS_DIR/finds`, served by
+`/photos/finds/[id]`), name, kind, price, colour and size; `src/lib/finder/manual.ts`
+writes it through `writePage` as a product with one variant, one per page
+and colour, so adding the same link again updates it. `readable()` keeps
+these stores out of every read, the nightly refresh included; the image
+loader and `fetchProductImage` take the local photo.

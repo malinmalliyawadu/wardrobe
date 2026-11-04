@@ -23,6 +23,7 @@ Three layers, each derived from the one above, then the finder's tables.
 | `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
 | `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
+| `find_photos` | one per find added by hand | Index of the photos of finds from a store that cannot be read (Lululemon), on disk under `finds/`; `products.find_photo_id` keeps one from being cleared |
 | `look_sets` | one per "Make new looks" | His note, the weather it was dressed for, tokens and cost |
 | `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion, weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
 | `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
