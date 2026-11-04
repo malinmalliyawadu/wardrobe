@@ -13,7 +13,7 @@ import type { NormalisedProduct, ProductImage } from './shopify.ts'
 
 /*
  * A find he adds by hand, from a store whose site cannot be read (platform
- * 'manual', migration 0011). What he types is stored as a product with one
+ * 'manual', migration 0012). What he types is stored as a product with one
  * variant, through the same writePage as the nightly walk, so Saved, slots,
  * try-ons and "Bought it" treat it like any find. Nothing reads it again: the
  * nightly refresh skips its store, and its price changes only when he adds

@@ -31,6 +31,7 @@ export const PROVIDER = 'openai'
 export const MODEL = 'gpt-image-2.5-sunburst'
 export const QUALITY = 'high'
 const ENDPOINT = 'https://api.openai.com/v1/images/edits'
+const GENERATE_ENDPOINT = 'https://api.openai.com/v1/images/generations'
 
 /** US dollars per million tokens, from developers.openai.com/api/docs/pricing (2026-11-04). */
 export const RATES = { textInput: 5, imageInput: 8, output: 30 } as const
@@ -319,9 +320,12 @@ const ErrorSchema = z.object({
 })
 
 export type EditRequest = {
-  person: Buffer
-  /** The product photo, or the photos of a look's pieces, in the order the prompt names them. */
-  garments: Buffer[]
+  /**
+   * In the order the prompt names them: for a try-on him first, then the
+   * product photo or the photos of the pieces; for a look's flat lay the
+   * pieces' photos alone. With none, the picture is drawn from the prompt.
+   */
+  images: Buffer[]
   prompt: string
   size: { width: number; height: number }
 }
@@ -339,7 +343,11 @@ function refusal(status: number, body: unknown): string {
   return 'OpenAI could not make it this time. Try again.'
 }
 
-/** One call to the image editor. `fetchImpl` is the seam the tests use. */
+/**
+ * One call to the image editor, or to the generator when there is no image to
+ * edit from (a look whose pieces are all described in words). `fetchImpl` is
+ * the seam the tests use.
+ */
 export async function editImage(request: EditRequest, fetchImpl: typeof fetch = fetch): Promise<EditResult> {
   const key = process.env.OPENAI_API_KEY
   if (!key) throw new TryOnError('Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.')
@@ -347,12 +355,13 @@ export async function editImage(request: EditRequest, fetchImpl: typeof fetch = 
 
   let response: Response
   try {
-    response = await fetchImpl(ENDPOINT, {
+    const edit = request.images.length > 0
+    response = await fetchImpl(edit ? ENDPOINT : GENERATE_ENDPOINT, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        images: [request.person, ...request.garments].map((bytes) => ({ image_url: dataUrl(bytes) })),
+        ...(edit ? { images: request.images.map((bytes) => ({ image_url: dataUrl(bytes) })) } : {}),
         prompt: request.prompt,
         size: `${request.size.width}x${request.size.height}`,
         quality: QUALITY,
@@ -436,7 +445,7 @@ async function asJpeg(bytes: Buffer, unreadable: string): Promise<Buffer> {
 }
 
 /** His own photo of a piece, the master on the photos volume. Never fetched from anywhere. */
-async function piecePhoto(sql: Sql, photoId: number): Promise<Buffer> {
+export async function piecePhoto(sql: Sql, photoId: number): Promise<Buffer> {
   const [row] = await sql<{ path: string }[]>`select path from wardrobe_photos where id = ${photoId}`
   if (!row) throw new TryOnError('A piece’s photo has changed since you asked. Try again.')
   try {
@@ -522,14 +531,14 @@ export async function startTryOn(productId: number, sql: Sql = db()): Promise<St
   }
 }
 
-type LookForTryOn = {
+export type LookForTryOn = {
   title: string
   styling: string | null
   piece_count: number
   pieces: (Omit<PieceSent, 'shown'> & { photo_id: number | null; image: string | null })[]
 }
 
-async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTryOn | null> {
+export async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTryOn | null> {
   const [row] = await sql<LookForTryOn[]>`
     select l.title, l.styling, l.piece_count,
            coalesce(json_agg(json_build_object(
@@ -782,7 +791,7 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
     ])
     const [width, height] = (row.settings.size ?? `${OUTPUT_EDGE}x${OUTPUT_EDGE}`).split('x').map(Number)
     const result = await editImage(
-      { person, garments, prompt: row.prompt, size: { width: width!, height: height! } },
+      { images: [person, ...garments], prompt: row.prompt, size: { width: width!, height: height! } },
       fetchImpl,
     )
 

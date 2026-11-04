@@ -5,7 +5,7 @@ import { checkUpload, normaliseImage, photoPath, thumbName, unlinkPair } from '.
 
 /*
  * Photos of finds he adds by hand, from a store the finder cannot read
- * (migration 0011). Usually the shop's own product photo, saved from its page
+ * (migration 0012). Usually the shop's own product photo, saved from its page
  * on his phone. Stored like his photos (src/lib/photos.ts): a metadata-free
  * master and thumb on the photos volume, under finds/, served only through
  * /photos/finds/:id. The product's images list names that address, so the
