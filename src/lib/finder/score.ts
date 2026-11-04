@@ -3,7 +3,7 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
 
 import { dollars, type Slot } from '../blueprint.ts'
-import { MODELS, claude } from '../claude.ts'
+import { MODELS, PRICES, claude } from '../claude.ts'
 import type { Sql } from '../db.ts'
 import type { Profile } from '../profile.ts'
 import { finalText, plainDashes } from '../structured.ts'
@@ -24,7 +24,7 @@ import { imageAt, type ProductImage } from './shopify.ts'
 export const SHOW_THRESHOLD = 70
 
 /** Sonnet 5.5 list prices, USD per million tokens. */
-export const SONNET_PRICES = { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 } as const
+export const SONNET_PRICES = PRICES[MODELS.scoring]
 
 export const ScoreSchema = z.object({
   slot_id: z

@@ -132,6 +132,11 @@ export function familyOfHex(hex: string): Family {
   return nearestFamily(rgbToLab(hexToRgb(hex)))
 }
 
+/** How far apart two colours look: CIE76 in CIELAB, about 2.3 for a just-noticeable difference. */
+export function hexDistance(a: string, b: string): number {
+  return distance(rgbToLab(hexToRgb(a)), rgbToLab(hexToRgb(b)))
+}
+
 /** Lloyd's algorithm with a deterministic start: centres at the 1/6, 1/2 and 5/6 lightness quantiles. */
 function kMeans(points: Lab[], k: number): { centre: Lab; size: number }[] {
   const byLightness = [...points].sort((a, b) => a[0] - b[0])
@@ -166,7 +171,7 @@ function distance(a: Lab, b: Lab): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 }
 
-function hexToRgb(hex: string): [number, number, number] {
+export function hexToRgb(hex: string): [number, number, number] {
   const value = Number.parseInt(hex.replace('#', ''), 16)
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
 }

@@ -8,6 +8,7 @@ import { SlotSwatches } from '@/components/cloth'
 import { HoldButton } from '@/components/hold-button'
 import { getSlot } from '@/lib/blueprint'
 import { day } from '@/lib/format'
+import { pieceForSlot } from '@/lib/pieces'
 import { getProfile } from '@/lib/profile'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
@@ -35,10 +36,12 @@ async function Content({ params }: Pick<PageProps<'/blueprint/[id]'>, 'params'>)
   await connection()
   const { id: raw } = await params
   const id = Number(raw)
-  const [slot, guide, profile] = await Promise.all([
-    Number.isInteger(id) && id > 0 ? getSlot(id) : null,
+  const valid = Number.isInteger(id) && id > 0
+  const [slot, guide, profile, piece] = await Promise.all([
+    valid ? getSlot(id) : null,
     getGuide(),
     getProfile(),
+    valid ? pieceForSlot(id) : null,
   ])
 
   if (!slot) {
@@ -77,6 +80,15 @@ async function Content({ params }: Pick<PageProps<'/blueprint/[id]'>, 'params'>)
 
       <div className="mt-8 border-t border-line pt-6">
         <StatusControl key={slot.status} id={slot.id} status={slot.status} />
+        {piece ? (
+          <p className="mt-3 text-[0.9375rem] text-ink-2">
+            In your wardrobe as{' '}
+            <Link href={`/looks/pieces/${piece.id}`} className="text-brass underline decoration-brass/40 underline-offset-4">
+              {piece.name.toLowerCase()}
+            </Link>
+            .
+          </p>
+        ) : null}
       </div>
 
       {slot.status === 'retired' ? (

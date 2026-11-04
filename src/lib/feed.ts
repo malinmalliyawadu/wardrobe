@@ -5,6 +5,7 @@ import { listSlots, type Slot } from './blueprint.ts'
 import { db, type Sql } from './db.ts'
 import { wantedSizeKeys } from './finder/classify.ts'
 import { OPEN_STATUSES, type Rates } from './finder/filter.ts'
+import { pieceFromPurchase, syncSlotPieces } from './pieces.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
@@ -413,11 +414,16 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
       })}
     `
 
+    if (action.action === 'bought') {
+      // The product he bought is a piece in the wardrobe now, with or without a slot.
+      await pieceFromPurchase(tx, { product_id: action.product_id, slot_id: action.slot_id, size: candidate?.sizes[0] ?? null })
+    }
     if (action.slot_id === null) return
     if (action.action === 'saved') {
       await tx`update blueprint_slots set status = 'candidate' where id = ${action.slot_id} and status = 'wanted'`
     } else if (action.action === 'bought') {
       await tx`update blueprint_slots set status = 'owned' where id = ${action.slot_id} and status in ('wanted', 'candidate')`
+      await syncSlotPieces(tx)
     } else {
       // Cleared or dismissed: the slot goes back to wanted once nothing saved is left for it.
       await tx`

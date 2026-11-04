@@ -5,7 +5,7 @@ import type { FindCard as Find } from '@/lib/feed'
 /* The product's photo and price, shared by the find card and the try-on viewer. */
 
 /** Shopify's CDN resizes on a width parameter, so the image optimiser is not needed. */
-const shopifyLoader: ImageLoader = ({ src, width }) => {
+export const shopifyLoader: ImageLoader = ({ src, width }) => {
   const url = new URL(src.startsWith('//') ? `https:${src}` : src)
   url.searchParams.set('width', String(width))
   return url.toString()
