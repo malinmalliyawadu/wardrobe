@@ -1,5 +1,5 @@
 /**
- * CLI health check: the same two checks as GET /api/health, for running from a
+ * CLI health check: the same checks as GET /api/health, for running from a
  * shell or a Coolify task. Exits non-zero if anything is down.
  *
  *   npm run health

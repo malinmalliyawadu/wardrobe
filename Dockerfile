@@ -33,6 +33,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     PHOTOS_DIR=/data/photos
@@ -43,6 +44,9 @@ RUN addgroup -S wardrobe && adduser -S wardrobe -G wardrobe \
 COPY --from=prod-deps --chown=wardrobe:wardrobe /app/node_modules ./node_modules
 COPY --from=builder --chown=wardrobe:wardrobe /app/.next ./.next
 COPY --chown=wardrobe:wardrobe package.json next.config.ts ./
+# The app icons. Nothing imports them, only the manifest names them, so a
+# missing copy would not fail anything: the app would just install with no icon.
+COPY --chown=wardrobe:wardrobe public ./public
 # The migration runner and the jobs ship with the image: migrations run on
 # boot (see CMD), the rest run as Coolify scheduled tasks inside this image.
 COPY --chown=wardrobe:wardrobe db ./db
@@ -58,9 +62,10 @@ USER wardrobe
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
-  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# Apply pending migrations, then serve. Coolify provides DATABASE_URL and
-# ANTHROPIC_API_KEY. `&&` means a failed migration stops the container from
-# serving at all, which is the honest outcome.
+# Apply pending migrations, then serve. Coolify provides DATABASE_URL,
+# ANTHROPIC_API_KEY, OPENAI_API_KEY and APP_PASSWORD. `&&` means a failed
+# migration stops the container from serving at all, which is the honest
+# outcome.
 CMD ["sh", "-c", "node scripts/migrate.ts && ./node_modules/.bin/next start"]
