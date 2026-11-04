@@ -1,10 +1,12 @@
 'use client'
 
-import Image, { type ImageLoader } from 'next/image'
 import { useState, useTransition } from 'react'
 
 import { feedAction } from '@/app/feed-actions'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
+
+import { nzd, PriceLine, ProductPhoto } from './product'
+import { SeeItOnMe } from './try-on'
 
 /*
  * One find on Today. The photo and title open the shop's page; the actions sit
@@ -19,59 +21,6 @@ const REASONS: { value: DismissReason; label: string }[] = [
   { value: 'price', label: 'Price' },
   { value: 'not_for_me', label: 'Not my thing' },
 ]
-
-/** Shopify's CDN resizes on a width parameter, so the image optimiser is not needed. */
-const shopifyLoader: ImageLoader = ({ src, width }) => {
-  const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  url.searchParams.set('width', String(width))
-  return url.toString()
-}
-
-export function ProductPhoto({ find, sizes, className = '' }: { find: Find; sizes: string; className?: string }) {
-  return (
-    <div className={`photo relative overflow-hidden ${className}`}>
-      {find.image ? (
-        <Image
-          loader={shopifyLoader}
-          src={find.image.src}
-          alt={find.image.alt ?? find.title}
-          fill
-          sizes={sizes}
-          className="object-contain"
-        />
-      ) : (
-        <span className="absolute inset-0 grid place-items-center text-sm text-ink-3">No photo</span>
-      )}
-    </div>
-  )
-}
-
-const nzd = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-NZ')}`
-const SYMBOLS: Record<string, string> = { GBP: '£', USD: 'US$', AUD: 'A$', EUR: '€' }
-const foreign = (cents: number, currency: string) =>
-  `${SYMBOLS[currency] ?? `${currency} `}${Math.round(cents / 100).toLocaleString('en-NZ')}`
-
-export function PriceLine({ find }: { find: Find }) {
-  const { price } = find
-  if (price.currency !== 'NZD') {
-    return (
-      <p className="text-[0.9375rem] tabular-nums">
-        <span className="font-medium">About {nzd(price.nzdCents)}</span>
-        <span className="block text-[0.8125rem] text-ink-3">
-          {foreign(price.cents, price.currency)} from the UK, plus duty and shipping
-        </span>
-      </p>
-    )
-  }
-  return (
-    <p className="text-[0.9375rem] tabular-nums">
-      <span className="font-medium">{nzd(price.nzdCents)}</span>
-      {price.compareAtNzdCents ? (
-        <span className="ml-2 text-ink-3 line-through decoration-1">{nzd(price.compareAtNzdCents)}</span>
-      ) : null}
-    </p>
-  )
-}
 
 /** "34 inch Waist x 32 inch Leg" reads as "34/32" on a card. */
 function shortSize(label: string): string {
@@ -136,7 +85,8 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string }) {
       </p>
       {find.try_on ? <p className="mt-1 text-[0.8125rem] text-ink-3">Try on at {find.try_on}</p> : null}
 
-      <div className="mt-auto pt-3">
+      <div className="mt-auto pt-2">
+        <SeeItOnMe find={find} />
         <div key={mode} className="tray">
           {mode === 'actions' ? (
             <div className="-ml-2 flex items-center gap-1">

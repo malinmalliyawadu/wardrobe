@@ -40,12 +40,17 @@ Captured once, edited rarely.
 | Taste | 6 to 10 reference images or brands he likes, hard no-gos (logos, skinny fit, whatever), owned staples he is happy with | typed and uploaded |
 | Budget | per-category ceiling (tees, knits, outerwear, shoes, accessories) and an overall monthly figure | typed |
 
-Photos are sensitive. They live on a Coolify volume, never in the database,
-are sent to the Claude API only for the analysis call, and the profile page has
-a "delete photos, keep the derived profile" action. The Anthropic API does not
-train on API traffic. Try-on (M3.5) would also send a full-length photo to an
-image-generation provider; that changes this rule and needs Malin's agreement
-on the provider first.
+Photos are sensitive. They live on a Coolify volume, never in the database.
+One is sent to the Claude API for the analysis call. One full-length photo is
+sent to the OpenAI Images API only for a try-on Malin asks for, one find at a
+time, together with the product's own image. OpenAI does not train on API data.
+It keeps the request and the result in abuse-monitoring logs for up to 30 days,
+processed in the US, and they cannot be deleted sooner without a
+zero-data-retention agreement. Results are stored on the photos volume, and
+"delete photos" removes them with the photos. The Anthropic API does not train
+on API traffic either. The profile page has a "delete photos, keep the derived
+profile" action. (Agreed with Malin on 2026-11-04, with OpenAI as the try-on
+provider; see M3.5.)
 
 ### 1.2 Style guide (what suits you)
 
@@ -244,6 +249,30 @@ existing "delete photos" action; cost per image recorded like the finder's.
 Gate: Malin tries on a week of feed picks and finds the images honest enough to
 change what he buys.
 
+Provider chosen 2026-11-04: OpenAI, `gpt-image-2.5-sunburst` (its model for
+"workflows where editing precision matters most") at high quality, his
+photo's own 3:4 aspect, through the Images edit endpoint with plain `fetch`
+(no SDK). Researched against the providers' own docs, pricing and terms:
+
+| Option | Why not, or why |
+|---|---|
+| OpenAI gpt-image | Chosen by Malin. No training on API data; 30-day abuse-monitoring retention, zero retention only by sales approval; priced by tokens ($8 per million image input, $30 per million output), so the cost of each image is recorded from the usage it reports |
+| FASHN Try-On Max | Recommended in the research (purpose-built, keeps no image after the request), not chosen; its model providers include OpenAI, fal and BytePlus |
+| Gemini 3 Pro Image | General editor, $0.134 an image, abuse logs of unstated length "in any country" on the Gemini API |
+| Google virtual-try-on-001 | Deprecated 2026-09-14, retires 2027-03-15 |
+| Kling Virtual Try-On | 30-day logs in Singapore; takes only public URLs, so his photo would have to be public |
+| Black Forest Labs | Its API terms license inputs and outputs for training |
+| fal, Replicate | Resellers: one more company holding the photo; fal keeps inputs and outputs 90 days by default |
+
+M3.5 built 2026-11-04. "See it on me" sits on each find card on Today. The tap
+records a request (`src/lib/try-on.ts`, table `try_ons`, migration 0005) and
+the image is made after the response, so leaving the page loses nothing; the
+card polls `/photos/try-ons/:id/status` and, once ready, opens a viewer with
+him in it beside the shop's photo. One image is in the making at a time (a
+unique index). The prompt asks for him unchanged, the garment exactly as sold
+(colour first) and no flattery. Images are served only through
+`/photos/try-ons/:id`. Cost per image is on /you/finder.
+
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
@@ -275,5 +304,5 @@ None block M0.
    deleted automatically.
 5. Do we want a Claude-written weekly "state of the wardrobe" note in the app,
    or is the feed enough.
-6. Which try-on provider for M3.5, judged on menswear quality, colour fidelity
-   and data terms, and whether its terms are acceptable for his photos.
+6. ~~Which try-on provider for M3.5.~~ OpenAI, agreed 2026-11-04 with the
+   photo rule in 1.1.

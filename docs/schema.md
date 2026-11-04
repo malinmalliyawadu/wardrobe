@@ -20,6 +20,7 @@ Three layers, each derived from the one above, then the finder's tables.
 | `product_scores` | one per product version | Claude's verdict: best slot, score, verdicts, the one-line why, and tokens spent |
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
+| `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
 
 ## Decisions
 
@@ -115,6 +116,18 @@ under what is left of the month, counted in New Zealand time from each run's
 `stats.usd`. Which stores are read is `retailers.enabled`, switched on
 /you/finder; the seed sets it only when a store is first added, so the file
 never undoes the switch. A store switched off is neither read nor shown.
+
+**Try-ons (migration 0005)** are a row per image asked for, never per find
+shown: they are made on request only. The row records the product, the
+full-length photo he was dressed from, the product photo as listed (a new
+listing photo is a new try-on), the provider and model, the prompt and
+settings, the provider's request id (what a deletion request to them needs),
+the tokens it reported and what they cost. A unique index on `status =
+'making'` holds the one-at-a-time rule in the database. The image is a file
+under `PHOTOS_DIR/try-ons`, served only through `/photos/try-ons/:id`.
+Deleting a photo deletes the try-ons made from it, and "delete photos" all of
+them; the rows stay, with `path` cleared and `deleted_at` set, so the spend is
+still counted. A remake is a new row, so an id's bytes never change.
 
 ## Expected growth
 

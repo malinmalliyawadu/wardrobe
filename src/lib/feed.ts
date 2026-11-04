@@ -7,6 +7,7 @@ import { OPEN_STATUSES, type Rates } from './finder/filter.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import { tryOnAt, type WellingtonStore } from './retailers.ts'
+import { latestTryOns, type OnMe } from './try-on.ts'
 
 /*
  * The feed on Today: the latest run's candidates whose current score clears
@@ -56,6 +57,8 @@ export type FindCard = {
   price: Price
   sizes: string[]
   size_known: boolean
+  /** The latest "See it on me" image of this find, if he asked for one. */
+  on_me: OnMe | null
 }
 
 export type FeedGroup = { slot: Slot; cards: FindCard[] }
@@ -88,7 +91,7 @@ export type Feed = {
   slotNames: Record<number, string>
 }
 
-type Row = Omit<FindCard, 'price' | 'try_on' | 'image'> & {
+type Row = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
   image: ProductImage | null
   currency: string
   wellington_store: WellingtonStore | null
@@ -130,6 +133,7 @@ function card(row: Row, rates: Rates): FindCard {
     price: price(row, rates),
     sizes: row.sizes,
     size_known: row.size_known,
+    on_me: null,
   }
 }
 
@@ -190,6 +194,9 @@ export async function getFeed(): Promise<Feed> {
     if (list.length < CARDS_PER_SLOT) list.push(card(row, rates))
     bySlot.set(row.slot_id, list)
   }
+  const shown = [...bySlot.values()].flat()
+  const onMe = await latestTryOns(shown.map((find) => find.product_id), sql)
+  for (const find of shown) find.on_me = onMe.get(find.product_id) ?? null
   const open = slots.filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
   const groups = open.flatMap((slot) => {
     const cards = bySlot.get(slot.id)

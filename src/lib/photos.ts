@@ -4,7 +4,7 @@ import path from 'node:path'
 
 import sharp, { type OutputInfo } from 'sharp'
 
-import { db } from './db.ts'
+import { db, type Sql } from './db.ts'
 
 export const PHOTO_KINDS = ['face', 'full_body', 'reference'] as const
 export type PhotoKind = (typeof PHOTO_KINDS)[number]
@@ -124,24 +124,69 @@ export async function photoBase64(photo: Pick<Photo, 'path'>): Promise<string> {
   return bytes.toString('base64')
 }
 
-export async function removePhoto(id: number): Promise<void> {
-  const [row] = await db()<{ path: string }[]>`
+/** One photo, and every try-on made from it. */
+export async function removePhoto(id: number, sql: Sql = db()): Promise<void> {
+  const [row] = await sql<{ id: number; path: string }[]>`
     update profile_photos set deleted_at = now()
     where id = ${id} and deleted_at is null
-    returning path
+    returning id::int as id, path
   `
-  if (row) await unlinkPair(row.path)
+  if (!row) return
+  await unlinkPair(row.path)
+  await removeTryOns(sql, [row.id])
 }
 
-/** "Delete photos, keep the derived profile." */
-export async function removeAllPhotos(): Promise<number> {
-  const rows = await db()<{ path: string }[]>`
+/**
+ * "Delete photos, keep the derived profile." The try-ons go too, since each is
+ * a picture of him; their rows stay, without the files, so what they cost is
+ * still counted.
+ */
+export async function removeAllPhotos(sql: Sql = db()): Promise<{ photos: number; tryOns: number }> {
+  const rows = await sql<{ id: number; path: string }[]>`
     update profile_photos set deleted_at = now()
     where deleted_at is null
-    returning path
+    returning id::int as id, path
   `
   await Promise.all(rows.map((row) => unlinkPair(row.path)))
-  return rows.length
+  // Every try-on, not only those of the photos just deleted: one made from a
+  // photo deleted earlier is still a picture of him.
+  const tryOns = await removeTryOns(sql, null)
+  return { photos: rows.length, tryOns }
+}
+
+/**
+ * Try-on images made from these photos (or all, for null). A try-on still in
+ * the making is marked failed; makeTryOn will not file an image for a deleted
+ * photo.
+ */
+async function removeTryOns(sql: Sql, photoIds: number[] | null): Promise<number> {
+  const rows = await sql<{ path: string | null }[]>`
+    with gone as (
+      select id, path from try_ons
+      where deleted_at is null
+        ${photoIds === null ? sql`` : sql`and photo_id = any (${photoIds}::bigint[])`}
+      for update
+    )
+    update try_ons t set deleted_at = now(), path = null,
+      status = case when t.status = 'making' then 'failed' else t.status end,
+      error = case when t.status = 'making' then 'The photo was deleted.' else t.error end,
+      finished_at = coalesce(t.finished_at, now())
+    from gone where t.id = gone.id
+    returning gone.path
+  `
+  await Promise.all(
+    rows.flatMap((row) =>
+      row.path
+        ? [
+            unlink(/*turbopackIgnore: true*/ photoPath(row.path)).catch((error: NodeJS.ErrnoException) => {
+              if (error.code !== 'ENOENT') throw error
+            }),
+          ]
+        : [],
+    ),
+  )
+  // Images deleted; a failed request had none.
+  return rows.filter((row) => row.path).length
 }
 
 async function unlinkPair(relative: string): Promise<void> {

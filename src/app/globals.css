@@ -556,3 +556,71 @@
     }
   }
 }
+
+@layer components {
+  /*
+   * The try-on viewer, a native modal dialog: full screen on the phone, a
+   * sheet on the laptop. It answers a tap, so it fades and settles in under
+   * 300ms and leaves faster than it came; the backdrop only fades.
+   */
+  .viewer {
+    opacity: 1;
+    transform: scale(1);
+    transition:
+      opacity 220ms var(--ease-out),
+      transform 220ms var(--ease-out),
+      overlay 220ms allow-discrete,
+      display 220ms allow-discrete;
+
+    @starting-style {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+
+  .viewer:not([open]) {
+    opacity: 0;
+    transform: scale(0.98);
+    transition-duration: 150ms;
+  }
+
+  .viewer::backdrop {
+    background: rgb(10 12 16 / 0.6);
+    opacity: 1;
+    transition:
+      opacity 220ms var(--ease-out),
+      overlay 220ms allow-discrete,
+      display 220ms allow-discrete;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  /* The page under an open viewer stays put. */
+  html:has(.viewer[open]) {
+    overflow: hidden;
+  }
+
+  .viewer:not([open])::backdrop {
+    opacity: 0;
+    transition-duration: 150ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .viewer,
+    .viewer:not([open]) {
+      transform: none;
+      transition:
+        opacity 150ms ease,
+        overlay 150ms allow-discrete,
+        display 150ms allow-discrete;
+    }
+
+    @starting-style {
+      .viewer {
+        transform: none;
+      }
+    }
+  }
+}

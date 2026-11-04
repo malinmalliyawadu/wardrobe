@@ -52,6 +52,9 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
   test. Never point the test at a database you care about anyway.
 - Claude calls go through `src/lib/claude.ts`. Models are named once there:
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
+- Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
+  `src/lib/try-on.ts`, only on Malin's tap, one at a time. The photo rule in
+  docs/plan.md 1.1 is what he agreed; do not send his photos anywhere else.
 - Fonts are committed under `src/fonts` and loaded with `next/font/local`; the
   Docker build runs with the network off and will fail on any build-time fetch.
 - Plain dash, never an em dash, in copy and comments.
@@ -146,3 +149,8 @@ recorded candidates, including one still scoring; save, dismiss with a reason
 and bought move the slot's status. First pass numbers and what is left to
 score are in docs/plan.md under M3. His waist and shoe sizes are not on the
 profile, so trousers and shoes show every size in stock until he adds them.
+
+M3.5 try-on built 2026-11-04 with OpenAI (`gpt-image-2.5-sunburst`, high,
+his photo's aspect), chosen by Malin over the recommended FASHN; the research
+and the agreed photo rule are in docs/plan.md. Gate pending: a week of
+try-ons he finds honest enough to change what he buys.

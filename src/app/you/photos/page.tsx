@@ -20,6 +20,7 @@ export default function PhotosPage() {
       <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
         Daylight, no filter, hair as you usually wear it. They stay on this server, go to
         Claude once for the read, and can be deleted afterwards without losing the profile.
+        A full-length photo also goes to OpenAI when you ask to see a find on you.
       </p>
       <Suspense fallback={<p className="mt-10 text-ink-3">Loading photos</p>}>
         <Sections />
@@ -47,7 +48,7 @@ async function Sections() {
       <PhotoSection
         kind="full_body"
         title="Full length"
-        hint="Fitted clothes, plain background, phone at chest height. One or two."
+        hint="Fitted clothes, plain background, phone at chest height. One or two; the newest is the one used to try finds on."
         photos={bodies}
         max={2}
       />
@@ -75,7 +76,10 @@ async function Sections() {
       {photos.length > 0 ? (
         <div className="mt-12">
           <DeleteAllButton count={photos.length} />
-          <p className="mt-3 text-sm text-ink-3">Hold to delete. The read you confirmed is kept.</p>
+          <p className="mt-3 max-w-[44ch] text-sm text-ink-3">
+            Hold to delete. Pictures of finds on you go too; the read you confirmed is kept. OpenAI deletes its own
+            copies of try-ons within 30 days.
+          </p>
         </div>
       ) : null}
     </>
