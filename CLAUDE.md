@@ -103,7 +103,9 @@ face photo would still firm up the season, since 60 on holiday light is a
 lean, not a lock. Each
 milestone ends with Malin using it and agreeing before the next starts.
 
-M2 built 2026-11-04, gate pending. `src/lib/style-guide.ts` and
+M2 built 2026-11-04. M2 gate passed 2026-11-04: Malin read the first draft
+(34 slots) and agreed these are things he would buy, in roughly that order.
+Next: M3 finder, then M3.5 try-on (see docs/plan.md). `src/lib/style-guide.ts` and
 `src/lib/blueprint.ts` make their Opus calls through `src/lib/structured.ts`:
 streamed (a whole blueprint outruns a non-streaming timeout), high effort,
 server-side fallback, the JSON parsed only after the stop reason is checked,
