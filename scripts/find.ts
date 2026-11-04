@@ -4,6 +4,8 @@
  *   node scripts/find.ts
  *   npm run find -- --only=barkers,huffer --max-usd=2
  *
+ * How much it may spend, and which stores it reads, are set on /you/finder.
+ *
  * Three stages, each recorded in one finder_runs row:
  *   1. ingest   every enabled store's Shopify feed, politely (free)
  *   2. filter   menswear, the slot's garment, in his size, in the slot's band, not
@@ -16,7 +18,8 @@
  *   --skip-ingest     filter and score what is already stored
  *   --reclassify      re-apply the classification rules to stored products (implies --skip-ingest)
  *   --no-score        stop after the filter
- *   --max-usd=N       stop starting new scores once the run has spent N dollars (default 20)
+ *   --max-usd=N       spend up to N US dollars on scoring this run, instead of the
+ *                     nightly limit set on /you/finder (the monthly limit still applies)
  *   --concurrency=N   scores in flight at once (default 6)
  *
  * Output is one JSON object per line. Exits non-zero if the run failed.
@@ -33,6 +36,7 @@ import { readPhoto } from '../src/lib/finder/photo-colour.ts'
 import { imageAt } from '../src/lib/finder/shopify.ts'
 import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
+import { getFinderSettings, getSpend, runBudget } from '../src/lib/finder/settings.ts'
 import { getProfile } from '../src/lib/profile.ts'
 import { listRetailers, seedRetailers } from '../src/lib/retailers.ts'
 import { colourNameFor, getGuide } from '../src/lib/style-guide.ts'
@@ -45,7 +49,7 @@ const { values: args } = parseArgs({
     'skip-ingest': { type: 'boolean', default: false },
     reclassify: { type: 'boolean', default: false },
     'no-score': { type: 'boolean', default: false },
-    'max-usd': { type: 'string', default: '20' },
+    'max-usd': { type: 'string' },
     concurrency: { type: 'string', default: '6' },
   },
 })
@@ -56,10 +60,10 @@ const options = {
   skipIngest: args['skip-ingest'] || args.reclassify,
   reclassify: args.reclassify,
   score: !args['no-score'],
-  maxUsd: Number(args['max-usd']),
+  maxUsd: args['max-usd'] === undefined ? null : Number(args['max-usd']),
   concurrency: Math.max(1, Math.min(16, Number(args.concurrency) || 6)),
 }
-if (!(options.maxUsd >= 0)) throw new Error('--max-usd must be a number of dollars')
+if (options.maxUsd !== null && !(options.maxUsd >= 0)) throw new Error('--max-usd must be a number of dollars')
 
 function log(fields: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify({ at: new Date().toISOString(), ...fields }) + '\n')
@@ -114,7 +118,16 @@ try {
   }
 
   // 2. Filter.
-  const [profile, guide, slots] = await Promise.all([getProfile(), getGuide(), listSlots()])
+  const [profile, guide, slots, settings, spend] = await Promise.all([
+    getProfile(),
+    getGuide(),
+    listSlots(),
+    getFinderSettings(sql),
+    getSpend(sql),
+  ])
+  const budget = runBudget(settings, spend.thisMonth, options.maxUsd)
+  stats.budget = budget
+  stats.stores_on = retailers.length
   const fx = await loadRates(sql, retailers.map((retailer) => retailer.currency))
   stats.fx = fx
   const targets = slotTargets(
@@ -124,8 +137,8 @@ try {
     (garment) => guide?.fit_vocabulary.find((entry) => entry.garment === garment)?.fits ?? [],
   )
   const photos = new PoliteClient()
-  const { candidates, stats: filtered } = await findCandidates(sql, targets, fx.rates, async (src) => {
-    return (await readPhoto(await photos.bytes(imageAt(src, 160)))).colours
+  const { candidates, stats: filtered } = await findCandidates(sql, targets, fx.rates, {
+    readPhoto: async (src) => (await readPhoto(await photos.bytes(imageAt(src, 160)))).colours,
   })
   await recordCandidates(sql, run.id, candidates)
   stats.slots_open = targets.length
@@ -145,9 +158,9 @@ try {
     const openSlots = slots.filter((slot) => targets.some((target) => target.slot_id === slot.id))
     const dismissals = await recentDismissals()
     const context = contextBlock({ profile, guide, slots: openSlots, dismissals })
-    log({ event: 'score.start', needed: products.length, max_usd: options.maxUsd })
+    log({ event: 'score.start', needed: products.length, ...budget })
     scoring = await scoreAll(sql, run.id, context, products, {
-      maxUsd: options.maxUsd,
+      maxUsd: budget.max_usd,
       concurrency: options.concurrency,
       log,
     })

@@ -6,6 +6,8 @@ import { connect, type Sql } from '../src/lib/db.ts'
 import { recordAction } from '../src/lib/feed.ts'
 import { findCandidates, photoKey, slotTargets } from '../src/lib/finder/filter.ts'
 import { writePage } from '../src/lib/finder/ingest.ts'
+import { getFinderSettings, saveFinderSettings, storeCounts } from '../src/lib/finder/settings.ts'
+import { listRetailers, seedRetailers, type RetailerSeed } from '../src/lib/retailers.ts'
 import { normaliseProduct, ShopifyProductSchema } from '../src/lib/finder/shopify.ts'
 import type { Slot } from '../src/lib/blueprint.ts'
 
@@ -174,6 +176,14 @@ test('the filter keeps what fits and drops each thing that does not, for its own
   assert.equal(found['Espresso Leather Belt']!.size_known, true, 'one size needs no size')
 
   const withWaist = await findCandidates(sql, slotTargets(await slots(), { tee: 'S', waist_cm: 81 }), { NZD: 1, GBP: 2.2 })
+  await sql`update retailers set enabled = false where slug = 'end'`
+  const withoutEnd = await findCandidates(sql, targets, { NZD: 1, GBP: 2.2 })
+  assert.ok(
+    !withoutEnd.candidates.some((candidate) => titles.get(candidate.product_id) === 'Ecru Pocket T-Shirt'),
+    'a shop switched off is not a candidate',
+  )
+  assert.equal(withoutEnd.candidates.length, candidates.length - 1)
+  await sql`update retailers set enabled = true where slug = 'end'`
   const chinoNow = withWaist.candidates.find((candidate) => titles.get(candidate.product_id) === 'Putty Chino')
   assert.deepEqual(chinoNow?.sizes, ['32'], 'with a waist on the profile, only W32 passes')
   assert.equal(chinoNow?.size_known, true)
@@ -233,4 +243,38 @@ test('feed actions move the slot: save makes it a candidate, removing the save u
     recordAction({ action: 'dismissed', product_id: bottle, slot_id: knit, reason: 'ugly' as never }, sql),
     'an unknown reason is refused',
   )
+})
+
+test('finder settings round-trip; the shop switches survive a re-seed and come with their numbers', async () => {
+  assert.deepEqual(await getFinderSettings(sql), { max_usd_per_run: 1, max_usd_per_month: null }, 'the default row')
+  const seed: RetailerSeed = {
+    slug: 'seeded',
+    name: 'Seeded',
+    platform: 'shopify',
+    base_url: 'https://seeded.test',
+    feed_collections: [],
+    country: 'NZ',
+    currency: 'NZD',
+    ships_to_nz: true,
+    catalogue: 'menswear',
+    enabled: true,
+    wellington_store: null,
+  }
+  await seedRetailers(sql, [seed])
+  const others = (await listRetailers(sql)).map((retailer) => retailer.slug).filter((slug) => slug !== 'seeded')
+
+  await saveFinderSettings({ max_usd_per_run: 0.5, max_usd_per_month: 8, stores: others }, sql)
+  assert.deepEqual(await getFinderSettings(sql), { max_usd_per_run: 0.5, max_usd_per_month: 8 })
+  const off = async () => (await listRetailers(sql)).find((retailer) => retailer.slug === 'seeded')?.enabled
+  assert.equal(await off(), false)
+  await seedRetailers(sql, [{ ...seed, name: 'Seeded Again' }])
+  assert.equal(await off(), false, 'the file updates the store but never switches it back on')
+
+  const local = { base_url: 'https://seeded.test', catalogue: 'menswear' as const }
+  const seeded = (await listRetailers(sql)).find((retailer) => retailer.slug === 'seeded')!
+  await writePage(sql, seeded.id, [normaliseProduct(raw('Seeded Tee', { S: { price: '50.00' } }), local)])
+  const counts = await storeCounts(sql)
+  const row = counts.find((store) => store.slug === 'seeded')
+  assert.deepEqual(row, { slug: 'seeded', name: 'Seeded Again', enabled: false, products: 1, shortlisted: 0, finds: 0, usd: 0 })
+  assert.equal(counts.length, others.length + 1, 'every shop is listed, on or off')
 })

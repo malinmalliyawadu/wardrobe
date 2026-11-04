@@ -37,6 +37,7 @@ export const RetailerSeedSchema = z.object({
   /** "menswear" when the whole catalogue is men's, "mixed" when it has to be read per product. */
   catalogue: z.enum(['menswear', 'mixed']),
   notes: z.string().optional(),
+  /** Whether a newly added store starts on. After that, /you/finder decides. */
   enabled: z.boolean().default(true),
   wellington_store: WellingtonStoreSchema.nullable(),
 })
@@ -102,7 +103,8 @@ export async function seedRetailers(sql: Sql, seeds: RetailerSeed[]): Promise<{ 
         ships_to_nz = excluded.ships_to_nz,
         catalogue = excluded.catalogue,
         notes = excluded.notes,
-        enabled = excluded.enabled,
+        -- enabled is set once, when a store is added: after that it is
+        -- Malin's switch on /you/finder, and the file must not undo it.
         wellington_store = excluded.wellington_store
       returning (xmax = 0) as inserted
     `

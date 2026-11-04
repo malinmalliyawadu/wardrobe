@@ -108,6 +108,14 @@ which is how a price drop is shown. Saving makes a wanted slot `candidate`,
 clearing or dismissing the last saved find makes it `wanted` again, and
 buying makes it `owned` (`recordAction` in `src/lib/feed.ts`).
 
+**Finder settings (migration 0004)** are a one-row table, like the profile:
+the nightly and monthly caps on Claude spend, in US dollars because that is
+what Anthropic bills. A run's budget is the nightly cap (or `--max-usd`), held
+under what is left of the month, counted in New Zealand time from each run's
+`stats.usd`. Which stores are read is `retailers.enabled`, switched on
+/you/finder; the seed sets it only when a store is first added, so the file
+never undoes the switch. A store switched off is neither read nor shown.
+
 ## Expected growth
 
 Reading the men's collections, the eleven stores came to 29,048 products and

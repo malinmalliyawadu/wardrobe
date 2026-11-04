@@ -1,5 +1,5 @@
 {
-  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
+  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Whether a store is read is Malin's switch on /you/finder; \"enabled\" here only sets a newly added store's starting state. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
   "retailers": [
     {
       "slug": "barkers",

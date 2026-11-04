@@ -11,9 +11,9 @@ import { familiesOfColours } from './photo-colour.ts'
  * Stage 2: rules and SQL only, no Claude. A product is a candidate for a slot
  * when it is menswear, still in the feed, the same garment (and, for
  * accessories, the same kind), in stock in his size, inside the slot's budget
- * band in NZD, not dismissed or bought, and not plainly the wrong colour (see
- * colour.ts). Slots that are wanted or already have a saved candidate are
- * open; owned and retired slots are not.
+ * band in NZD, not dismissed or bought, from a store he has on, and not
+ * plainly the wrong colour (see colour.ts). Slots that are wanted or already
+ * have a saved candidate are open; owned and retired slots are not.
  *
  * The band's lower edge is read against the full price as well: a $200 knit
  * marked down to $120 is still a $150-270 knit.
@@ -97,11 +97,12 @@ export async function findCandidates(
   sql: Sql,
   targets: SlotTarget[],
   rates: Rates,
-  readPhoto: PhotoReader | null = null,
+  options: { readPhoto?: PhotoReader | null } = {},
 ): Promise<{ candidates: Candidate[]; stats: FilterStats }> {
   const stats: FilterStats = { matched: 0, candidates: 0, photos_read: 0, photos_failed: 0 }
   if (targets.length === 0) return { candidates: [], stats }
   const matched = await matchInSql(sql, targets, rates)
+  const readPhoto = options.readPhoto ?? null
   stats.matched = matched.length
   if (readPhoto) await readMissingPhotos(sql, matched, readPhoto, stats)
   const candidates = applyProductRules(matched, targets)

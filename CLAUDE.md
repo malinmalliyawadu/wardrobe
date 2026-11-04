@@ -137,7 +137,10 @@ a colour rule that only ever says no and reads the main photo once (cached as
 hex) when a listing names no colour, as END.'s never do. Score (`score.ts`):
 Sonnet 5.5, adaptive thinking at low effort, zod structured output, the run's
 context (profile, guide, open slots, recent dismissals) one cached system
-block, about $0.0074 a product; stops after ten API errors in a row. The feed
+block, about $0.0074 a product; stops after ten API errors in a row.
+/you/finder sets the spend (a nightly cap, default US$1, and an optional
+monthly one) and switches stores on and off, with each store's shortlist,
+finds and cost from the last run. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with
 recorded candidates, including one still scoring; save, dismiss with a reason
 and bought move the slot's status. First pass numbers and what is left to

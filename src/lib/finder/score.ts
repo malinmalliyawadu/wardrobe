@@ -383,7 +383,12 @@ export async function scoreAll(
     }
   }
 
-  // The first call writes the cache; the rest read it.
+  // The first call writes the cache; the rest read it. A budget of nothing
+  // means no calls at all.
+  if (options.maxUsd <= 0) {
+    stats.skipped_for_budget = queue.length
+    queue.length = 0
+  }
   const first = queue.shift()
   if (first) await one(first)
 

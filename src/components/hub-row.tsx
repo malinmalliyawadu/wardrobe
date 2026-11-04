@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 type Props = {
-  href: '/you/photos' | '/you/colouring' | '/you/sizes' | '/you/life' | '/you/taste' | '/you/budget'
+  href: '/you/photos' | '/you/colouring' | '/you/sizes' | '/you/life' | '/you/taste' | '/you/budget' | '/you/finder'
   title: string
   summary: string
   /** True when the summary is a real value rather than "Not set". */

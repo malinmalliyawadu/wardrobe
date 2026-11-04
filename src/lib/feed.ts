@@ -174,7 +174,8 @@ export async function getFeed(): Promise<Feed> {
     from finder_candidates c
     join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
     join products p on p.id = c.product_id and p.removed_at is null
-    join retailers r on r.id = p.retailer_id
+    -- A store switched off since the run goes from the feed at once.
+    join retailers r on r.id = p.retailer_id and r.enabled
     left join latest_action a on a.product_id = c.product_id
     where c.run_id = ${run.id}
       and s.score >= ${SHOW_THRESHOLD}

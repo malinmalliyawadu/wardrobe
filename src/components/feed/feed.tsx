@@ -4,6 +4,7 @@ import { connection } from 'next/server'
 import { SlotSwatches } from '@/components/cloth'
 import { CARDS_PER_SLOT, getFeed, type FeedGroup, type Run } from '@/lib/feed'
 import { sizeGroup } from '@/lib/finder/classify'
+import { usdText } from '@/lib/finder/settings'
 import { getProfile } from '@/lib/profile'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { PRIORITY_LABELS } from '@/lib/wardrobe-values'
@@ -155,12 +156,20 @@ function runLine(run: Run, finds: number, slots: number, capped: boolean): strin
   const read = ingested?.retailers
     ? `Read ${ingested.retailers.length} shops, ${(ingested.products ?? 0).toLocaleString('en-NZ')} pieces, on ${weekday} at ${time}.`
     : `Checked on ${weekday} at ${time}.`
-  const scoring = run.stats.scoring as { needed?: number; scored?: number } | null | undefined
+  const scoring = run.stats.scoring as { needed?: number; scored?: number; skipped_for_budget?: number } | null | undefined
+  const budget = run.stats.budget as { max_usd?: number; limited_by?: string } | undefined
+  const counted =
+    scoring && typeof scoring.needed === 'number' && typeof scoring.scored === 'number' && scoring.scored < scoring.needed
+      ? `${scoring.scored.toLocaleString('en-NZ')} of ${scoring.needed.toLocaleString('en-NZ')} pieces`
+      : null
+  const limit = budget?.limited_by === 'month' ? 'the month’s limit' : `the ${usdText(budget?.max_usd ?? 0)} limit`
   const partial = !scoring
-    ? ' This run did not score anything new; what is unscored is scored on the next run.'
-    : typeof scoring.needed === 'number' && typeof scoring.scored === 'number' && scoring.scored < scoring.needed
-      ? ` Scoring stopped after ${scoring.scored.toLocaleString('en-NZ')} of ${scoring.needed.toLocaleString('en-NZ')} pieces; the rest are scored on the next run.`
-      : ''
+    ? ' This run did not judge anything new; what is waiting is judged on the next run.'
+    : counted && (scoring.skipped_for_budget ?? 0) > 0
+      ? ` Judging stopped at ${limit} after ${counted}; the rest are judged on the next run.`
+      : counted
+        ? ` Judging stopped after ${counted}; the rest are judged on the next run.`
+        : ''
   if (finds === 0) return `${read} None were close enough to your slots to show.${partial}`
   const order = capped ? `, the best ${CARDS_PER_SLOT} of each shown` : ', best first'
   return `${read} ${finds} ${finds === 1 ? 'find' : 'finds'} for ${slots} of your slots${order}.${partial}`

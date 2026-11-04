@@ -20,6 +20,7 @@ import {
   saveTaste,
 } from '@/lib/profile'
 import { parseStoredAnalysis } from '@/lib/analysis'
+import { parseFinderSettingsForm, saveFinderSettings } from '@/lib/finder/settings'
 import { echo, type ActionState } from '@/lib/action-state'
 
 export type { ActionState }
@@ -126,6 +127,14 @@ export async function submitBudget(_prev: ActionState, form: FormData): Promise<
   const parsed = parseBudgetForm(form)
   if (!parsed.ok) return { ok: false, errors: parsed.errors, values: echo(form) }
   await saveBudget(parsed.data)
+  refreshAll()
+  redirect('/you')
+}
+
+export async function submitFinderSettings(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const parsed = parseFinderSettingsForm(form)
+  if (!parsed.ok) return { ok: false, errors: parsed.errors, values: echo(form) }
+  await saveFinderSettings(parsed.data)
   refreshAll()
   redirect('/you')
 }

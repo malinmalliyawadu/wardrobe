@@ -6,7 +6,10 @@ import { HubRow } from '@/components/hub-row'
 import { StatusList, StatusSkeleton } from '@/components/status-list'
 import { parseStoredAnalysis } from '@/lib/analysis'
 import { listPhotos } from '@/lib/photos'
+import { getFinderSettings, getSpend, usdText, type FinderSettings, type Spend } from '@/lib/finder/settings'
+import { db } from '@/lib/db'
 import { getProfile, type Profile } from '@/lib/profile'
+import { listRetailers } from '@/lib/retailers'
 import { seasonName } from '@/lib/seasons'
 
 export const metadata: Metadata = { title: 'You' }
@@ -38,7 +41,13 @@ export default function YouPage() {
 
 async function Hub() {
   await connection()
-  const [profile, photos] = await Promise.all([getProfile(), listPhotos()])
+  const [profile, photos, finder, spend, stores] = await Promise.all([
+    getProfile(),
+    listPhotos(),
+    getFinderSettings(),
+    getSpend(),
+    listRetailers(db()),
+  ])
   const analysis = parseStoredAnalysis(profile.analysis)
 
   const colouring = profile.confirmed_at && profile.season
@@ -77,6 +86,11 @@ async function Hub() {
       <HubRow href="/you/life" title="Your week" {...lifeSummary(profile)} />
       <HubRow href="/you/taste" title="Taste" {...tasteSummary(profile)} />
       <HubRow href="/you/budget" title="Budget" {...budgetSummary(profile)} />
+      <HubRow
+        href="/you/finder"
+        title="Finder"
+        {...finderSummary(finder, spend, stores.filter((store) => store.enabled).length, stores.length)}
+      />
     </ul>
   )
 }
@@ -118,10 +132,24 @@ function budgetSummary(profile: Profile): { summary: string; filled: boolean } {
   return parts.length ? { summary: parts.join(', '), filled: true } : { summary: 'Not set', filled: false }
 }
 
+function finderSummary(
+  settings: FinderSettings,
+  spend: Spend,
+  on: number,
+  total: number,
+): { summary: string; filled: boolean } {
+  const parts = [
+    settings.max_usd_per_run > 0 ? `${usdText(settings.max_usd_per_run)} a night` : 'Judging off',
+    `${usdText(Math.round(spend.thisMonth * 100) / 100)} this month`,
+    on === total ? `all ${total} shops` : `${on} of ${total} shops`,
+  ]
+  return { summary: parts.join(', '), filled: true }
+}
+
 function HubSkeleton() {
   return (
     <ul className="mt-8 divide-y divide-line border-y border-line" aria-busy>
-      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget'].map((title) => (
+      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget', 'Finder'].map((title) => (
         <li key={title} className="flex min-h-16 items-center py-3">
           <div>
             <p className="font-medium">{title}</p>
