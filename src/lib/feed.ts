@@ -5,6 +5,7 @@ import { listSlots, type Slot } from './blueprint.ts'
 import { db, type Sql } from './db.ts'
 import { wantedSizeKeys } from './finder/classify.ts'
 import { OPEN_STATUSES, type Rates } from './finder/filter.ts'
+import { FALLBACK_RATES } from './finder/fx.ts'
 import { pieceFromPurchase, syncSlotPieces } from './pieces.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
@@ -41,6 +42,9 @@ export type Price = {
   /** Converted at the run's rate; equal to cents for NZD. */
   nzdCents: number
   compareAtNzdCents: number | null
+  /** Where the store sells from, and whether it sends to New Zealand, for the line under a foreign price. */
+  country: string
+  shipsToNz: boolean
 }
 
 export type FindCard = {
@@ -63,6 +67,8 @@ export type FindCard = {
   price: Price
   sizes: string[]
   size_known: boolean
+  /** False for a store whose page gives no stock (Uniqlo): the sizes are what it makes, not what it has. */
+  stock_known: boolean
   /** The latest "See it on me" image of this find, if he asked for one. */
   on_me: OnMe | null
 }
@@ -113,6 +119,7 @@ export type Feed = {
 export type FindRow = Omit<FindCard, 'price' | 'try_on' | 'image' | 'on_me'> & {
   image: ProductImage | null
   currency: string
+  ships_to_nz: boolean
   wellington_store: WellingtonStore | null
   price_cents: number
   compare_at_cents: number | null
@@ -160,13 +167,18 @@ export function toNzd(cents: number, currency: string, rates: Rates): number {
   return Math.round(cents * (rates[currency] ?? 1))
 }
 
-export function findPrice(row: Pick<Row, 'price_cents' | 'compare_at_cents' | 'currency'>, rates: Rates): Price {
+export function findPrice(
+  row: Pick<Row, 'price_cents' | 'compare_at_cents' | 'currency' | 'country' | 'ships_to_nz'>,
+  rates: Rates,
+): Price {
   return {
     cents: row.price_cents,
     compareAtCents: row.compare_at_cents,
     currency: row.currency,
     nzdCents: toNzd(row.price_cents, row.currency, rates),
     compareAtNzdCents: row.compare_at_cents === null ? null : toNzd(row.compare_at_cents, row.currency, rates),
+    country: row.country,
+    shipsToNz: row.ships_to_nz,
   }
 }
 
@@ -191,6 +203,7 @@ export function findCard(row: Row, rates: Rates): FindCard {
     price: findPrice(row, rates),
     sizes: row.sizes,
     size_known: row.size_known,
+    stock_known: row.stock_known,
     on_me: null,
   }
 }
@@ -211,9 +224,14 @@ export async function latestRun(sql: Sql | TransactionSql = db()): Promise<Run |
   return run ?? null
 }
 
+/**
+ * The run's recorded rates. A currency it did not record (a link from a store
+ * switched off, or from Uniqlo, before the next run reads its rate) takes the
+ * conservative constant, never one to one.
+ */
 export function runRates(run: Run | null): Rates {
   const fx = run?.stats.fx as { rates?: Rates } | undefined
-  return { NZD: 1, ...(fx?.rates ?? {}) }
+  return { ...FALLBACK_RATES, ...(fx?.rates ?? {}), NZD: 1 }
 }
 
 /**
@@ -255,7 +273,7 @@ export async function getFeed(): Promise<Feed> {
     .filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
     .map((slot) => ({ id: slot.id, name: slot.name }))
   if (!run) {
-    const saved = await getSaved(sql, null, { NZD: 1 })
+    const saved = await getSaved(sql, null, runRates(null))
     await attachTryOns(sql, saved)
     return { run: null, groups: [], saved, quietSlots: 0, total: 0, slotNames, openSlots }
   }
@@ -269,7 +287,8 @@ export async function getFeed(): Promise<Feed> {
     select c.product_id::int as product_id, s.slot_id::int as slot_id, s.score, s.why,
            s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
-           r.name as retailer, r.country, r.currency, r.wellington_store,
+           r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
+           r.platform = 'shopify' as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known
     from finder_candidates c
     join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
@@ -347,7 +366,8 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
            a.price_cents as saved_price_cents,
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
-           r.name as retailer, r.country, r.currency, r.wellington_store,
+           r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
+           r.platform = 'shopify' as stock_known,
            coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
            coalesce(c.compare_at_cents, v.compare_at_cents) as compare_at_cents,
            coalesce(c.sizes, v.sizes, '{}') as sizes, coalesce(c.size_known, false) as size_known,

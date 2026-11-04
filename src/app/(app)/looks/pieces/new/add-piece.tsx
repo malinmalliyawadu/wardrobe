@@ -191,7 +191,7 @@ function LinkStep({
   return (
     <div className="mt-6">
       <p className="max-w-[44ch] text-[0.9375rem] leading-relaxed text-ink-2">
-        Bought it from one of the shops? Paste the product page and its photo and details come with it.
+        Bought it from one of the shops, or from Uniqlo? Paste the product page and its photo and details come with it.
       </p>
       <form action={action} className="mt-5 space-y-4" key={state?.values ? JSON.stringify(state.values) : 'blank'}>
         <Field label="Product link" name="link" error={state?.errors?.link}>

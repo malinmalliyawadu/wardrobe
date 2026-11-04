@@ -385,10 +385,10 @@ export async function editImage(request: EditRequest, fetchImpl: typeof fetch = 
 // Inputs
 // ---------------------------------------------------------------------------
 
-/** Shopify's CDN resizes on a width parameter, and protocol-relative sources are common. */
+/** Shopify's CDN and Uniqlo's image host resize on a width parameter, and protocol-relative sources are common. */
 export function productImageUrl(src: string, width = PRODUCT_EDGE): string {
   const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  if (url.hostname.endsWith('cdn.shopify.com') || url.pathname.includes('/cdn/shop/')) {
+  if (url.hostname.endsWith('cdn.shopify.com') || url.pathname.includes('/cdn/shop/') || url.hostname === 'image.uniqlo.com') {
     url.searchParams.set('width', String(width))
   }
   return url.toString()

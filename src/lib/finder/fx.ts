@@ -12,7 +12,7 @@ import type { Rates } from './filter.ts'
  */
 
 /** On the high side (November 2026), so an outage errs toward over budget, never under. */
-const FALLBACK: Rates = { NZD: 1, GBP: 2.4, AUD: 1.15, USD: 1.8, EUR: 2.05 }
+export const FALLBACK_RATES: Rates = { NZD: 1, GBP: 2.4, AUD: 1.15, USD: 1.8, EUR: 2.05 }
 
 export type RatesResult = { rates: Rates; source: 'ecb' | 'last_run' | 'fallback'; date: string | null }
 
@@ -45,6 +45,6 @@ export async function loadRates(sql: Sql, currencies: string[], fetcher: typeof 
     if (lastRates && foreign.every((currency) => typeof lastRates[currency] === 'number')) {
       return { rates: lastRates, source: 'last_run', date: last.fx?.date ?? null }
     }
-    return { rates: FALLBACK, source: 'fallback', date: null }
+    return { rates: FALLBACK_RATES, source: 'fallback', date: null }
   }
 }

@@ -36,6 +36,8 @@ export type ShopPiece = {
   sizes: string[]
   /** True when the sizes are his, known for this garment and narrowed to. */
   size_known: boolean
+  /** Every store Shops lists is walked nightly, with stock per size. */
+  stock_known: true
   /** Claude's latest judgement, of this or an earlier version of the listing. */
   judged: { score: number; slot_id: number | null; why: string | null } | null
   /** On the latest run's shortlist: the rules let it through for one of his slots. */
@@ -63,6 +65,8 @@ type Row = {
   image: ProductImage | null
   retailer: string
   currency: string
+  country: string
+  ships_to_nz: boolean
   wellington_store: WellingtonStore | null
   garment_type: GarmentType | null
   price_cents: number
@@ -132,7 +136,7 @@ export async function searchShops(query: ShopQuery, sql: Sql = db()): Promise<Sh
     listed as (
       select p.id::int as product_id, p.title, p.vendor, p.url, p.images -> 0 as image, p.garment_type,
              p.first_seen_at,
-             r.name as retailer, r.currency, r.wellington_store,
+             r.name as retailer, r.currency, r.country, r.ships_to_nz, r.wellington_store,
              w.keys is not null as size_known,
              v.price_cents, v.compare_at_cents, v.sizes,
              round(v.price_cents * coalesce(x.rate, 1)) as nzd_cents,
@@ -145,7 +149,7 @@ export async function searchShops(query: ShopQuery, sql: Sql = db()): Promise<Sh
                else 4
              end as tier
       from products p
-      join retailers r on r.id = p.retailer_id and r.enabled
+      join retailers r on r.id = p.retailer_id and r.enabled and r.platform = 'shopify'
       left join rates x on x.currency = r.currency
       left join wanted w on w.garment_type = p.garment_type
       cross join lateral (
@@ -172,7 +176,8 @@ export async function searchShops(query: ShopQuery, sql: Sql = db()): Promise<Sh
              ilike all (${patterns}::text[])
         )
     )
-    select l.product_id, l.title, l.vendor, l.url, l.image, l.garment_type, l.retailer, l.currency, l.wellington_store,
+    select l.product_id, l.title, l.vendor, l.url, l.image, l.garment_type, l.retailer, l.currency, l.country, l.ships_to_nz,
+           l.wellington_store,
            l.size_known, l.price_cents, l.compare_at_cents, l.sizes,
            l.score, l.score_slot_id, l.why, l.shortlisted,
            a.action, a.slot_id::int as action_slot_id, a.reason,
@@ -214,6 +219,7 @@ function piece(row: Row, rates: Record<string, number>, today: Set<number>): Sho
     // One row per colour repeats each size; keep the store's order.
     sizes: [...new Set(row.sizes ?? [])],
     size_known: row.size_known,
+    stock_known: true,
     judged: row.score === null ? null : { score: row.score, slot_id: row.score_slot_id, why: row.why },
     shortlisted: row.shortlisted,
     on_today: today.has(row.product_id),

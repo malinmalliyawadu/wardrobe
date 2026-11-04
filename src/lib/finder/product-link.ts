@@ -5,21 +5,30 @@ import type { Retailer } from '../retailers.ts'
 
 import { DisallowedError, FetchError, type PoliteClient } from './http.ts'
 import { writePage } from './ingest.ts'
-import { normaliseProduct, ShopifyProductSchema, type ShopifyProduct } from './shopify.ts'
+import { normaliseProduct, ShopifyProductSchema, type NormalisedProduct, type ShopifyProduct } from './shopify.ts'
+import {
+  chooseColour,
+  fetchUniqloProduct,
+  normaliseUniqlo,
+  parseUniqloHandle,
+  parseUniqloLink,
+  UniqloPageError,
+  uniqloHandle,
+} from './uniqlo.ts'
 
 /*
  * A product Malin pastes a link to, rather than one the finder found. Any
- * product page on one of the stores: the product is read from the store's own
- * /products/<handle>.js (the per-product endpoint every Shopify theme serves,
- * with stock per size), through the same polite client as the nightly walk,
- * and stored like any other product so the nightly run keeps its price and
- * stock current.
+ * product page on one of the stores, read through the same polite client as
+ * the nightly walk and stored like any other product, so the nightly run
+ * keeps its price and stock current. A Shopify store's product is read from
+ * its own /products/<handle>.js (the per-product endpoint every Shopify theme
+ * serves, with stock per size); Uniqlo's from its product page (uniqlo.ts).
  */
 
 export class ProductLinkError extends Error {}
 
-/** "https://www.countryroad.co.nz/en-nz/collections/man/products/longline-short-60322146?variant=1" -> its host and handle. */
-export function parseProductLink(input: string): { host: string; handle: string } {
+/** A pasted link as a URL, or the reason it is not one. */
+export function parseLink(input: string): URL {
   let url: URL
   try {
     url = new URL(input.trim())
@@ -29,8 +38,16 @@ export function parseProductLink(input: string): { host: string; handle: string 
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new ProductLinkError('That is not a web link. Paste the address of a product page.')
   }
+  return url
+}
+
+const NOT_A_PRODUCT = 'That is not a product page. Open the product itself and copy its address.'
+
+/** "https://www.countryroad.co.nz/en-nz/collections/man/products/longline-short-60322146?variant=1" -> its host and handle. */
+export function parseProductLink(input: string): { host: string; handle: string } {
+  const url = parseLink(input)
   const match = /\/products\/([a-z0-9][a-z0-9-]*)(?:\.(?:js|json))?\/?$/i.exec(url.pathname)
-  if (!match) throw new ProductLinkError('That is not a product page. Open the product itself and copy its address.')
+  if (!match) throw new ProductLinkError(NOT_A_PRODUCT)
   return { host: bareHost(url.host), handle: match[1]!.toLowerCase() }
 }
 
@@ -100,19 +117,58 @@ export function fromProductJs(raw: unknown): ShopifyProduct {
   })
 }
 
-/** Reads one product from its store. Null when the store says it no longer exists. */
-export async function fetchProduct(client: PoliteClient, retailer: Retailer, handle: string): Promise<ShopifyProduct | null> {
-  const origin = retailer.feed_url ?? retailer.base_url
+/** Reads one product from its store, ready to store. Null when the store says it no longer exists. */
+export async function fetchProduct(client: PoliteClient, retailer: Retailer, handle: string): Promise<NormalisedProduct | null> {
   try {
-    return fromProductJs(await client.json(`${origin}/products/${handle}.js`))
+    if (retailer.platform === 'uniqlo') return await fetchUniqlo(client, retailer, handle)
+    const origin = retailer.feed_url ?? retailer.base_url
+    const raw = fromProductJs(await client.json(`${origin}/products/${handle}.js`))
+    return normaliseProduct(raw, { base_url: retailer.base_url, catalogue: storedCatalogue(retailer) })
   } catch (error) {
     if (error instanceof FetchError && error.status === 404) return null
     if (error instanceof DisallowedError) {
       throw new ProductLinkError(`${retailer.name} does not allow its product pages to be read automatically.`)
     }
-    if (error instanceof z.ZodError) throw new ProductLinkError(`${retailer.name} answered with something that is not a product.`)
+    if (error instanceof z.ZodError || error instanceof UniqloPageError) {
+      throw new ProductLinkError(`${retailer.name} answered with something that is not a product.`)
+    }
     throw error
   }
+}
+
+/**
+ * One colour of a Uniqlo product. A stored handle names its colour; a pasted
+ * link may not, which is fine when there is only one. A colour Uniqlo no
+ * longer lists is gone, like a product it no longer has.
+ */
+async function fetchUniqlo(client: PoliteClient, retailer: Retailer, handle: string): Promise<NormalisedProduct | null> {
+  const link = parseUniqloHandle(handle)
+  if (!link) throw new UniqloPageError(`not a Uniqlo handle: ${handle}`)
+  const product = await fetchUniqloProduct(client, retailer.base_url, link)
+  if (!product) return null
+  const chosen = chooseColour(product, link.colour)
+  if ('missing' in chosen) {
+    if (chosen.missing === 'gone') return null
+    throw new ProductLinkError(
+      `Uniqlo sells it in ${listed(chosen.choices)}. Choose yours on Uniqlo’s page, then copy the link again.`,
+    )
+  }
+  return normaliseUniqlo(product, chosen.colour, retailer)
+}
+
+function listed(words: string[]): string {
+  const lower = words.map((word) => word.toLowerCase())
+  return lower.length <= 1 ? (lower[0] ?? 'several colours') : `${lower.slice(0, -1).join(', ')} and ${lower.at(-1)}`
+}
+
+/** The handle fetchProduct takes for a pasted link: the Shopify handle, or the Uniqlo product and colour. */
+function handleForLink(retailer: Retailer, url: URL): string {
+  if (retailer.platform === 'uniqlo') {
+    const link = parseUniqloLink(url)
+    if (!link) throw new ProductLinkError(NOT_A_PRODUCT)
+    return uniqloHandle(link)
+  }
+  return parseProductLink(url.toString()).handle
 }
 
 /** Reads a pasted link's product and stores it. Returns the product's id. */
@@ -122,21 +178,22 @@ export async function addProductFromLink(
   retailers: Retailer[],
   link: string,
 ): Promise<{ productId: number; title: string; retailer: string }> {
-  const { host, handle } = parseProductLink(link)
+  const url = parseLink(link)
+  const host = bareHost(url.host)
   const retailer = retailerForHost(retailers, host)
   if (!retailer) {
     const names = retailers.map((store) => store.name).join(', ')
     throw new ProductLinkError(`Wardrobe can only read the shops it knows: ${names}. That link is from ${host}.`)
   }
-  let raw: ShopifyProduct | null
+  const handle = handleForLink(retailer, url)
+  let product: NormalisedProduct | null
   try {
-    raw = await fetchProduct(client, retailer, handle)
+    product = await fetchProduct(client, retailer, handle)
   } catch (error) {
     if (error instanceof ProductLinkError) throw error
     throw new ProductLinkError(`${retailer.name} did not answer. Try again in a minute.`)
   }
-  if (!raw) throw new ProductLinkError(`${retailer.name} has no product at that link any more.`)
-  const product = normaliseProduct(raw, { base_url: retailer.base_url, catalogue: storedCatalogue(retailer) })
+  if (!product) throw new ProductLinkError(`${retailer.name} has no product at that link any more.`)
   await writePage(sql, retailer.id, [product])
   const [row] = await sql<{ id: number }[]>`
     select id::int as id from products where retailer_id = ${retailer.id} and external_id = ${product.external_id}
@@ -178,9 +235,9 @@ export async function refreshSaved(
     const retailer = byId.get(row.retailer_id)
     if (!retailer || !row.handle) continue
     try {
-      const raw = await fetchProduct(client, retailer, row.handle)
+      const product = await fetchProduct(client, retailer, row.handle)
       stats.checked += 1
-      if (!raw) {
+      if (!product) {
         await sql.begin(async (tx) => {
           await tx`update products set removed_at = coalesce(removed_at, now()) where id = ${row.id}`
           // Each size it still had is now out, and recorded so, so Saved can say when it went.
@@ -195,7 +252,7 @@ export async function refreshSaved(
         stats.removed += 1
         continue
       }
-      await writePage(sql, retailer.id, [normaliseProduct(raw, { base_url: retailer.base_url, catalogue: storedCatalogue(retailer) })])
+      await writePage(sql, retailer.id, [product])
     } catch {
       stats.failed += 1
     }
