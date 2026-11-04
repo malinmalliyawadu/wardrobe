@@ -89,10 +89,11 @@ export const UniqloProductSchema = z.object({
   longDescription: z.string().nullable().optional(),
   designDetail: z.string().nullable().optional(),
   tags: z.array(z.object({ tagName: z.string(), display: z.boolean().optional() })).default([]),
+  // A shot can be a video ({ video: "...mp4" }, no image); those are left out.
   images: z
     .object({
-      main: z.record(z.string(), z.object({ image: z.string() })).default({}),
-      sub: z.array(z.object({ image: z.string(), colorCode: z.string().nullable().optional() })).default([]),
+      main: z.record(z.string(), z.object({ image: z.string().optional() })).default({}),
+      sub: z.array(z.object({ image: z.string().optional(), colorCode: z.string().nullable().optional() })).default([]),
     })
     .default({ main: {}, sub: [] }),
   productLifeCycleData: z.object({ isDiscontinuedProduct: z.boolean().optional() }).nullable().optional(),
@@ -227,12 +228,13 @@ export function normaliseUniqlo(
   )
 
   // The colour's own photo first, then the extra shots of that colour (a
-  // model wearing another colour is left out).
-  const main = product.images.main[colourCode]?.image
+  // model wearing another colour is left out, and so is a video).
   const images: ProductImage[] = [
-    ...(main ? [main] : []),
+    product.images.main[colourCode]?.image,
     ...product.images.sub.filter((sub) => sub.colorCode === colourCode).map((sub) => sub.image),
-  ].map((src) => ({ src, width: null, height: null, alt: `${title}, ${colourLabel}` }))
+  ]
+    .filter((src): src is string => Boolean(src))
+    .map((src) => ({ src, width: null, height: null, alt: `${title}, ${colourLabel}` }))
 
   const link = { productId: product.productId, priceGroup: product.priceGroup, colour: colourCode }
   return {
