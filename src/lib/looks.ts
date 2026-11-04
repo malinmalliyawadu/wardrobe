@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import type postgres from 'postgres'
 import { z } from 'zod'
 
 import { MODELS, callUsd } from './claude.ts'
@@ -154,7 +155,7 @@ export type History = {
   worn: Map<number, number>
 }
 
-function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | null, worn: Map<number, number>) {
+export function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | null, worn: Map<number, number>) {
   return {
     id: piece.id,
     name: piece.name,
@@ -228,7 +229,7 @@ export async function draftLooks(input: Parameters<typeof buildLooksMessages>[0]
 }
 
 /** The pieces as a sorted id list, to tell two looks apart. */
-function signature(ids: number[]): string {
+export function signature(ids: number[]): string {
   return [...ids].sort((a, b) => a - b).join(',')
 }
 
@@ -241,16 +242,16 @@ function signature(ids: number[]): string {
  * put in layer order, and a better_with that is not one of his wanted slots
  * is dropped.
  */
-export function tidyLooks(
-  drafts: LookDraft[],
+export function tidyLooks<T extends LookDraft>(
+  drafts: T[],
   pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at'>[],
   wanted: Pick<WantedSlot, 'id'>[],
   history: Pick<History, 'saved' | 'dismissed'>,
-): (LookDraft & { piece_ids: number[] })[] {
+): T[] {
   const byId = new Map(pieces.filter((piece) => !piece.set_aside_at && piece.garment_type !== 'activewear').map((piece) => [piece.id, piece]))
   const wantedIds = new Set(wanted.map((slot) => slot.id))
   const seen = new Set([...history.saved, ...history.dismissed].map((look) => signature(look.piece_ids)))
-  const out: (LookDraft & { piece_ids: number[] })[] = []
+  const out: T[] = []
 
   for (const draft of drafts) {
     const ids = [...new Set(draft.piece_ids)].filter((id) => byId.has(id))
@@ -337,28 +338,38 @@ export async function saveSet(
       returning id::int as id
     `
     if (!set) throw new Error('set insert returned nothing')
-    for (const [position, look] of draft.looks.entries()) {
-      const [row] = await tx<{ id: number }[]>`
-        insert into looks ${tx({
-          set_id: set.id,
-          position,
-          title: look.title,
-          occasion: look.occasion,
-          weather: look.weather,
-          why: look.why,
-          styling: look.styling,
-          better_slot_id: look.better_with?.slot_id ?? null,
-          better_why: look.better_with?.why ?? null,
-          piece_count: look.piece_ids.length,
-        })}
-        returning id::int as id
-      `
-      await tx`
-        insert into look_pieces ${tx(look.piece_ids.map((piece_id, index) => ({ look_id: row!.id, piece_id, position: index })))}
-      `
-    }
+    for (const [position, look] of draft.looks.entries()) await insertLook(tx, set.id, position, look)
     return set.id
   })
+}
+
+/** One look of a set and its pieces, in order. Returns the look's id. */
+export async function insertLook(
+  tx: Sql | postgres.TransactionSql,
+  setId: number,
+  position: number,
+  look: Omit<LookDraft, 'better_with'> & { better_with?: LookDraft['better_with'] },
+): Promise<number> {
+  const [row] = await tx<{ id: number }[]>`
+    insert into looks ${tx({
+      set_id: setId,
+      position,
+      title: look.title,
+      occasion: look.occasion,
+      weather: look.weather,
+      why: look.why,
+      styling: look.styling,
+      better_slot_id: look.better_with?.slot_id ?? null,
+      better_why: look.better_with?.why ?? null,
+      piece_count: look.piece_ids.length,
+    })}
+    returning id::int as id
+  `
+  if (!row) throw new Error('look insert returned nothing')
+  await tx`
+    insert into look_pieces ${tx(look.piece_ids.map((piece_id, index) => ({ look_id: row.id, piece_id, position: index })))}
+  `
+  return row.id
 }
 
 export type Look = {
@@ -397,28 +408,29 @@ export type LooksPage = {
   total: { sets: number; usd: number }
 }
 
-/** The newest set's looks he has not dismissed, and the looks he saved from earlier sets. */
-export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
-  const [latest] = await sql<LookSet[]>`
-    select id::int as id, note, usd::float as usd, proposed, coalesce((context ->> 'pieces')::int, 0) as pieces, created_at
-    from look_sets order by created_at desc, id desc limit 1
-  `
-  const [total] = await sql<{ sets: number; usd: number }[]>`
-    select count(*)::int as sets, coalesce(sum(usd), 0)::float as usd from look_sets
-  `
-  const rows = await sql<(Omit<Look, 'pieces' | 'better' | 'worn' | 'on_me'> & { piece_ids: number[]; better_slot_id: number | null; better_name: string | null; better_colours: string[] | null; better_why: string | null; worn: string[] })[]>`
+type LookRow = Omit<Look, 'pieces' | 'better' | 'on_me'> & {
+  piece_ids: number[]
+  better_slot_id: number | null
+  better_name: string | null
+  better_colours: string[] | null
+  better_why: string | null
+}
+
+/** Looks with their pieces, the slot that would lift them, the days worn and the latest try-on. */
+async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.Fragment): Promise<Look[]> {
+  const rows = await sql<LookRow[]>`
     select l.id::int as id, l.set_id::int as set_id, l.title, l.occasion, l.weather, l.why, l.styling, l.status, l.piece_count,
            l.better_slot_id::int as better_slot_id, s.name as better_name, s.colours as better_colours, l.better_why,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids,
            array(select to_char(w.worn_on, 'YYYY-MM-DD') from look_wears w where w.look_id = l.id order by w.worn_on desc) as worn
     from looks l
     left join blueprint_slots s on s.id = l.better_slot_id and s.status in ('wanted', 'candidate')
-    where l.status = 'saved' or (l.status = 'new' and l.set_id = ${latest?.id ?? 0})
-    order by l.set_id = ${latest?.id ?? 0} desc, l.position, l.acted_at desc
+    where ${where}
+    order by ${order}
   `
   const [pieceList, onMe] = await Promise.all([listPieces(sql), latestLookTryOns(rows.map((row) => row.id), sql)])
   const pieces = new Map(pieceList.map((piece) => [piece.id, piece]))
-  const looks: Look[] = rows.map((row) => ({
+  return rows.map((row) => ({
     id: row.id,
     set_id: row.set_id,
     title: row.title,
@@ -436,6 +448,36 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
     worn: row.worn,
     on_me: onMe.get(row.id) ?? null,
   }))
+}
+
+/** Some looks by id, in the order asked for. */
+export async function getLooks(ids: number[], sql: Sql = db()): Promise<Look[]> {
+  if (ids.length === 0) return []
+  const looks = await selectLooks(sql, sql`l.id in ${sql(ids)}`, sql`l.id`)
+  const byId = new Map(looks.map((look) => [look.id, look]))
+  return ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))
+}
+
+/**
+ * The newest set's looks he has not dismissed, and the looks he saved from
+ * earlier sets. The outfit of the day's sets are not sets he made here, so
+ * the newest is the newest he made; a day's look he saved or wore is with
+ * the saved.
+ */
+export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
+  const [latest] = await sql<LookSet[]>`
+    select id::int as id, note, usd::float as usd, proposed, coalesce((context ->> 'pieces')::int, 0) as pieces, created_at
+    from look_sets where kind = 'set' order by created_at desc, id desc limit 1
+  `
+  const [total] = await sql<{ sets: number; usd: number }[]>`
+    select count(*)::int as sets, coalesce(sum(usd), 0)::float as usd from look_sets where kind = 'set'
+  `
+  const latestId = latest?.id ?? 0
+  const looks = await selectLooks(
+    sql,
+    sql`l.status = 'saved' or (l.status = 'new' and l.set_id = ${latestId})`,
+    sql`l.set_id = ${latestId} desc, l.position, l.acted_at desc`,
+  )
   // A look saved from the newest set stays where it is, so a tap never moves the card under his finger.
   const inLatest = (look: Look) => latest !== undefined && look.set_id === latest.id
   return {
