@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
+import { Suspense } from 'react'
 
-import { Nav, Wordmark } from '@/components/nav'
+import { Nav, NavShell, Wordmark } from '@/components/nav'
 
 import './globals.css'
 
@@ -57,7 +58,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
     <html lang="en-NZ" className={`${display.variable} ${sans.variable}`}>
       <body className="min-h-dvh bg-ground font-sans text-ink">
         <div className="lg:grid lg:min-h-dvh lg:grid-cols-[13rem_minmax(0,1fr)]">
-          <Nav />
+          <Suspense fallback={<NavShell />}>
+            <Nav />
+          </Suspense>
           <div className="min-w-0">
             <header className="px-5 pt-[calc(1rem+env(safe-area-inset-top))] lg:hidden">
               <Wordmark />

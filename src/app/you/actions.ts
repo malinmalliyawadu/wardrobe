@@ -20,26 +20,9 @@ import {
   saveTaste,
 } from '@/lib/profile'
 import { parseStoredAnalysis } from '@/lib/analysis'
+import { echo, type ActionState } from '@/lib/action-state'
 
-export type ActionState = {
-  ok: boolean
-  message?: string
-  errors?: Record<string, string>
-  /**
-   * What was submitted, echoed back on a validation error. React 19 resets a
-   * form once its action returns, so without this every other field would be
-   * wiped while the user fixes the one that was wrong.
-   */
-  values?: Record<string, string>
-} | null
-
-function echo(form: FormData): Record<string, string> {
-  const values: Record<string, string> = {}
-  for (const [key, value] of form.entries()) {
-    if (typeof value === 'string') values[key] = value
-  }
-  return values
-}
+export type { ActionState }
 
 /** Every profile mutation touches Today and the hub, so refresh the tree. */
 function refreshAll(): void {

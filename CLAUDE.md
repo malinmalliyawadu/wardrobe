@@ -102,3 +102,21 @@ place of a blue-violet that belonged to winter. M1 gate passed. A window-light
 face photo would still firm up the season, since 60 on holiday light is a
 lean, not a lock. Each
 milestone ends with Malin using it and agreeing before the next starts.
+
+M2 built 2026-11-04, gate pending. `src/lib/style-guide.ts` and
+`src/lib/blueprint.ts` make their Opus calls through `src/lib/structured.ts`:
+streamed (a whole blueprint outruns a non-streaming timeout), high effort,
+server-side fallback, the JSON parsed only after the stop reason is checked,
+and every en or em dash Claude writes turned into a plain hyphen. Code holds
+Claude to the prompt's rules after the call (`tidyDraft`): slot colours must
+be guide hexes, bands are ordered and capped at the category ceiling. Pages:
+the Blueprint tab (slots by priority, reorder, retired with refill, redraft
+with a note), `/blueprint/[id]` (status on tap, edit, hold to delete),
+`/blueprint/new`, `/blueprint/guide` and one editor per guide section. Today's
+fan wears the guide's first five best colours. First real run: guide in 81 s
+(7.3k output tokens), 34 slots in 90 s (10.2k), a refill in 10 s. Life, taste
+and budget were still empty, so the draft assumes office days, weekends and
+evenings out and the bands are Claude's NZ estimates; fill those and redraft.
+Cache Components keeps visited pages in the DOM hidden by `<Activity>`: in
+browser checks, select visible elements only, and key server-fed forms on
+what they edit so a return visit shows saved values.

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { db } from './db.ts'
+import { finish, number, text, type ParseResult } from './form-parse.ts'
 import {
   BUILDS,
   CONTRAST_LEVELS,
@@ -196,55 +197,7 @@ export async function confirmColouring(values: Colouring): Promise<void> {
   `
 }
 
-/*
- * FormData parsing. Empty strings mean "not given" and become null; numbers
- * are parsed leniently ("102", "102.5", " 102 ") and then validated by the
- * schema, which returns one message per bad field.
- */
-
-export type ParseResult<T> = { ok: true; data: T } | { ok: false; errors: Record<string, string> }
-
-function text(form: FormData, name: string): string | null {
-  const value = form.get(name)
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed === '' ? null : trimmed
-}
-
-function number(form: FormData, name: string): number | null | 'invalid' {
-  const raw = text(form, name)
-  if (raw === null) return null
-  const value = Number(raw.replace(',', '.'))
-  return Number.isFinite(value) ? value : 'invalid'
-}
-
-function finish<T>(schema: z.ZodType<T>, candidate: Record<string, unknown>): ParseResult<T> {
-  const invalid = Object.entries(candidate).filter(([, value]) => value === 'invalid')
-  if (invalid.length > 0) {
-    return { ok: false, errors: Object.fromEntries(invalid.map(([key]) => [key, 'Enter a number'])) }
-  }
-  const result = schema.safeParse(candidate)
-  if (result.success) return { ok: true, data: result.data }
-  const errors: Record<string, string> = {}
-  for (const issue of result.error.issues) {
-    const key = String(issue.path[0] ?? 'form')
-    errors[key] ??= issueMessage(issue)
-  }
-  return { ok: false, errors }
-}
-
-function issueMessage(issue: z.core.$ZodIssue): string {
-  switch (issue.code) {
-    case 'too_small':
-      return `At least ${issue.minimum}`
-    case 'too_big':
-      return `At most ${issue.maximum}`
-    case 'invalid_value':
-      return 'Pick one of the options'
-    default:
-      return 'Check this value'
-  }
-}
+export type { ParseResult }
 
 export function parseSizesForm(form: FormData): ParseResult<{ height_cm: number | null; sizes: Sizes; fits: Fits }> {
   const height = number(form, 'height_cm')

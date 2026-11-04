@@ -48,6 +48,24 @@ are GBP and are converted for display, never stored converted.
 dimensions. The database backup stays small and the files can be deleted
 independently of the profile derived from them.
 
+**The style guide is one jsonb column per section** (`palette`,
+`silhouette`, `shoes`, `accessories`, `fit_vocabulary`), each validated by the
+zod schemas in `src/lib/style-guide.ts` on the way in and out. A row whose
+shape no longer parses reads as "no guide" rather than crashing a page.
+
+**Slots record who changed them** (migration 0002). `edited_at` is set by the
+edit form only, never by a status change or a reorder, and a redraft keeps
+every slot Malin wrote (`source = 'malin'`), edited, owns or has a candidate
+for; it replaces only Claude's untouched wanted and retired slots.
+`replaces_id` links a refill to the retired slot it took over from, unique so
+a retired slot is refilled once. `garment_type` and `fit` gained check
+constraints because the finder filters on both; the lists live in
+`src/lib/wardrobe-values.ts` and `src/lib/profile-values.ts`.
+
+**Slot colours are hex values from the guide palette**, so the swatches and
+the finder speak the same palette. The colour name is looked up from the
+guide; `colour_family` carries the plain words a product title would use.
+
 ## Expected growth
 
 Eleven Shopify stores produce roughly 15,000 products and 60,000 variants on

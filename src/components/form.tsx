@@ -188,26 +188,35 @@ export function Select({
 export function SubmitButton({
   children,
   pending: pendingLabel,
+  variant = 'primary',
   className = '',
 }: {
   children: ReactNode
   pending: ReactNode
+  /** One primary per screen; everything else is quiet. */
+  variant?: 'primary' | 'quiet'
   className?: string
 }) {
   const { pending } = useFormStatus()
+  const look = variant === 'primary' ? 'btn-primary' : 'border border-line text-ink'
   return (
     <button
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
-      className={`btn-primary pressable relative inline-flex h-12 items-center justify-center rounded-full px-6 text-base font-medium disabled:cursor-progress ${className}`}
+      className={`${look} pressable inline-grid h-12 items-center justify-items-center rounded-full px-6 text-base font-medium disabled:cursor-progress ${className}`}
     >
-      <span className={`transition-opacity duration-150 ease-out ${pending ? 'opacity-0' : 'opacity-100'}`}>
+      {/* Both labels share one grid cell, so the button is as wide as the
+          longer of the two and the crossfade never changes its size. */}
+      <span
+        aria-hidden={pending || undefined}
+        className={`[grid-area:1/1] transition-opacity duration-150 ease-out ${pending ? 'opacity-0' : 'opacity-100'}`}
+      >
         {children}
       </span>
       <span
         aria-hidden={!pending}
-        className={`absolute inset-0 flex items-center justify-center gap-2 transition-opacity duration-150 ease-out ${pending ? 'opacity-100' : 'opacity-0'}`}
+        className={`flex items-center justify-center gap-2 whitespace-nowrap [grid-area:1/1] transition-opacity duration-150 ease-out ${pending ? 'opacity-100' : 'opacity-0'}`}
       >
         <Spinner />
         {pendingLabel}
@@ -222,6 +231,19 @@ export function Spinner() {
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
       <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
+  )
+}
+
+/**
+ * A line under a long-running button, shown only while its form is pending,
+ * so a two-minute wait says what is happening instead of looking stuck.
+ */
+export function PendingNote({ children }: { children: ReactNode }) {
+  const { pending } = useFormStatus()
+  return (
+    <p aria-live="polite" className={`text-sm text-ink-3 transition-opacity duration-200 ease-out ${pending ? 'opacity-100' : 'opacity-0'}`}>
+      {pending ? children : null}
+    </p>
   )
 }
 

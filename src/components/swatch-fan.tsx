@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react'
 
 /*
- * Undyed cloth, calico through charcoal, until the profile exists. After
- * that the fan shows the five strongest colours of Malin's season.
+ * Undyed cloth, calico through charcoal, until the profile exists. Then the
+ * five representative colours of Malin's season, and once the style guide
+ * exists, the first five of his own best colours.
  */
 export const BLANK_SWATCHES = ['#d9d2c5', '#bfb8ad', '#a39d93', '#857f76', '#5e5a54']
 const angles = [-26, -13, 0, 13, 26]

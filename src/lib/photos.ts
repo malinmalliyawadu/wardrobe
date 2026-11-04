@@ -29,8 +29,18 @@ export const ACCEPTED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/h
 
 export class PhotoError extends Error {}
 
+/*
+ * Photos live on a volume outside the app (PHOTOS_DIR), so the bundler must not
+ * try to trace these paths: without the turbopackIgnore hints it treats every
+ * runtime path as a reference into the project and copies the whole repository
+ * into the server output.
+ */
 export function photosDir(): string {
-  return path.resolve(process.env.PHOTOS_DIR ?? './data/photos')
+  return path.resolve(/*turbopackIgnore: true*/ process.env.PHOTOS_DIR ?? './data/photos')
+}
+
+function photoPath(file: string): string {
+  return path.join(/*turbopackIgnore: true*/ photosDir(), file)
 }
 
 /**
@@ -70,10 +80,9 @@ export async function storePhoto(input: { bytes: Buffer; mime: string; kind: Pho
   const name = sha256.slice(0, 24)
   const relative = `${name}.jpg`
 
-  const dir = photosDir()
-  await mkdir(dir, { recursive: true })
-  await writeFile(path.join(dir, relative), master.data)
-  await writeFile(path.join(dir, thumbName(relative)), thumb)
+  await mkdir(/*turbopackIgnore: true*/ photosDir(), { recursive: true })
+  await writeFile(/*turbopackIgnore: true*/ photoPath(relative), master.data)
+  await writeFile(/*turbopackIgnore: true*/ photoPath(thumbName(relative)), thumb)
 
   const [row] = await db()<Photo[]>`
     insert into profile_photos (kind, path, mime, bytes, width, height, sha256)
@@ -103,7 +112,7 @@ export async function photoFile(id: number, variant: 'master' | 'thumb'): Promis
   if (!row) return null
   const file = variant === 'thumb' ? thumbName(row.path) : row.path
   try {
-    return await readFile(path.join(photosDir(), file))
+    return await readFile(/*turbopackIgnore: true*/ photoPath(file))
   } catch {
     return null
   }
@@ -111,7 +120,7 @@ export async function photoFile(id: number, variant: 'master' | 'thumb'): Promis
 
 /** Base64 of the master file, which is what Claude is sent. */
 export async function photoBase64(photo: Pick<Photo, 'path'>): Promise<string> {
-  const bytes = await readFile(path.join(photosDir(), photo.path))
+  const bytes = await readFile(/*turbopackIgnore: true*/ photoPath(photo.path))
   return bytes.toString('base64')
 }
 
@@ -136,10 +145,9 @@ export async function removeAllPhotos(): Promise<number> {
 }
 
 async function unlinkPair(relative: string): Promise<void> {
-  const dir = photosDir()
   await Promise.all(
     [relative, thumbName(relative)].map((file) =>
-      unlink(path.join(dir, file)).catch((error: NodeJS.ErrnoException) => {
+      unlink(/*turbopackIgnore: true*/ photoPath(file)).catch((error: NodeJS.ErrnoException) => {
         if (error.code !== 'ENOENT') throw error
       }),
     ),

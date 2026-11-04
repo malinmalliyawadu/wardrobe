@@ -30,10 +30,20 @@ export function Wordmark() {
  * Three destinations. A bottom tab bar on the phone, a left rail from the
  * laptop breakpoint up. Switching tabs happens tens of times a day, so the
  * only motion is a 150ms colour change and the press feedback.
+ *
+ * The pathname is request data on dynamic routes (/blueprint/[id]), so the
+ * layout renders Nav inside Suspense with NavShell, the same bar with nothing
+ * marked, as the prerendered fallback.
  */
 export function Nav() {
-  const pathname = usePathname()
+  return <NavBar pathname={usePathname()} />
+}
 
+export function NavShell() {
+  return <NavBar pathname={null} />
+}
+
+function NavBar({ pathname }: { pathname: string | null }) {
   return (
     <nav
       aria-label="Main"
@@ -44,7 +54,7 @@ export function Nav() {
       </div>
       <ul className="mx-auto flex max-w-md items-stretch justify-around lg:mt-10 lg:max-w-none lg:flex-col lg:gap-1">
         {items.map(({ href, label, Icon }) => {
-          const active = pathname === href || (href !== '/' && pathname.startsWith(href))
+          const active = pathname !== null && (pathname === href || (href !== '/' && pathname.startsWith(href)))
           return (
             <li key={href} className="lg:w-full">
               <Link
