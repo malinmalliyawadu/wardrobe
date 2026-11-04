@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { fromProductJs, parseProductLink, ProductLinkError, retailerForHost } from '../src/lib/finder/product-link.ts'
+import { fromProductJs, parseProductLink, ProductLinkError, retailerForLink } from '../src/lib/finder/product-link.ts'
 import { normaliseProduct } from '../src/lib/finder/shopify.ts'
 
 /* A Country Road product's /products/<handle>.js, saved on 2026-11-04. */
@@ -25,12 +25,28 @@ test('a product link gives its host and handle, however it was copied', () => {
 
 test('a link belongs to the store whose site or feed host it is on', () => {
   const stores = [
-    { slug: 'country-road', base_url: 'https://www.countryroad.co.nz', feed_url: null },
-    { slug: 'crane-brothers', base_url: 'https://crane-brothers.com', feed_url: 'https://crane-brothers-nz.myshopify.com' },
+    { id: 1, slug: 'country-road', base_url: 'https://www.countryroad.co.nz/en-nz', feed_url: null },
+    { id: 2, slug: 'crane-brothers', base_url: 'https://crane-brothers.com', feed_url: 'https://crane-brothers-nz.myshopify.com' },
   ]
-  assert.equal(retailerForHost(stores, 'countryroad.co.nz')?.slug, 'country-road', 'with or without www')
-  assert.equal(retailerForHost(stores, 'crane-brothers-nz.myshopify.com')?.slug, 'crane-brothers')
-  assert.equal(retailerForHost(stores, 'asos.com'), null)
+  const store = (link: string) => retailerForLink(stores, new URL(link))?.slug ?? null
+  assert.equal(store('https://countryroad.co.nz/en-nz/products/x'), 'country-road', 'with or without www')
+  assert.equal(store('https://www.countryroad.co.nz/products/x'), 'country-road', 'outside its site path, still its host')
+  assert.equal(store('https://crane-brothers-nz.myshopify.com/products/x'), 'crane-brothers')
+  assert.equal(store('https://www.asos.com/products/x'), null)
+})
+
+test('on a host with a store per region, a link goes to its own region, else to the store added first', () => {
+  // Listed by name, as listRetailers does, so the order says nothing.
+  const stores = [
+    { id: 13, slug: 'uniqlo-us', base_url: 'https://www.uniqlo.com/us/en', feed_url: null },
+    { id: 12, slug: 'uniqlo', base_url: 'https://www.uniqlo.com/au/en', feed_url: null },
+  ]
+  const store = (link: string) => retailerForLink(stores, new URL(link))?.slug ?? null
+  assert.equal(store('https://www.uniqlo.com/us/en/products/E486600-000/00?colorDisplayCode=24'), 'uniqlo-us')
+  assert.equal(store('https://uniqlo.com/US/en/products/E486600-000/00'), 'uniqlo-us', 'whatever the case')
+  assert.equal(store('https://www.uniqlo.com/au/en/products/E475296-000/00'), 'uniqlo')
+  assert.equal(store('https://www.uniqlo.com/uk/en/products/E475296-000/00'), 'uniqlo', 'a region with no store of its own')
+  assert.equal(store('https://www.uniqlo.com/usa/products/E475296-000/00'), 'uniqlo', 'a path segment, not a prefix of one')
 })
 
 test('the per-product endpoint reads as a products.json product: cents to dollars, images with a scheme', () => {

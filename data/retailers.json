@@ -193,7 +193,7 @@
     },
     {
       "slug": "uniqlo",
-      "name": "Uniqlo",
+      "name": "Uniqlo AU",
       "platform": "uniqlo",
       "base_url": "https://www.uniqlo.com/au/en",
       "country": "AU",
@@ -201,7 +201,20 @@
       "ships_to_nz": false,
       "catalogue": "mixed",
       "enabled": false,
-      "notes": "Links only, for pieces he owns or wants: Uniqlo has no NZ online store and does not ship here (its AU help centre says so), and the site is not Shopify, so the finder never walks it and it has no switch on /you/finder. A pasted link from any Uniqlo region is read from the Australian page for the same product, whose HTML carries the product (colours, sizes, price, photos) in window.__PRELOADED_STATE__; per-size stock is not in it. Each colour is stored as its own product, as Country Road lists them. Probed 2026-11-05: robots.txt allows /au/en/products/, and the page answers the finder's own User-Agent.",
+      "notes": "Links only, for pieces he owns or wants: Uniqlo has no NZ online store and does not ship here (its AU help centre says so), and the site is not Shopify, so the finder never walks it and it has no switch on /you/finder. A pasted link is read from its own region's store when it has one here (Uniqlo US), and from the Australian page for the same product otherwise, since it is the store added first on uniqlo.com. The page's HTML carries the product (colours, sizes, price, photos) in window.__PRELOADED_STATE__; per-size stock is not in it. Each colour is stored as its own product, as Country Road lists them. Probed 2026-11-05: robots.txt allows /au/en/products/, and the page answers the finder's own User-Agent.",
+      "wellington_store": null
+    },
+    {
+      "slug": "uniqlo-us",
+      "name": "Uniqlo US",
+      "platform": "uniqlo",
+      "base_url": "https://www.uniqlo.com/us/en",
+      "country": "US",
+      "currency": "USD",
+      "ships_to_nz": false,
+      "catalogue": "mixed",
+      "enabled": false,
+      "notes": "Links only, like Uniqlo AU, for a link copied from the US site: many US products and colours are not sold in Australia, and the Australian page for them is a 404 (checked 2026-11-05: three of six US shirts). Read from the US page in USD, shown in NZD. Does not ship to NZ. Probed 2026-11-05: robots.txt allows /us/en/products/, and the page answers the finder's own User-Agent with the same preloaded state as AU's.",
       "wellington_store": null
     },
     {

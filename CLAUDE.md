@@ -153,8 +153,12 @@ that died; the next run closes it. Saved on Today also takes a pasted
 product link from any of the shops (`src/lib/finder/product-link.ts`), with
 or without a slot; the nightly run keeps those current too. Uniqlo (added
 2026-11-05, migration 0010) is links only: platform `uniqlo`, never walked
-and no switch, since it has no NZ online store. `src/lib/finder/uniqlo.ts`
-reads the AU product page's preloaded state (any region's link maps there),
+and no switch, since it has no NZ online store. Each region is its own
+store row (Uniqlo AU, Uniqlo US, added 2026-11-05 because many US products
+and colours are 404s on the AU site), and `retailerForLink` sends a link to
+the store whose site path it sits under, else to the one added first on the
+host (AU), so a UK or JP link is read from AU. `src/lib/finder/uniqlo.ts`
+reads the product page's preloaded state,
 stores each colour as its own product, and has no per-size stock, so cards
 say the sizes it makes rather than what is in stock. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with

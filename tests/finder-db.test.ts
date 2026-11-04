@@ -356,7 +356,7 @@ test('a currency the run did not record is converted at the conservative rate, n
   assert.equal(runRates(null).NZD, 1)
 })
 
-/** Uniqlo's site: robots.txt, and a product page per product id, from the saved fixtures. */
+/** Uniqlo's site: robots.txt, and a product page per region and product id ("au/E475296-000"), from the saved fixtures. */
 function fakeUniqlo(pages: Record<string, string | null>, seen: string[] = []) {
   return new PoliteClient({
     sleep: async () => {},
@@ -364,8 +364,8 @@ function fakeUniqlo(pages: Record<string, string | null>, seen: string[] = []) {
       const url = new URL(String(input))
       seen.push(url.pathname + url.search)
       if (url.pathname === '/robots.txt') return new Response('User-agent: *\nDisallow: /*/*/cart')
-      const id = /\/products\/([^/]+)\//.exec(url.pathname)?.[1] ?? ''
-      const html = pages[id]
+      const [, region, id] = /^\/([a-z]{2})\/[a-z]{2}\/products\/([^/]+)\//.exec(url.pathname) ?? []
+      const html = pages[`${region}/${id}`]
       return html ? new Response(html, { headers: { 'content-type': 'text/html' } }) : new Response(fixturePage('uniqlo-not-found.html'), { status: 404 })
     }) as typeof fetch,
   })
@@ -377,11 +377,20 @@ function fixturePage(name: string): string {
 
 test('a Uniqlo link is read from its page, one product per colour, never walked or switched', async () => {
   const file = RetailerFileSchema.parse(JSON.parse(readFileSync(new URL('../data/retailers.json', import.meta.url), 'utf8')))
-  const seed = file.retailers.find((store) => store.slug === 'uniqlo')!
-  assert.deepEqual([seed.platform, seed.enabled, seed.ships_to_nz], ['uniqlo', false, false])
-  await seedRetailers(sql, [seed])
+  const seeds = file.retailers.filter((store) => store.platform === 'uniqlo')
+  assert.deepEqual(
+    seeds.map((seed) => [seed.slug, seed.currency, seed.enabled, seed.ships_to_nz]),
+    [
+      ['uniqlo', 'AUD', false, false],
+      ['uniqlo-us', 'USD', false, false],
+    ],
+  )
+  await seedRetailers(sql, seeds)
   const stores = await listRetailers(sql)
-  let pages: Record<string, string | null> = { 'E475296-000': fixturePage('uniqlo-sweater.html') }
+  let pages: Record<string, string | null> = {
+    'au/E475296-000': fixturePage('uniqlo-sweater.html'),
+    'us/E486600-000': fixturePage('uniqlo-us-flannel.html'),
+  }
   const seen: string[] = []
   const client = () => fakeUniqlo(pages, seen)
 
@@ -397,8 +406,20 @@ test('a Uniqlo link is read from its page, one product per colour, never walked 
 
   // A UK link is read from the Australian page for the same product.
   const black = await addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/uk/en/products/E475296-000/00?colorDisplayCode=09')
-  assert.deepEqual([black.title, black.retailer], ['3D KNIT Crew Neck Sweater', 'Uniqlo'])
+  assert.deepEqual([black.title, black.retailer], ['3D KNIT Crew Neck Sweater', 'Uniqlo AU'])
   assert.equal(seen.at(-1), '/au/en/products/E475296-000/00?colorDisplayCode=09')
+
+  // A US link is read from the US page: this flannel shirt (saved from uniqlo.com/us/en on
+  // 2026-11-05) is not sold in Australia, where its page is a 404.
+  const flannel = await addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/us/en/products/E486600-000/00?colorDisplayCode=24')
+  assert.deepEqual([flannel.title, flannel.retailer], ['Flannel Shirt | Heather', 'Uniqlo US'])
+  assert.equal(seen.at(-1), '/us/en/products/E486600-000/00?colorDisplayCode=24')
+  const [usStored] = await sql<{ url: string; currency: string; price: number }[]>`
+    select p.url, r.currency, min(v.price_cents)::int as price
+    from products p join retailers r on r.id = p.retailer_id join product_variants v on v.product_id = p.id
+    where p.id = ${flannel.productId} group by p.id, r.currency
+  `
+  assert.deepEqual(usStored, { url: 'https://www.uniqlo.com/us/en/products/E486600-000/00?colorDisplayCode=24', currency: 'USD', price: 4990 })
   const navy = await addProductFromLink(sql, client(), stores, 'https://www.uniqlo.com/au/en/products/E475296-000/00?colorDisplayCode=69')
   assert.notEqual(navy.productId, black.productId, 'another colour is another product')
   const again = await addProductFromLink(sql, client(), stores, 'https://uniqlo.com/au/en/products/E475296-000/00?colorDisplayCode=09&sizeDisplayCode=004')
@@ -416,7 +437,7 @@ test('a Uniqlo link is read from its page, one product per colour, never walked 
     image: 'https://image.uniqlo.com/UQ/ST3/au/imagesgoods/475296/item/augoods_09_475296_3x4.jpg',
   })
 
-  assert.equal((await storeCounts(sql)).some((store) => store.slug === 'uniqlo'), false, 'no switch on /you/finder')
+  assert.equal((await storeCounts(sql)).some((store) => store.slug.startsWith('uniqlo')), false, 'no switch on /you/finder')
 
   // Saved, then gone from Uniqlo: the nightly refresh reads the page and marks it removed.
   await recordAction({ action: 'saved', product_id: black.productId, slot_id: null }, sql)

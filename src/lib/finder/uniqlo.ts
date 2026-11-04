@@ -24,8 +24,12 @@ import { contentHash, type NormalisedProduct, type NormalisedVariant, type Produ
  * ?colorDisplayCode=09; one that names none is fine for a product sold in one
  * colour, and otherwise has to say which.
  *
- * Links from any region (uniqlo.com/uk/en/..., /jp/ja/...) are read from the
- * store's own region for the same product id, so prices are in one currency.
+ * Each region with a store in data/retailers.json (Uniqlo AU, Uniqlo US) is
+ * its own retailer, in its own currency, since a product or colour sold in one
+ * region is often missing from another. A link is read from its own region's
+ * store (retailerForLink); one from a region with no store here
+ * (uniqlo.com/uk/en/..., /jp/ja/...) is read from Uniqlo AU's page for the
+ * same product id.
  */
 
 /** "/au/en/products/E475296-000/00" -> the product id and price group. */
