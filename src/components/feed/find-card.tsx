@@ -5,7 +5,8 @@ import { useState, useTransition } from 'react'
 import { feedAction } from '@/app/feed-actions'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
 
-import { PriceLine, ProductPhoto } from './product'
+import { PriceLine, sizeLine } from './product'
+import { ProductPhoto } from './product-photo'
 import type { ChangeLine } from './saved-change'
 import { SeeItOnMe } from './try-on'
 
@@ -22,20 +23,6 @@ const REASONS: { value: DismissReason; label: string }[] = [
   { value: 'price', label: 'Price' },
   { value: 'not_for_me', label: 'Not my thing' },
 ]
-
-/** "34 inch Waist x 32 inch Leg" reads as "34/32" on a card. */
-function shortSize(label: string): string {
-  const waistLeg = /^(\d{2})\s*(?:"|inch(?:es)?|in)?\s*waist\s*x\s*(\d{2})\s*(?:"|inch(?:es)?|in)?\s*leg$/i.exec(label.trim())
-  return waistLeg ? `${waistLeg[1]}/${waistLeg[2]}` : label
-}
-
-export function sizeLine(find: Find): string {
-  if (find.sizes.length === 1 && /^one size$/i.test(find.sizes[0]!)) return 'One size'
-  const sizes = [...new Set(find.sizes.map(shortSize))]
-  if (find.size_known) return `Your ${sizes.join(', ')} in stock`
-  const shown = sizes.slice(0, 6).join(', ')
-  return `In stock: ${shown}${sizes.length > 6 ? ' and more' : ''}`
-}
 
 type Mode = 'actions' | 'dismiss' | 'bought'
 

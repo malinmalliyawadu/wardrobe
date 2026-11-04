@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react'
 
 import { Spinner } from '@/components/form'
 import type { OnMe, Started } from '@/lib/try-on'
@@ -172,6 +172,8 @@ function Viewer({
 
   const cost = usd(onMe.usd)
   const titleId = `try-on-${onMe.id}`
+  const width = onMe.width ?? 3
+  const height = onMe.height ?? 4
 
   return (
     <dialog
@@ -199,13 +201,20 @@ function Viewer({
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-8">
           <figure className="min-w-0">
+            {/*
+             * Sized from the row, never from the file: an auto width waits on the
+             * decoded picture, and Safari sometimes settled it at a thumbnail's
+             * size. On the laptop it is as wide as the column allows while its
+             * height still fits the sheet.
+             */}
             {/* eslint-disable-next-line @next/next/no-img-element -- a private, already-sized file; the optimiser would only copy it */}
             <img
               src={`/photos/try-ons/${onMe.id}`}
               alt={content.alt}
-              width={onMe.width ?? undefined}
-              height={onMe.height ?? undefined}
-              className="mx-auto h-auto w-full rounded-xl bg-surface lg:max-h-[calc(92dvh-12rem)] lg:w-auto"
+              width={width}
+              height={height}
+              style={{ aspectRatio: `${width} / ${height}`, '--try-on-ratio': width / height } as CSSProperties}
+              className="mx-auto h-auto w-full rounded-xl bg-surface lg:w-[min(100%,calc((92dvh-12rem)*var(--try-on-ratio)))]"
             />
             <figcaption className="mt-2 text-[0.8125rem] text-ink-3">On you, made {madeOn(onMe)}</figcaption>
           </figure>
