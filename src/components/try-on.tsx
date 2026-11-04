@@ -9,8 +9,8 @@ import type { OnMe, Started } from '@/lib/try-on'
  * "See it on me", for a find and for a look alike. A tap records the request
  * and the image is made on the server, which takes about a minute; the card
  * asks for the status every few seconds meanwhile, and keeps asking if he
- * leaves and comes back. Once ready, the button carries a small copy of the
- * image and opens the viewer: him in it, beside what it was made from, so the
+ * leaves and comes back. Once ready, the button carries the whole image as a
+ * preview and opens the viewer: him in it, beside what it was made from, so the
  * colour can be judged against the clothes themselves.
  */
 
@@ -21,6 +21,10 @@ type Local = OnMe | { status: 'refused'; error: string }
 /** The status route sends dates as strings. */
 function revive(raw: OnMe): OnMe {
   return { ...raw, started_at: new Date(raw.started_at), photo_taken: new Date(raw.photo_taken) }
+}
+
+function madeOn(onMe: OnMe, month: 'long' | 'short' = 'long'): string {
+  return onMe.started_at.toLocaleDateString('en-NZ', { day: 'numeric', month, timeZone: 'Pacific/Auckland' })
 }
 
 function usd(value: number | null): string | null {
@@ -110,11 +114,26 @@ export function TryOn({
           <p className="mt-0.5 text-[0.8125rem] leading-snug text-ink-3">About a minute. It carries on if you leave.</p>
         </div>
       ) : ready ? (
-        <button type="button" className="text-button text-ink" onClick={() => setOpen(true)} aria-haspopup="dialog">
-          {/* The whole picture, small, in its own proportion: a crop of a full-length photo is mostly background. */}
+        <button
+          type="button"
+          className="pressable ml-2 flex items-center gap-3 rounded-lg py-1.5 text-left"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+        >
+          {/* The whole picture in its own proportion, as wide as the saved row's shop photo, so he can see himself in it before opening. */}
           {/* eslint-disable-next-line @next/next/no-img-element -- a private, already-sized file; the optimiser would only copy it */}
-          <img src={`/photos/try-ons/${ready.id}`} alt="" className="h-8 w-6 rounded-[0.3rem] bg-surface object-cover" />
-          See it on me
+          <img
+            src={`/photos/try-ons/${ready.id}`}
+            alt=""
+            width={ready.width ?? 3}
+            height={ready.height ?? 4}
+            style={{ aspectRatio: `${ready.width ?? 3} / ${ready.height ?? 4}` }}
+            className="h-auto w-20 shrink-0 rounded-lg bg-surface object-cover"
+          />
+          <span className="min-w-0">
+            <span className="block text-[0.9375rem] font-medium text-brass">See it on me</span>
+            <span className="mt-0.5 block text-[0.8125rem] text-ink-3">Made {madeOn(ready, 'short')}</span>
+          </span>
         </button>
       ) : (
         <div aria-live="polite">
@@ -151,7 +170,6 @@ function Viewer({
     if (!open && dialog.open) dialog.close()
   }, [open])
 
-  const made = onMe.started_at.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', timeZone: 'Pacific/Auckland' })
   const cost = usd(onMe.usd)
   const titleId = `try-on-${onMe.id}`
 
@@ -189,7 +207,7 @@ function Viewer({
               height={onMe.height ?? undefined}
               className="mx-auto h-auto w-full rounded-xl bg-surface lg:max-h-[calc(92dvh-12rem)] lg:w-auto"
             />
-            <figcaption className="mt-2 text-[0.8125rem] text-ink-3">On you, made {made}</figcaption>
+            <figcaption className="mt-2 text-[0.8125rem] text-ink-3">On you, made {madeOn(onMe)}</figcaption>
           </figure>
 
           <div className="min-w-0">
