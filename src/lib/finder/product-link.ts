@@ -55,13 +55,28 @@ function bareHost(host: string): string {
   return host.toLowerCase().replace(/^www\./, '')
 }
 
-/** The store a link belongs to: its public site or the host its feed is read from. */
-export function retailerForHost<T extends Pick<Retailer, 'base_url' | 'feed_url'>>(retailers: T[], host: string): T | null {
-  return (
-    retailers.find((retailer) =>
-      [retailer.base_url, retailer.feed_url].some((origin) => origin && bareHost(new URL(origin).host) === host),
-    ) ?? null
-  )
+/**
+ * The store a link belongs to: the one whose public site or feed host it is
+ * on. Where one host holds several stores (uniqlo.com/au/en and /us/en), the
+ * store whose site path the link sits under wins, and a link under none of
+ * them (a UK Uniqlo link) goes to the store added first on that host.
+ */
+export function retailerForLink<T extends Pick<Retailer, 'id' | 'base_url' | 'feed_url'>>(retailers: T[], url: URL): T | null {
+  const host = bareHost(url.host)
+  const path = url.pathname.toLowerCase()
+  let best: { retailer: T; rank: number } | null = null
+  for (const retailer of retailers) {
+    for (const origin of [retailer.base_url, retailer.feed_url]) {
+      if (!origin) continue
+      const site = new URL(origin)
+      if (bareHost(site.host) !== host) continue
+      const base = site.pathname.replace(/\/+$/, '').toLowerCase()
+      // The longer the site path the link sits under, the closer the store; -1 is the host alone.
+      const rank = path === base || path.startsWith(`${base}/`) ? base.length : -1
+      if (!best || rank > best.rank || (rank === best.rank && retailer.id < best.retailer.id)) best = { retailer, rank }
+    }
+  }
+  return best?.retailer ?? null
 }
 
 /** The per-product endpoint's shape: prices in cents, images as bare URLs, "type" and "description". */
@@ -179,11 +194,10 @@ export async function addProductFromLink(
   link: string,
 ): Promise<{ productId: number; title: string; retailer: string }> {
   const url = parseLink(link)
-  const host = bareHost(url.host)
-  const retailer = retailerForHost(retailers, host)
+  const retailer = retailerForLink(retailers, url)
   if (!retailer) {
     const names = retailers.map((store) => store.name).join(', ')
-    throw new ProductLinkError(`Wardrobe can only read the shops it knows: ${names}. That link is from ${host}.`)
+    throw new ProductLinkError(`Wardrobe can only read the shops it knows: ${names}. That link is from ${bareHost(url.host)}.`)
   }
   const handle = handleForLink(retailer, url)
   let product: NormalisedProduct | null
