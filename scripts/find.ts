@@ -211,13 +211,22 @@ async function recentDismissals() {
   `
 }
 
-/** Candidates in this run whose current score clears the threshold for a slot they were offered. */
+/**
+ * What the feed will show from this run: candidates whose current score clears
+ * the threshold for an open slot they were offered, and that he has not saved,
+ * dismissed or bought.
+ */
 async function shownCount(runId: number): Promise<number> {
   const [row] = await sql<{ count: number }[]>`
     select count(*)::int as count
     from finder_candidates c
     join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
+    join blueprint_slots b on b.id = s.slot_id and b.status in ('wanted', 'candidate')
     where c.run_id = ${runId} and s.score >= ${SHOW_THRESHOLD} and s.slot_id = any (c.slot_ids)
+      and coalesce((
+        select a.action from feed_actions a where a.product_id = c.product_id
+        order by a.created_at desc, a.id desc limit 1
+      ), 'cleared') = 'cleared'
   `
   return row?.count ?? 0
 }

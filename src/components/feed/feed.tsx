@@ -156,8 +156,9 @@ function runLine(run: Run, finds: number, slots: number, capped: boolean): strin
     ? `Read ${ingested.retailers.length} shops, ${(ingested.products ?? 0).toLocaleString('en-NZ')} pieces, on ${weekday} at ${time}.`
     : `Checked on ${weekday} at ${time}.`
   const scoring = run.stats.scoring as { needed?: number; scored?: number } | null | undefined
-  const partial =
-    scoring && typeof scoring.needed === 'number' && typeof scoring.scored === 'number' && scoring.scored < scoring.needed
+  const partial = !scoring
+    ? ' This run did not score anything new; what is unscored is scored on the next run.'
+    : typeof scoring.needed === 'number' && typeof scoring.scored === 'number' && scoring.scored < scoring.needed
       ? ` Scoring stopped after ${scoring.scored.toLocaleString('en-NZ')} of ${scoring.needed.toLocaleString('en-NZ')} pieces; the rest are scored on the next run.`
       : ''
   if (finds === 0) return `${read} None were close enough to your slots to show.${partial}`
