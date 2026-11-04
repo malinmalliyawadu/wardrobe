@@ -198,7 +198,7 @@ function handleForLink(retailer: Retailer, url: URL): string {
 }
 
 /** The store a pasted link is from, or why it is from none of them. */
-export function storeForLink<T extends Pick<Retailer, 'name' | 'base_url' | 'feed_url'>>(
+export function storeForLink<T extends Pick<Retailer, 'id' | 'name' | 'base_url' | 'feed_url'>>(
   retailers: T[],
   link: string,
 ): { url: URL; retailer: T } {
