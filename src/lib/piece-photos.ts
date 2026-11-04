@@ -12,7 +12,7 @@ import { checkUpload, normaliseImage, photoPath, thumbName, unlinkPair } from '.
 import { FITS } from './profile-values.ts'
 import { finalText, plainDashes } from './structured.ts'
 import { guideColours, type Guide } from './style-guide.ts'
-import { GARMENT_TYPES, WARMTHS } from './wardrobe-values.ts'
+import { PIECE_GARMENT_TYPES, WARMTHS } from './wardrobe-values.ts'
 
 /*
  * Photos of his clothes. Stored like his own photos (src/lib/photos.ts): a
@@ -103,7 +103,12 @@ export const PieceReadSchema = z.object({
   name: z
     .string()
     .describe('What he would call it, colour first, under 6 words, no brand: "Ink navy merino crewneck".'),
-  garment_type: z.enum(GARMENT_TYPES),
+  garment_type: z
+    .enum(PIECE_GARMENT_TYPES)
+    .describe('What it is as a garment, sport kit included: a gym tank is a tank, running shorts are shorts, training shoes are sneakers.'),
+  gym_kit: z
+    .boolean()
+    .describe('True when it is made to train in: technical or sweat-wicking cloth, a sport cut, a training shoe. False for everyday clothes.'),
   colour_words: z.string().describe('The colour in plain words, as a tailor would name it: "ink navy", "washed black".'),
   palette_hex: z
     .string()
@@ -206,6 +211,7 @@ export function valuesFromRead(
     fabric: read.fabric?.toLowerCase() ?? null,
     fit: read.fit,
     warmth: read.warmth,
+    worn_for: read.gym_kit ? 'gym' : 'everyday',
     brand: read.brand,
     notes: read.notes,
   }

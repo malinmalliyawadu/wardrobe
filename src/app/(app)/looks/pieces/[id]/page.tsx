@@ -10,7 +10,7 @@ import { PieceImage } from '@/components/piece-image'
 import { day } from '@/lib/format'
 import { fillableSlots, getPiece, inPalette } from '@/lib/pieces'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
-import { GARMENT_LABELS } from '@/lib/wardrobe-values'
+import { GARMENT_LABELS, type WornFor } from '@/lib/wardrobe-values'
 
 import { removePiece, restore, setAsidePiece } from '../../actions'
 import { PieceSkeleton } from '../../skeletons'
@@ -68,7 +68,7 @@ async function Content({ params }: Pick<PageProps<'/looks/pieces/[id]'>, 'params
         <div className="min-w-0">
           <h1 className="font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">{piece.name}</h1>
           <p className="mt-3 text-[0.9375rem] text-ink-2">
-            {[GARMENT_LABELS[piece.garment_type], colour, palette].filter(Boolean).join(', ')}.
+            {[GARMENT_LABELS[piece.garment_type], colour, palette, WORN_FOR_LINE[piece.worn_for]].filter(Boolean).join(', ')}.
           </p>
           {piece.slot_id && piece.slot_name && !piece.set_aside_at ? (
             <p className="mt-2 text-[0.9375rem] text-ink-2">
@@ -156,4 +156,11 @@ async function Content({ params }: Pick<PageProps<'/looks/pieces/[id]'>, 'params
       </div>
     </>
   )
+}
+
+/** What a piece is worn for, when it is not every day. */
+const WORN_FOR_LINE: Record<WornFor, string | null> = {
+  everyday: null,
+  gym: 'for the gym',
+  both: 'for the gym and every day',
 }

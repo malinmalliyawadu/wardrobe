@@ -26,6 +26,25 @@ export const SEASONS = [
   'bright winter',
 ] as const
 export const FITS = ['slim', 'regular', 'relaxed', 'oversized'] as const
+
+/** The days of the week, Monday first, as Life stores the days he trains. */
+export const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+export type Weekday = (typeof WEEKDAYS)[number]
+
+export const WEEKDAY_SHORT: Record<Weekday, string> = {
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
+}
+
+/** The weekday of a YYYY-MM-DD date. */
+export function weekdayOf(date: string): Weekday {
+  return WEEKDAYS[(new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7]!
+}
 export const TEE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const
 
 export type Undertone = (typeof UNDERTONES)[number]

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { parseBudgetForm, parseColouringForm, parseSizesForm } from '../src/lib/profile.ts'
+import { parseBudgetForm, parseColouringForm, parseLifeForm, parseSizesForm } from '../src/lib/profile.ts'
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData()
@@ -57,4 +57,29 @@ test('colouring: enums are validated, free text passes through', () => {
   const bad = parseColouringForm(form({ season: 'monsoon' }))
   assert.ok(!bad.ok)
   assert.equal(bad.errors.season, 'Pick one of the options')
+})
+
+test('week: the gym days are kept in week order and set the count; a count alone survives until days are chosen', () => {
+  const days = new FormData()
+  for (const day of ['saturday', 'monday', 'thursday']) days.append('gym_days', day)
+  days.set('gym', '5')
+  const parsed = parseLifeForm(days)
+  assert.ok(parsed.ok)
+  assert.deepEqual(parsed.data.gym_days, ['monday', 'thursday', 'saturday'])
+  assert.equal(parsed.data.gym, 3)
+
+  const countOnly = parseLifeForm(form({ gym: '4' }))
+  assert.ok(countOnly.ok)
+  assert.equal(countOnly.data.gym, 4)
+  assert.equal(countOnly.data.gym_days, null)
+
+  const none = parseLifeForm(form({}))
+  assert.ok(none.ok)
+  assert.equal(none.data.gym, null)
+
+  const bad = new FormData()
+  bad.append('gym_days', 'someday')
+  const refused = parseLifeForm(bad)
+  assert.ok(!refused.ok)
+  assert.equal(refused.errors.gym_days, 'Choose days from the week')
 })

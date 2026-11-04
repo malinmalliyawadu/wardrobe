@@ -13,6 +13,7 @@ import {
   TEE_SIZES,
   TORSO_LEG,
   UNDERTONES,
+  WEEKDAYS,
   type Build,
   type ContrastLevel,
   type NeckLength,
@@ -57,6 +58,8 @@ export const LifeSchema = z.object({
   /** Rough days per week in each context. */
   office: days,
   gym: days,
+  /** The days he trains, so Today can give him a gym fit on them. gym is how many there are. */
+  gym_days: z.array(z.enum(WEEKDAYS)).nullable(),
   running: days,
   evenings_out: days,
   travel: z.enum(['rarely', 'a_few_times_a_year', 'monthly']).nullable(),
@@ -229,9 +232,15 @@ export function parseSizesForm(form: FormData): ParseResult<{ height_cm: number 
 }
 
 export function parseLifeForm(form: FormData): ParseResult<Life> {
+  const chosen = form.getAll('gym_days').filter((day): day is string => typeof day === 'string')
+  const gymDays = WEEKDAYS.filter((day) => chosen.includes(day))
+  if (gymDays.length !== chosen.length) return { ok: false, errors: { gym_days: 'Choose days from the week' } }
+  // A week saved before the days could be chosen keeps its count until they are.
+  const count = number(form, 'gym')
   return finish(LifeSchema, {
     office: number(form, 'office'),
-    gym: number(form, 'gym'),
+    gym: gymDays.length || (count === 'invalid' ? null : count),
+    gym_days: gymDays.length ? gymDays : null,
     running: number(form, 'running'),
     evenings_out: number(form, 'evenings_out'),
     travel: text(form, 'travel'),

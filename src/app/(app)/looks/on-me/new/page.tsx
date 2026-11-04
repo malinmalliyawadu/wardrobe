@@ -62,7 +62,7 @@ async function Content() {
 
   const groups = [
     ...(choices.finds.length > 0 ? [{ title: 'Saved finds', choices: choices.finds }] : []),
-    ...shelve(choices.pieces.map((choice) => ({ ...choice, garment_type: choice.garment_type! }))).map((group) => ({
+    ...shelve(choices.pieces.map((choice) => ({ ...choice, garment_type: choice.garment_type!, worn_for: choice.worn_for ?? 'everyday' }))).map((group) => ({
       title: group.title,
       choices: group.pieces,
     })),

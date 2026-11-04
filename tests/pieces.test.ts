@@ -12,6 +12,7 @@ import { connect, db, type Sql } from '../src/lib/db.ts'
 import { recordAction } from '../src/lib/feed.ts'
 import { attachPhoto, buildReadRequest, clearOrphans, storePiecePhoto, valuesFromRead, type PieceRead } from '../src/lib/piece-photos.ts'
 import {
+  asPiece,
   createPiece,
   deletePiece,
   fillableSlots,
@@ -51,6 +52,7 @@ const values = (overrides: Partial<PieceValues> = {}): PieceValues => ({
   fabric: 'merino',
   fit: 'slim',
   warmth: 'mid',
+  worn_for: 'everyday',
   brand: null,
   size: 'S',
   notes: null,
@@ -74,12 +76,19 @@ describe('the pure parts', () => {
     assert.equal(ok.data.colour_hex, '#2f4a3a')
     assert.equal(ok.data.fabric, null)
     assert.equal(ok.data.slot_id, 7)
+    assert.equal(ok.data.worn_for, 'everyday', 'worn every day unless he says otherwise')
+    const gym = parsePieceForm(form({ name: 'Pine tank', garment_type: 'tank', worn_for: 'gym' }))
+    assert.ok(gym.ok)
+    assert.equal(gym.data.worn_for, 'gym')
 
     const bad = parsePieceForm(form({ name: '', garment_type: 'cape', colour_hex: 'teal' }))
     assert.ok(!bad.ok)
     assert.equal(bad.errors.name, 'Fill this in')
     assert.equal(bad.errors.garment_type, 'Choose what kind of piece it is')
     assert.equal(bad.errors.colour_hex, 'Pick a colour')
+    const notAUse = parsePieceForm(form({ name: 'Tank', garment_type: 'tank', worn_for: 'yoga' }))
+    assert.ok(!notAUse.ok)
+    assert.equal(notAUse.errors.worn_for, 'Choose what you wear it for')
   })
 
   test('a new piece must say where it came from, with the id that goes with it', () => {
@@ -91,11 +100,35 @@ describe('the pure parts', () => {
   })
 
   test('pieces are shelved in the page order and empty shelves are left out', () => {
-    const shelves = shelve([{ garment_type: 'boots' }, { garment_type: 'tee' }, { garment_type: 'jeans' }, { garment_type: 'shirt' }])
+    const shelves = shelve(
+      (['boots', 'tee', 'jeans', 'shirt'] as const).map((garment_type) => ({ garment_type, worn_for: 'everyday' as const })),
+    )
     assert.deepEqual(
       shelves.map((shelf) => [shelf.title, shelf.pieces.length]),
       [['Tops', 2], ['Trousers', 1], ['Shoes', 1]],
     )
+  })
+
+  test('gym-only kit is a shelf of its own, last and in shelf order; kit worn for both stays with its kind', () => {
+    const shelves = shelve([
+      { garment_type: 'sneakers', worn_for: 'gym' },
+      { garment_type: 'tank', worn_for: 'gym' },
+      { garment_type: 'sneakers', worn_for: 'both' },
+      { garment_type: 'tee', worn_for: 'everyday' },
+    ])
+    assert.deepEqual(
+      shelves.map((shelf) => [shelf.title, shelf.pieces.map((piece) => piece.garment_type)]),
+      [['Tops', ['tee']], ['Shoes', ['sneakers']], ['Gym kit', ['tank', 'sneakers']]],
+    )
+  })
+
+  test('sport kit from a shop becomes the garment it is, worn for the gym', () => {
+    assert.deepEqual(asPiece('Metal Vent Tech Tank', 'activewear'), { garment_type: 'tank', worn_for: 'gym' })
+    assert.deepEqual(asPiece('Pace Breaker Lined Short 7"', 'activewear'), { garment_type: 'shorts', worn_for: 'gym' })
+    assert.deepEqual(asPiece('Brooks Adrenaline GTS 24 Trainer', 'activewear'), { garment_type: 'sneakers', worn_for: 'gym' })
+    assert.deepEqual(asPiece('ABC Pant', 'activewear'), { garment_type: 'trousers', worn_for: 'gym' })
+    assert.deepEqual(asPiece('Metal Vent Tech', 'activewear'), { garment_type: 'activewear', worn_for: 'gym' }, 'no garment in the name: he says')
+    assert.deepEqual(asPiece('Lucas Chelsea Boot', 'boots'), { garment_type: 'boots', worn_for: 'everyday' })
   })
 
   test('the palette colour Claude names wins only when it is really in the guide', () => {
@@ -110,12 +143,15 @@ describe('the pure parts', () => {
       warmth: 'mid',
       brand: null,
       notes: 'Two chest pockets',
+      gym_kit: false,
     }
     const fromClaude = valuesFromRead(read, '#555555', guideFixture)
     assert.equal(fromClaude.colour_hex, '#2f4a3a')
     assert.equal(fromClaude.name, 'Pine brushed cotton overshirt')
     assert.equal(fromClaude.colour_name, 'pine')
     assert.equal(fromClaude.fabric, 'brushed cotton')
+    assert.equal(fromClaude.worn_for, 'everyday')
+    assert.equal(valuesFromRead({ ...read, garment_type: 'tank', gym_kit: true }, null, guideFixture).worn_for, 'gym')
     // A hex that is not in the guide falls back to the local read, snapped.
     assert.equal(valuesFromRead({ ...read, palette_hex: '#123456' }, '#83352a', guideFixture).colour_hex, '#7a2e1f')
     // No read at all: the colour alone.

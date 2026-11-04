@@ -107,10 +107,11 @@ function sizesSummary(profile: Profile): { summary: string; filled: boolean } {
 }
 
 function lifeSummary(profile: Profile): { summary: string; filled: boolean } {
-  const { office, gym, running, evenings_out } = profile.life
+  const { office, gym, gym_days, running, evenings_out } = profile.life
   const parts: string[] = []
   if (office) parts.push(`office ${office}`)
-  if (gym) parts.push(`gym ${gym}`)
+  if (gym_days?.length) parts.push(`gym ${gym_days.length}`)
+  else if (gym) parts.push(`gym ${gym}`)
   if (running) parts.push(`runs ${running}`)
   if (evenings_out) parts.push(`evenings out ${evenings_out}`)
   return parts.length

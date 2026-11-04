@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
 import { day } from '@/lib/format'
-import { OCCASION_LABELS, readiness, readLooks, todayNz, type Look } from '@/lib/looks'
+import { gymReadiness, OCCASION_LABELS, readiness, readLooks, todayNz, type Look, type LookKind } from '@/lib/looks'
 import { listPieces } from '@/lib/pieces'
 import { getGuide } from '@/lib/style-guide'
 
@@ -34,6 +34,10 @@ async function Content() {
   await connection()
   const [pieces, guide, page] = await Promise.all([listPieces(), getGuide(), readLooks()])
   const ready = readiness(pieces)
+  const gym = gymReadiness(pieces)
+  const kinds: LookKind[] = [...(ready.ready ? ['week' as const] : []), ...(gym.ready ? ['gym' as const] : [])]
+  // Some gym kit, but not yet a whole fit: say what it lacks.
+  const someKit = pieces.some((piece) => !piece.set_aside_at && piece.worn_for !== 'everyday')
   const today = todayNz()
 
   if (!guide) {
@@ -48,7 +52,7 @@ async function Content() {
     )
   }
 
-  if (!ready.ready && page.saved.length === 0 && page.fresh.length === 0) {
+  if (kinds.length === 0 && page.saved.length === 0 && page.fresh.length === 0) {
     const active = pieces.filter((piece) => !piece.set_aside_at).length
     return (
       <div className="mt-10 border-t border-line pt-8">
@@ -72,11 +76,14 @@ async function Content() {
       <p className="mt-2 max-w-[42ch] text-ink-2">
         {ready.ready
           ? 'Six outfits from your pieces, for your week and this month in Wellington. Looks you saved or dismissed teach the next set.'
-          : `To make more, add ${list(ready.missing)}.`}
+          : gym.ready
+            ? `Gym fits from your kit, for this month in Wellington. For everyday looks, add ${list(ready.missing)}.`
+            : `To make ${page.latest ? 'more' : 'one'}, add ${list(ready.missing)}.`}
+        {someKit && !gym.ready ? ` For gym fits, mark ${list(gym.missing)} as gym kit.` : ''}
       </p>
-      {ready.ready ? (
+      {kinds.length > 0 ? (
         <div className="mt-6">
-          <MakeLooks first={!page.latest} />
+          <MakeLooks first={!page.latest} kinds={kinds} />
         </div>
       ) : null}
       {page.total.sets > 0 ? (
@@ -92,7 +99,7 @@ async function Content() {
       {page.fresh.length > 0 && page.latest ? (
         <Section
           id="fresh"
-          title="This set"
+          title={page.latest.kind === 'gym' ? 'Gym fits' : 'This set'}
           hint={`Made ${day(page.latest.created_at)} from ${page.latest.pieces} pieces${page.latest.note ? `, for "${page.latest.note}"` : ''}.`}
           looks={page.fresh}
           today={today}

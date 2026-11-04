@@ -10,6 +10,8 @@ import {
   showNext,
   startDay,
   tidyDay,
+  tidyGym,
+  trainsOn,
   type DayDraft,
   type DayInput,
   type DayOption,
@@ -28,15 +30,17 @@ import { guideFixture, profileFixture } from './fixtures.ts'
  * the draft is a fixture.
  */
 
-type Shelf = Pick<Piece, 'id' | 'garment_type' | 'set_aside_at'>
+type Shelf = Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>
 const shelf: Shelf[] = [
-  { id: 1, garment_type: 'coat', set_aside_at: null },
-  { id: 2, garment_type: 'knitwear', set_aside_at: null },
-  { id: 3, garment_type: 'shirt', set_aside_at: null },
-  { id: 4, garment_type: 'trousers', set_aside_at: null },
-  { id: 5, garment_type: 'jeans', set_aside_at: null },
-  { id: 6, garment_type: 'boots', set_aside_at: null },
-  { id: 7, garment_type: 'sneakers', set_aside_at: null },
+  { id: 1, garment_type: 'coat', set_aside_at: null, worn_for: 'everyday' },
+  { id: 2, garment_type: 'knitwear', set_aside_at: null, worn_for: 'everyday' },
+  { id: 3, garment_type: 'shirt', set_aside_at: null, worn_for: 'everyday' },
+  { id: 4, garment_type: 'trousers', set_aside_at: null, worn_for: 'everyday' },
+  { id: 5, garment_type: 'jeans', set_aside_at: null, worn_for: 'everyday' },
+  { id: 6, garment_type: 'boots', set_aside_at: null, worn_for: 'everyday' },
+  { id: 7, garment_type: 'sneakers', set_aside_at: null, worn_for: 'both' },
+  { id: 8, garment_type: 'tank', set_aside_at: null, worn_for: 'gym' },
+  { id: 9, garment_type: 'shorts', set_aside_at: null, worn_for: 'gym' },
 ]
 
 const option = (piece_ids: number[], extra: Partial<DayOption> = {}): DayOption => ({
@@ -94,6 +98,30 @@ describe('the pure parts', () => {
     assert.deepEqual(tidyDay([option([3, 4]), option([3, 4, 5, 6])], shelf, { dismissed: [] }, []), [])
   })
 
+  test('a gym fit is never one of the day’s options', () => {
+    assert.deepEqual(tidyDay([option([8, 9, 7], { occasion: 'gym' })], shelf, { dismissed: [] }, []), [])
+  })
+
+  test('the gym fit is gym kit only; it may repeat one he wore this week, never one he dismissed', () => {
+    const gym = option([7, 9, 8], { occasion: 'weekend', title: ' Tank and shorts ' })
+    assert.deepEqual(tidyGym(gym, shelf, { dismissed: [] }), {
+      ...gym,
+      occasion: 'gym',
+      title: 'Tank and shorts',
+      piece_ids: [8, 9, 7],
+      better_with: null,
+    })
+    assert.equal(tidyGym(option([8, 4, 7]), shelf, { dismissed: [] }), null, 'everyday trousers are not gym kit')
+    assert.equal(tidyGym(gym, shelf, { dismissed: [{ title: 'x', piece_ids: [7, 8, 9], reason: 'colours' }] }), null)
+  })
+
+  test('his week says which days he trains', () => {
+    const profile = { life: { gym_days: ['monday' as const, 'friday' as const] } }
+    assert.equal(trainsOn(profile, '2026-11-06'), true, 'a Friday')
+    assert.equal(trainsOn(profile, '2026-11-07'), false, 'a Saturday')
+    assert.equal(trainsOn({ life: { gym: 4 } }, '2026-11-06'), false, 'a count alone names no day')
+  })
+
   const input = (extra: Partial<DayInput> = {}): DayInput => ({
     profile: profileFixture,
     guide: guideFixture,
@@ -112,11 +140,20 @@ describe('the pure parts', () => {
     assert.deepEqual(body.day, {
       date: '2026-11-06',
       weekday: 'Friday',
+      trains_today: false,
       dressing_for: 'tomorrow, laid out the evening before',
       season_in_new_zealand: 'late spring',
     })
     assert.equal(body.forecast_wellington.in_short, '9° to 15°, feels like 5°. Southerly 40 km/h, gusts to 75. A chance of a shower.')
     assert.equal(body.usual_weather, undefined)
+    assert.deepEqual(body.gym, { days_a_week: 0, days: null, kit_ready: false, kit_missing: ['a top', 'shorts or joggers', 'trainers'] })
+  })
+
+  test('on a gym day the prompt says he trains', () => {
+    const profile = { ...profileFixture, life: { gym: 2, gym_days: ['friday' as const, 'sunday' as const] } }
+    const body = JSON.parse(String(buildDayMessages(input({ profile }))[0]!.content).split('\n\n')[0]!)
+    assert.equal(body.day.trains_today, true)
+    assert.equal(body.gym.days_a_week, 2)
   })
 
   test('with no forecast it is dressed for the month, and his note leads the ask', () => {
@@ -135,6 +172,7 @@ describe('a day made, read and turned', () => {
   let admin: Sql
   let sql: Sql
   const ids: number[] = []
+  const kit: number[] = []
 
   before(async () => {
     assert.ok(process.env.DATABASE_URL, 'DATABASE_URL must be set for the outfit of the day test')
@@ -155,7 +193,19 @@ describe('a day made, read and turned', () => {
     ] as const) {
       ids.push(
         await createPiece(
-          { name, garment_type, colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, brand: null, size: null, notes: null, slot_id: null },
+          { name, garment_type, colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, worn_for: 'everyday', brand: null, size: null, notes: null, slot_id: null },
+          typed,
+        ),
+      )
+    }
+    for (const [name, garment_type, worn_for] of [
+      ['Pine training tank', 'tank', 'gym'],
+      ['Black gym shorts', 'shorts', 'gym'],
+      ['White trainers', 'sneakers', 'both'],
+    ] as const) {
+      kit.push(
+        await createPiece(
+          { name, garment_type, colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, worn_for, brand: null, size: null, notes: null, slot_id: null },
           typed,
         ),
       )
@@ -172,8 +222,8 @@ describe('a day made, read and turned', () => {
   const meta = { model: 'claude-opus-5-5', served_by: 'claude-opus-5-5', input_tokens: 9_000, output_tokens: 2_000, generated_at: '' }
   const drawn: number[] = []
   /** Opus's answer as a fixture, and a picture that is only noted, never drawn. */
-  const drafted = (options: DayOption[]) => ({
-    draft: async (): Promise<DayDraft> => ({ options, proposed: options.length, meta, usd: 0.076 }),
+  const drafted = (options: DayOption[], gym: DayOption | null = null) => ({
+    draft: async (): Promise<DayDraft> => ({ options, gym, proposed: options.length, meta, usd: 0.076 }),
     draw: async (lookId: number) => {
       drawn.push(lookId)
     },
@@ -249,6 +299,7 @@ describe('a day made, read and turned', () => {
     assert.equal(day?.options[0]?.look.id, savedId, 'the saved look itself, not a copy')
     assert.deepEqual(drawn, [savedId], 'the option on show, and only it, is drawn')
     assert.equal(day?.options[0]?.image, null, 'no picture until one is drawn')
+    assert.equal(day?.gym, null, 'no gym fit on a day he does not train')
     assert.deepEqual(day?.options[1]?.look.pieces.map((p) => p.name), ['Navy tee', 'Putty chinos', 'Brown Chelseas'])
 
     // The Looks tab is not disturbed: its newest set is still the one he made there.
@@ -260,6 +311,36 @@ describe('a day made, read and turned', () => {
     // Wearing the day's new option saves it, and it joins the saved looks.
     await actOnLook({ action: 'wore', look_id: day!.options[1]!.look.id }, sql)
     assert.ok((await readLooks(sql)).saved.some((l) => l.title === 'Tee and putty'))
+  })
+
+  test('on a day he trains, the gym fit is kept apart from the options, and is not drawn without a tap', async () => {
+    const [shirt, , chinos, boots] = ids as [number, number, number, number, number]
+    const [tank, shorts, trainers] = kit as [number, number, number]
+    const id = await making('2026-11-09')
+    drawn.length = 0
+    const info = console.info
+    console.info = () => {}
+    try {
+      await runDay(
+        id,
+        sql,
+        drafted(
+          [option([shirt, chinos, boots], { title: 'Oxford and putty', today: 'Mild.' })],
+          option([tank, shorts, trainers], { occasion: 'gym', title: 'Pine tank session', today: 'Cold walk there: the tank under your coat.' }),
+        ),
+      )
+    } finally {
+      console.info = info
+    }
+    const day = await readDay('2026-11-09', sql)
+    assert.deepEqual(day?.options.map((o) => o.look.title), ['Oxford and putty'])
+    assert.equal(day?.gym?.look.title, 'Pine tank session')
+    assert.equal(day?.gym?.look.occasion, 'gym')
+    assert.equal(day?.gym?.today, 'Cold walk there: the tank under your coat.')
+    assert.deepEqual(day?.gym?.look.pieces.map((p) => p.name), ['Pine training tank', 'Black gym shorts', 'White trainers'])
+    assert.deepEqual(drawn, [day!.options[0]!.look.id], 'only the outfit on show is drawn')
+    // Another turns the day's options only.
+    assert.equal(await showNext(id, sql), day!.options[0]!.look.id)
   })
 
   test('another turns to the next option, round to the first', async () => {

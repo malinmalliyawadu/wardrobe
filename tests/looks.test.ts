@@ -6,6 +6,7 @@ import { connect, db, type Sql } from '../src/lib/db.ts'
 import {
   actOnLook,
   buildLooksMessages,
+  gymReadiness,
   readHistory,
   readiness,
   readLooks,
@@ -25,18 +26,33 @@ import { guideFixture, profileFixture } from './fixtures.ts'
  * DATABASE_URL names). Opus is never called; its answer is a fixture.
  */
 
-type Shelf = Pick<Piece, 'id' | 'garment_type' | 'set_aside_at'>
+type Shelf = Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>
+const everyday = (id: number, garment_type: Shelf['garment_type'], set_aside_at: Date | null = null): Shelf => ({
+  id,
+  garment_type,
+  set_aside_at,
+  worn_for: 'everyday',
+})
 const shelf: Shelf[] = [
-  { id: 1, garment_type: 'coat', set_aside_at: null },
-  { id: 2, garment_type: 'knitwear', set_aside_at: null },
-  { id: 3, garment_type: 'shirt', set_aside_at: null },
-  { id: 4, garment_type: 'trousers', set_aside_at: null },
-  { id: 5, garment_type: 'jeans', set_aside_at: null },
-  { id: 6, garment_type: 'boots', set_aside_at: null },
-  { id: 7, garment_type: 'sneakers', set_aside_at: null },
-  { id: 8, garment_type: 'accessory', set_aside_at: null },
-  { id: 9, garment_type: 'tee', set_aside_at: new Date() },
-  { id: 10, garment_type: 'jacket', set_aside_at: null },
+  everyday(1, 'coat'),
+  everyday(2, 'knitwear'),
+  everyday(3, 'shirt'),
+  everyday(4, 'trousers'),
+  everyday(5, 'jeans'),
+  everyday(6, 'boots'),
+  everyday(7, 'sneakers'),
+  everyday(8, 'accessory'),
+  everyday(9, 'tee', new Date()),
+  everyday(10, 'jacket'),
+]
+
+/** Gym kit: a tank and shorts for the gym only, a hoodie and trainers worn for both, and a piece still filed as activewear. */
+const kit: Shelf[] = [
+  { id: 21, garment_type: 'tank', set_aside_at: null, worn_for: 'gym' },
+  { id: 22, garment_type: 'shorts', set_aside_at: null, worn_for: 'gym' },
+  { id: 23, garment_type: 'sweatshirt', set_aside_at: null, worn_for: 'both' },
+  { id: 24, garment_type: 'sneakers', set_aside_at: null, worn_for: 'both' },
+  { id: 25, garment_type: 'activewear', set_aside_at: null, worn_for: 'gym' },
 ]
 
 const look = (piece_ids: number[], extra: Partial<LookDraft> = {}): LookDraft => ({
@@ -103,6 +119,45 @@ describe('the pure parts', () => {
     assert.equal(readiness(shelf).ready, true)
   })
 
+  test('gym kit does not make an everyday wardrobe ready; a piece worn for both counts in either', () => {
+    const tank = kit.find((piece) => piece.id === 21)!
+    const hoodie = kit.find((piece) => piece.id === 23)!
+    assert.deepEqual(readiness([...shelf.filter((piece) => [3, 4, 6].includes(piece.id)), tank]).missing, ['one more top'])
+    assert.equal(readiness([...shelf.filter((piece) => [3, 4, 6].includes(piece.id)), hoodie]).ready, true)
+  })
+
+  test('gym readiness asks for a top, shorts or joggers and trainers among the gym kit, activewear not counted', () => {
+    assert.deepEqual(gymReadiness(shelf), { ready: false, missing: ['a top', 'shorts or joggers', 'trainers'] })
+    assert.deepEqual(gymReadiness([...shelf, kit[4]!]).missing, ['a top', 'shorts or joggers', 'trainers'])
+    assert.deepEqual(gymReadiness([...shelf, ...kit.filter((piece) => piece.id !== 22)]).missing, ['shorts or joggers'])
+    assert.equal(gymReadiness(kit).ready, true)
+  })
+
+  test('a gym fit is made of gym kit only, and an everyday look leaves gym-only kit out', () => {
+    const pieces = [...shelf, ...kit]
+    const kept = tidyLooks(
+      [
+        look([23, 21, 22, 24], { occasion: 'gym' }), // hoodie, tank, shorts, trainers: whole
+        look([21, 22, 6], { occasion: 'gym' }), // everyday boots are dropped: no shoes left
+        look([21, 4, 24], { occasion: 'gym' }), // everyday trousers are dropped: no bottom left
+        look([25, 22, 24], { occasion: 'gym' }), // activewear says nothing of what it is: no top left
+        look([21, 3, 4, 6]), // the gym tank is dropped from an office look; the rest stands
+        look([23, 4, 24]), // a piece worn for both goes in an everyday look
+      ],
+      pieces,
+      [],
+      noHistory,
+    )
+    assert.deepEqual(
+      kept.map((l) => [l.occasion, l.piece_ids]),
+      [
+        ['gym', [23, 21, 22, 24]],
+        ['office', [3, 4, 6]],
+        ['office', [23, 4, 24]],
+      ],
+    )
+  })
+
   test('the weather is Wellington’s for the month, in New Zealand time', () => {
     // 11pm on 31 October in UTC is already November in Wellington.
     const today = wellingtonToday(new Date('2026-10-31T23:00:00Z'))
@@ -113,9 +168,10 @@ describe('the pure parts', () => {
 
   test('the prompt carries the pieces as words, leaves out set-aside and activewear, and has no long dashes', () => {
     const pieces = [
-      { id: 1, name: 'Ink coat', garment_type: 'coat', colour_hex: '#2f4a3a', colour_name: null, fabric: 'wool', fit: null, warmth: 'warm', notes: null, set_aside_at: null },
-      { id: 2, name: 'Old tee', garment_type: 'tee', colour_hex: null, colour_name: 'grey', fabric: null, fit: null, warmth: null, notes: null, set_aside_at: new Date() },
-      { id: 3, name: 'Gym shorts', garment_type: 'activewear', colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, notes: null, set_aside_at: null },
+      { id: 1, name: 'Ink coat', garment_type: 'coat', colour_hex: '#2f4a3a', colour_name: null, fabric: 'wool', fit: null, warmth: 'warm', worn_for: 'everyday', notes: null, set_aside_at: null },
+      { id: 2, name: 'Old tee', garment_type: 'tee', colour_hex: null, colour_name: 'grey', fabric: null, fit: null, warmth: null, worn_for: 'everyday', notes: null, set_aside_at: new Date() },
+      { id: 3, name: 'Gym shorts', garment_type: 'activewear', colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, worn_for: 'gym', notes: null, set_aside_at: null },
+      { id: 4, name: 'Pine training tank', garment_type: 'tank', colour_hex: null, colour_name: 'pine', fabric: null, fit: null, warmth: 'light', worn_for: 'gym', notes: null, set_aside_at: null },
     ] as Piece[]
     const [message] = buildLooksMessages({
       profile: profileFixture,
@@ -131,9 +187,26 @@ describe('the pure parts', () => {
     assert.match(content, /"name": "pine"/, 'the guide name for the hex')
     assert.match(content, /"worn_lately": 2/)
     assert.doesNotMatch(content, /Old tee|Gym shorts/)
+    assert.match(content, /"name": "Pine training tank",\s+"garment": "tank",\s+"worn_for": "gym"/)
+    assert.match(content, /"kit_ready": false/)
     assert.match(content, /He asked for this set: "a wedding"/)
     assert.doesNotMatch(content, /[–—]/)
     assert.equal(plainDashes('tuck it — then cuff'), 'tuck it - then cuff')
+  })
+
+  test('a set of gym fits asks for gym fits only, with his gym days', () => {
+    const [message] = buildLooksMessages({
+      profile: { ...profileFixture, life: { gym: 4, gym_days: ['monday', 'tuesday', 'thursday', 'saturday'] } },
+      guide: guideFixture,
+      pieces: [],
+      wanted: [],
+      history: { saved: [], dismissed: [], worn: new Map() },
+      note: null,
+      kind: 'gym',
+    })
+    const content = message!.content as string
+    assert.match(content, /"days_a_week": 4/)
+    assert.match(content, /Make up to 6 gym fits from his gym kit/)
   })
 })
 
@@ -161,7 +234,7 @@ describe('a set saved, read and acted on', () => {
     ] as const) {
       ids.push(
         await createPiece(
-          { name, garment_type, colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, brand: null, size: null, notes: null, slot_id: null },
+          { name, garment_type, colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, worn_for: 'everyday', brand: null, size: null, notes: null, slot_id: null },
           typed,
         ),
       )
@@ -210,6 +283,11 @@ describe('a set saved, read and acted on', () => {
     page = await readLooks()
     assert.deepEqual(page.saved.map((l) => l.title), ['Look 3', 'Look 1'], 'most recently worn first')
     assert.equal(page.latest?.note, 'cold')
+    assert.equal(page.latest?.kind, 'week')
+
+    // A set of gym fits says so.
+    await saveSet({ ...draft([]), looks: [] }, { note: null, pieces: 4, date: '2026-11-05', weather: 'cold', kind: 'gym' })
+    assert.equal((await readLooks()).latest?.kind, 'gym')
 
     await actOnLook({ action: 'unwore', look_id: third.id })
     assert.equal((await readLooks()).saved.find((l) => l.title === 'Look 3')?.worn.length, 0)

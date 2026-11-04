@@ -3,7 +3,7 @@ import { test } from 'node:test'
 
 import sharp from 'sharp'
 
-import { categoryText, garmentOf, isMenswear, sizeKey, slotKind, wantedSizeKeys } from '../src/lib/finder/classify.ts'
+import { categoryText, garmentOf, isMenswear, kitGarmentOf, sizeKey, slotKind, wantedSizeKeys } from '../src/lib/finder/classify.ts'
 import { colourCompatible, cutCompatible, familiesIn, namedCut, productFamilies, slotFamilies } from '../src/lib/finder/colour.ts'
 import { readPhoto } from '../src/lib/finder/photo-colour.ts'
 
@@ -60,6 +60,13 @@ test('sport kit is activewear, so it never fills a style slot', () => {
   assert.equal(garmentOf('Restrained Active Crop Tee - Off White', 'activewear').garment_type, 'activewear')
   assert.equal(garmentOf('Huffer Golf Polo', 'HUFFER GOLF').garment_type, 'activewear')
   assert.equal(garmentOf('Axel Arigato Daze Runner', null).garment_type, 'sneakers', 'a lifestyle runner is a sneaker')
+})
+
+test('as a piece he owns, sport kit is the garment it is', () => {
+  assert.equal(kitGarmentOf('Brooks Adrenaline GTS 4', 'Running Shoes'), 'shoes')
+  assert.equal(kitGarmentOf('Restrained Active Crop Tee - Off White', 'activewear'), 'tee')
+  assert.equal(kitGarmentOf('Training Singlet', null), 'tank')
+  assert.equal(kitGarmentOf('Compression Leggings', null), null, 'still not menswear the app dresses')
 })
 
 test("END.'s empty product type is read from its category tags", () => {

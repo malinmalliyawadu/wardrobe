@@ -2,6 +2,7 @@ import type { TransactionSql } from 'postgres'
 import { z } from 'zod'
 
 import { db, type Sql } from './db.ts'
+import { kitGarmentOf } from './finder/classify.ts'
 import { hexDistance } from './finder/photo-colour.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import { finish, text, type ParseResult } from './form-parse.ts'
@@ -10,12 +11,15 @@ import { guideColours, type Guide } from './style-guide.ts'
 import {
   GARMENT_GROUPS,
   GARMENT_TYPES,
+  GYM_SHELF,
   WARMTHS,
+  WORN_FOR,
   normaliseHex,
   type GarmentType,
   type PieceSource,
   type SlotStatus,
   type Warmth,
+  type WornFor,
 } from './wardrobe-values.ts'
 
 /*
@@ -44,6 +48,8 @@ export type Piece = {
   fabric: string | null
   fit: Fit | null
   warmth: Warmth | null
+  /** Everyday looks, gym fits, or both (migration 0014). */
+  worn_for: WornFor
   brand: string | null
   size: string | null
   notes: string | null
@@ -66,7 +72,7 @@ export class PieceError extends Error {}
 
 const SELECT = (sql: Tx) => sql`
   select p.id::int as id, p.name, p.garment_type, p.colour_hex, p.colour_name, p.fabric, p.fit,
-         p.warmth, p.brand, p.size, p.notes,
+         p.warmth, p.worn_for, p.brand, p.size, p.notes,
          p.slot_id::int as slot_id, s.name as slot_name, s.status as slot_status,
          p.product_id::int as product_id, pr.url as product_url, r.name as retailer,
          pr.images -> 0 as image,
@@ -100,12 +106,22 @@ export function shelfOrder(): GarmentType[] {
   return GARMENT_GROUPS.flatMap((group) => group.types)
 }
 
-/** The pieces still in the wardrobe, shelved by group, empty groups left out. */
-export function shelve<T extends Pick<Piece, 'garment_type'>>(pieces: T[]): { title: string; pieces: T[] }[] {
-  return GARMENT_GROUPS.map((group) => ({
-    title: group.title,
-    pieces: pieces.filter((piece) => group.types.includes(piece.garment_type)),
-  })).filter((group) => group.pieces.length > 0)
+/**
+ * The pieces still in the wardrobe, shelved by group, empty groups left out.
+ * What he wears only to the gym is its own shelf, last; a piece worn for both
+ * stays with its kind.
+ */
+export function shelve<T extends Pick<Piece, 'garment_type' | 'worn_for'>>(pieces: T[]): { title: string; pieces: T[] }[] {
+  const everyday = pieces.filter((piece) => piece.worn_for !== 'gym')
+  const gym = pieces.filter((piece) => piece.worn_for === 'gym')
+  const order = shelfOrder()
+  return [
+    ...GARMENT_GROUPS.map((group) => ({
+      title: group.title,
+      pieces: everyday.filter((piece) => group.types.includes(piece.garment_type)),
+    })),
+    { title: GYM_SHELF, pieces: [...gym].sort((a, b) => order.indexOf(a.garment_type) - order.indexOf(b.garment_type)) },
+  ].filter((group) => group.pieces.length > 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +175,7 @@ export const PieceFormSchema = z.object({
   fabric: short(80),
   fit: z.enum(FITS).nullable(),
   warmth: z.enum(WARMTHS).nullable(),
+  worn_for: z.enum(WORN_FOR),
   brand: short(80),
   size: short(40),
   notes: short(1000),
@@ -179,6 +196,7 @@ export function parsePieceForm(form: FormData): ParseResult<PieceValues> {
     fabric: text(form, 'fabric'),
     fit: text(form, 'fit'),
     warmth: text(form, 'warmth'),
+    worn_for: text(form, 'worn_for') ?? 'everyday',
     brand: text(form, 'brand'),
     size: text(form, 'size'),
     notes: text(form, 'notes'),
@@ -188,6 +206,7 @@ export function parsePieceForm(form: FormData): ParseResult<PieceValues> {
     const errors = { ...parsed.errors }
     if (errors.colour_hex) errors.colour_hex = 'Pick a colour'
     if (errors.garment_type) errors.garment_type = 'Choose what kind of piece it is'
+    if (errors.worn_for) errors.worn_for = 'Choose what you wear it for'
     if (errors.slot_id) errors.slot_id = 'Choose a slot from the list'
     return { ok: false, errors }
   }
@@ -264,6 +283,7 @@ function valuesRow(values: PieceValues) {
     fabric: values.fabric,
     fit: values.fit,
     warmth: values.warmth,
+    worn_for: values.worn_for,
     brand: values.brand,
     size: values.size,
     notes: values.notes,
@@ -387,8 +407,9 @@ export async function syncSlotPieces(tx: Tx): Promise<{ made: number; released: 
     select id::int as id from deleted union all select id::int as id from unlinked
   `
   const made = await tx<{ id: number }[]>`
-    insert into wardrobe_pieces (name, garment_type, colour_hex, colour_name, fabric, fit, slot_id, source)
-    select s.name, s.garment_type, lower(s.colours[1]), s.colour_family, s.fabrics[1], s.fit, s.id, 'slot'
+    insert into wardrobe_pieces (name, garment_type, colour_hex, colour_name, fabric, fit, worn_for, slot_id, source)
+    select s.name, s.garment_type, lower(s.colours[1]), s.colour_family, s.fabrics[1], s.fit,
+           case when s.garment_type = 'activewear' then 'gym' else 'everyday' end, s.id, 'slot'
     from blueprint_slots s
     where s.status = 'owned'
       and not exists (select 1 from wardrobe_pieces p where p.slot_id = s.id and p.set_aside_at is null)
@@ -427,9 +448,9 @@ export async function pieceFromPurchase(
         select status, garment_type, colours, colour_family, fabrics, fit from blueprint_slots where id = ${input.slot_id}
       `
     : []
-  const garment = product.garment_type ?? slot?.garment_type ?? null
+  const kit = asPiece(product.title, product.garment_type ?? slot?.garment_type ?? null)
   // Nothing says what kind of piece it is; he can add it by link instead.
-  if (!garment) return null
+  if (!kit.garment_type) return null
 
   let slotId: number | null = null
   if (slot && slot.status !== 'retired' && input.slot_id !== null) {
@@ -445,7 +466,8 @@ export async function pieceFromPurchase(
   const [row] = await tx<{ id: number }[]>`
     insert into wardrobe_pieces ${tx({
       name: product.title,
-      garment_type: garment,
+      garment_type: kit.garment_type,
+      worn_for: kit.worn_for,
       colour_hex: slot?.colours[0]?.toLowerCase() ?? product.image_colours?.[0] ?? null,
       colour_name: product.colour_option ?? slot?.colour_family ?? null,
       fabric: slot?.fabrics[0] ?? null,
@@ -495,13 +517,15 @@ export async function draftFromProduct(
   `
   if (!product) throw new PieceError('That product could not be found.')
   const read = product.image_colours?.[0] ?? (product.image ? await readImage(product.image.src) : null)
+  const kit = asPiece(product.title, product.garment_type)
   return {
     source: 'link',
     photo_id: null,
     product_id: productId,
     values: {
       name: product.title,
-      garment_type: product.garment_type ?? undefined,
+      garment_type: kit.garment_type ?? undefined,
+      worn_for: kit.worn_for,
       colour_hex: read ? snapToGuide(read, guide).hex : null,
       colour_name: product.colours.length === 1 ? product.colours[0]!.toLowerCase() : null,
       brand: product.vendor,
@@ -509,6 +533,16 @@ export async function draftFromProduct(
     preview: product.image ? { image: product.image, title: product.title } : null,
     note: product.colours.length > 1 ? `The shop sells it in ${product.colours.length} colours. Check the colour is yours.` : null,
   }
+}
+
+/**
+ * A shop's garment as a piece he owns. Sport kit the finder filed as
+ * activewear is named for what it is (a training tank is a tank) and worn for
+ * the gym; one whose title names no garment stays activewear, for him to say.
+ */
+export function asPiece(title: string, garment: GarmentType | null): { garment_type: GarmentType | null; worn_for: WornFor } {
+  if (garment !== 'activewear') return { garment_type: garment, worn_for: 'everyday' }
+  return { garment_type: kitGarmentOf(title, null) ?? 'activewear', worn_for: 'gym' }
 }
 
 /** The piece in the wardrobe that fills a slot, if any. */
