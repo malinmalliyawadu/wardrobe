@@ -19,9 +19,10 @@ import { GARMENT_TYPES, WARMTHS } from './wardrobe-values.ts'
  * metadata-free master and thumb on the photos volume, under wardrobe/, served
  * only through /photos/wardrobe/:id. Agreed with Malin on 2026-11-04: a photo
  * of a piece goes to Claude (Sonnet) once, when he adds it, to fill in the
- * form he then checks; never to OpenAI, and the looks are made from the
- * pieces' words, not their photos. The colour is also read on our own server,
- * which sends nothing anywhere.
+ * form he then checks, and the looks are made from the pieces' words, not
+ * their photos. It goes to OpenAI only for a try-on of a look he taps for
+ * (src/lib/try-on.ts). The colour is also read on our own server, which sends
+ * nothing anywhere.
  */
 
 export const PIECE_DIR = 'wardrobe'

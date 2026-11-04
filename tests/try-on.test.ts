@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, readdir, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -10,12 +10,17 @@ import sharp from 'sharp'
 import { connect, db, type Sql } from '../src/lib/db.ts'
 import { removeAllPhotos, removePhoto, storePhoto } from '../src/lib/photos.ts'
 import {
+  latestLookTryOns,
   latestTryOns,
+  lookTryOnPrompt,
   makeTryOn,
+  MAX_GARMENT_IMAGES,
   MODEL,
   outputSize,
   placement,
   productImageUrl,
+  showPieces,
+  startLookTryOn,
   startTryOn,
   tryOnCost,
   tryOnFile,
@@ -59,6 +64,41 @@ describe('the pure parts', () => {
     assert.match(prompt, /same colour and shade/)
     assert.equal(placement('overshirt').noun, 'outer layer')
     assert.equal(placement(null).noun, 'piece')
+    assert.doesNotMatch(prompt, /[–—]/, 'plain hyphens only')
+  })
+
+  test('a look shows each piece by his photo, else the shop’s, else in words, within the image limit', () => {
+    const base = { name: 'x', garment_type: 'tee', colour_name: null, colour_hex: null, fabric: null, fit: null }
+    const shown = showPieces([
+      { ...base, piece_id: 1, photo_id: 7, image: '//cdn.shopify.com/a.jpg' },
+      { ...base, piece_id: 2, photo_id: null, image: '//cdn.shopify.com/b.jpg' },
+      { ...base, piece_id: 3, photo_id: null, image: null },
+    ]).map((piece) => piece.shown)
+    assert.deepEqual(shown, [
+      { kind: 'photo', photo_id: 7 },
+      { kind: 'product', src: '//cdn.shopify.com/b.jpg' },
+      { kind: 'words' },
+    ])
+    const many = showPieces(Array.from({ length: MAX_GARMENT_IMAGES + 2 }, (_, i) => ({ ...base, piece_id: i, photo_id: i, image: null })))
+    assert.equal(many.filter((piece) => piece.shown.kind !== 'words').length, MAX_GARMENT_IMAGES, 'him and fifteen pieces at most')
+  })
+
+  test('the look prompt numbers the photos, describes the rest and asks for no flattery', () => {
+    const prompt = lookTryOnPrompt({
+      title: 'Navy and putty office day',
+      styling: 'Tuck the tee.',
+      pieces: [
+        { piece_id: 1, name: 'Ink overshirt', garment_type: 'overshirt', colour_name: 'ink navy', colour_hex: '#1f2942', fabric: null, fit: null, shown: { kind: 'photo', photo_id: 1 } },
+        { piece_id: 2, name: 'White tee', garment_type: 'tee', colour_name: 'chalk', colour_hex: '#f4f1ea', fabric: 'cotton', fit: 'regular', shown: { kind: 'words' } },
+        { piece_id: 3, name: 'Putty chinos', garment_type: 'trousers', colour_name: null, colour_hex: null, fabric: null, fit: null, shown: { kind: 'product', src: 'x' } },
+      ],
+    })
+    assert.match(prompt, /Images 2 to 3 are photos of clothes he owns/)
+    assert.match(prompt, /- Image 2: "Ink overshirt", the outer layer, ink navy \(#1f2942\)\./)
+    assert.match(prompt, /- No photo: "White tee", the top, in chalk \(#f4f1ea\), regular fit, cotton\./)
+    assert.match(prompt, /- Image 3: "Putty chinos", the trousers\./)
+    assert.match(prompt, /Wear it this way: Tuck the tee\./)
+    assert.match(prompt, /Do not slim, lengthen, straighten or flatter him/)
     assert.doesNotMatch(prompt, /[–—]/, 'plain hyphens only')
   })
 
@@ -273,5 +313,71 @@ describe('the lifecycle', () => {
     assert.deepEqual(await readdir(path.join(dir, 'try-ons')), [], 'no try-on file left')
     assert.equal((await latestTryOns([productId], sql)).size, 0)
     assert.equal((await tryOnSpend(sql)).count, 2, 'deleted images still count toward spend')
+  })
+
+  test('a look is made from his photo and its pieces’ photos, in order, and found again', async () => {
+    const photo = await storePhoto({ bytes: await jpeg(1200, 1600, { r: 150, g: 120, b: 90 }), mime: 'image/jpeg', kind: 'full_body' })
+
+    // One piece he photographed, one bought from the shop, one typed in.
+    await mkdir(path.join(dir, 'wardrobe'), { recursive: true })
+    await writeFile(path.join(dir, 'wardrobe', 'tee.jpg'), await jpeg(1176, 1568, { r: 240, g: 238, b: 230 }))
+    const [wardrobePhoto] = await sql<{ id: number }[]>`
+      insert into wardrobe_photos (path, bytes, width, height, sha256)
+      values ('wardrobe/tee.jpg', 1, 1176, 1568, 'tee') returning id::int as id
+    `
+    const pieces = await sql<{ id: number }[]>`
+      insert into wardrobe_pieces ${sql([
+        { name: 'Ink Wool Overshirt', garment_type: 'overshirt', source: 'find', product_id: productId, photo_id: null, colour_name: 'ink navy' },
+        { name: 'Chalk tee', garment_type: 'tee', source: 'photo', product_id: null, photo_id: wardrobePhoto!.id, colour_name: 'chalk' },
+        { name: 'Putty chinos', garment_type: 'trousers', source: 'typed', product_id: null, photo_id: null, colour_name: 'putty' },
+      ])}
+      returning id::int as id
+    `
+    const [set] = await sql<{ id: number }[]>`insert into look_sets (model) values ('test') returning id::int as id`
+    const [look] = await sql<{ id: number }[]>`
+      insert into looks (set_id, position, title, occasion, weather, why, piece_count)
+      values (${set!.id}, 0, 'Navy and putty', 'office', 'mild', 'Because.', 3) returning id::int as id
+    `
+    // The overshirt is outermost, so it comes first even though the tee was added second.
+    await sql`
+      insert into look_pieces ${sql(pieces.map((piece, position) => ({ look_id: look!.id, piece_id: piece.id, position })))}
+    `
+
+    const started = await startLookTryOn(look!.id, sql)
+    assert.ok(started.ok)
+    const calls: Call[] = []
+    const generated = await jpeg(1152, 1536, { r: 40, g: 50, b: 80 })
+    const status = await makeTryOn(started.id, {
+      sql,
+      fetch: fakeFetch(async () => Response.json({ data: [{ b64_json: generated.toString('base64') }], usage: { input_tokens: 1000, output_tokens: 1000 } }), calls),
+    })
+    assert.equal(status, 'ready')
+
+    const openai = calls.find((call) => call.url === 'https://api.openai.com/v1/images/edits')
+    const images = openai!.body!.images as { image_url: string }[]
+    assert.equal(images.length, 3, 'him, the shop’s overshirt, his tee; the chinos in words')
+    const colourOf = async (index: number) => {
+      const { dominant } = await sharp(Buffer.from(images[index]!.image_url.split(',')[1]!, 'base64')).stats()
+      return dominant
+    }
+    assert.ok((await colourOf(2)).r > 200, 'the third image is his photo of the chalk tee')
+    assert.match(String(openai!.body!.prompt), /- No photo: "Putty chinos", the trousers, in putty\./)
+
+    const [row] = await sql<{ product_id: number | null; look_id: number; pieces: { shown: { kind: string } }[] }[]>`
+      select product_id, look_id::int as look_id, pieces from try_ons where id = ${started.id}
+    `
+    assert.equal(row?.product_id, null)
+    assert.deepEqual(row?.pieces.map((piece) => piece.shown.kind), ['product', 'photo', 'words'])
+    assert.equal((await latestLookTryOns([look!.id], sql)).get(look!.id)?.status, 'ready')
+    assert.equal((await latestTryOns([productId], sql)).size, 0, 'a look’s try-on is not the find’s')
+
+    // A piece gone from the wardrobe: the look is no longer whole, so it is not made.
+    await sql`delete from wardrobe_pieces where id = ${pieces[2]!.id}`
+    const gone = await startLookTryOn(look!.id, sql)
+    assert.ok(!gone.ok && /no longer in your wardrobe/.test(gone.message))
+
+    // And it goes with his photos like any other.
+    await removePhoto(photo.id, sql)
+    assert.equal((await latestLookTryOns([look!.id], sql)).size, 0)
   })
 })

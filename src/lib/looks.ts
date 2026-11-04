@@ -7,6 +7,7 @@ import { inPalette, listPieces, type Piece } from './pieces.ts'
 import type { Profile } from './profile.ts'
 import { generate, type GenerationMeta } from './structured.ts'
 import { colourNameFor, profileBrief, type Guide } from './style-guide.ts'
+import { latestLookTryOns, type OnMe } from './try-on.ts'
 import type { GarmentType, SlotStatus } from './wardrobe-values.ts'
 
 /*
@@ -374,6 +375,8 @@ export type Look = {
   pieces: Piece[]
   /** Days he wore it, newest first, as YYYY-MM-DD in New Zealand. */
   worn: string[]
+  /** The latest try-on of the whole look, if he asked for one. */
+  on_me: OnMe | null
 }
 
 export type LookSet = {
@@ -403,7 +406,7 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
   const [total] = await sql<{ sets: number; usd: number }[]>`
     select count(*)::int as sets, coalesce(sum(usd), 0)::float as usd from look_sets
   `
-  const rows = await sql<(Omit<Look, 'pieces' | 'better' | 'worn'> & { piece_ids: number[]; better_slot_id: number | null; better_name: string | null; better_colours: string[] | null; better_why: string | null; worn: string[] })[]>`
+  const rows = await sql<(Omit<Look, 'pieces' | 'better' | 'worn' | 'on_me'> & { piece_ids: number[]; better_slot_id: number | null; better_name: string | null; better_colours: string[] | null; better_why: string | null; worn: string[] })[]>`
     select l.id::int as id, l.set_id::int as set_id, l.title, l.occasion, l.weather, l.why, l.styling, l.status, l.piece_count,
            l.better_slot_id::int as better_slot_id, s.name as better_name, s.colours as better_colours, l.better_why,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids,
@@ -413,7 +416,8 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
     where l.status = 'saved' or (l.status = 'new' and l.set_id = ${latest?.id ?? 0})
     order by l.set_id = ${latest?.id ?? 0} desc, l.position, l.acted_at desc
   `
-  const pieces = new Map((await listPieces(sql)).map((piece) => [piece.id, piece]))
+  const [pieceList, onMe] = await Promise.all([listPieces(sql), latestLookTryOns(rows.map((row) => row.id), sql)])
+  const pieces = new Map(pieceList.map((piece) => [piece.id, piece]))
   const looks: Look[] = rows.map((row) => ({
     id: row.id,
     set_id: row.set_id,
@@ -430,6 +434,7 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
         : null,
     pieces: row.piece_ids.flatMap((id) => (pieces.has(id) ? [pieces.get(id)!] : [])),
     worn: row.worn,
+    on_me: onMe.get(row.id) ?? null,
   }))
   // A look saved from the newest set stays where it is, so a tap never moves the card under his finger.
   const inLatest = (look: Look) => latest !== undefined && look.set_id === latest.id
