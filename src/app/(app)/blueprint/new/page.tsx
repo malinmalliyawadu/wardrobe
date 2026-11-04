@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { FormSkeleton } from '@/components/skeleton'
 import { listSlots } from '@/lib/blueprint'
 import { getProfile } from '@/lib/profile'
 import { getGuide } from '@/lib/style-guide'
@@ -23,7 +24,7 @@ export default function NewSlotPage() {
         Something you want that the draft missed, or something you own that the blueprint
         should build around. A redraft keeps it.
       </p>
-      <Suspense fallback={<p className="mt-8 text-ink-3">Loading</p>}>
+      <Suspense fallback={<FormSkeleton />}>
         <Form />
       </Suspense>
     </section>

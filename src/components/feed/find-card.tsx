@@ -181,6 +181,7 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
             {change.text}
           </p>
         ) : null}
+        {find.try_on && find.inStock ? <p className="mt-1 text-[0.8125rem] text-ink-3">Try on at {find.try_on}</p> : null}
         <div className="mt-1">
           <SeeItOnMe find={find} />
         </div>

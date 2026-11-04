@@ -11,6 +11,7 @@ import { getProfile } from '@/lib/profile'
 import { colourNameFor, getGuide, type StoredGuide } from '@/lib/style-guide'
 import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from '@/lib/wardrobe-values'
 
+import { BlueprintSkeleton } from './skeletons'
 import { SlotGroup, SlotLink, type SlotRow } from './slot-group'
 import { DraftForm, GuideStep, RefillForm } from './steps'
 
@@ -26,7 +27,7 @@ export default function BlueprintPage() {
         Thirty to forty slots, each a specific item with a why, a priority and a budget. The
         nightly finder matches real products against the ones you want.
       </p>
-      <Suspense fallback={<p className="mt-10 border-t border-line pt-6 text-ink-3">Loading the blueprint</p>}>
+      <Suspense fallback={<BlueprintSkeleton />}>
         <Content />
       </Suspense>
     </section>
@@ -39,13 +40,16 @@ async function Content() {
 
   if (!profile.confirmed_at || !profile.season) {
     return (
-      <p className="mt-10 border-t border-line pt-6 text-ink-2">
-        The blueprint is drafted from your style guide, and the guide from your confirmed colouring.{' '}
-        <Link href="/you" className="text-brass underline decoration-brass/40 underline-offset-4">
+      <div className="mt-10 border-t border-line pt-8">
+        <h2 className="font-display text-[1.625rem] leading-tight">First, your profile</h2>
+        <p className="mt-3 max-w-[42ch] text-ink-2">
+          The blueprint is drafted from your style guide, and the guide from your colouring once you have confirmed
+          it. A few photos and a few minutes under You.
+        </p>
+        <ButtonLink href="/you" className="mt-6">
           Start your profile
-        </Link>{' '}
-        first.
-      </p>
+        </ButtonLink>
+      </div>
     )
   }
 

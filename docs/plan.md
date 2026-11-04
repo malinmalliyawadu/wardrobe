@@ -102,16 +102,16 @@ Probed on 2026-11-04:
 
 | Store | Shopify feed | Wellington store |
 |---|---|---|
-| Barkers | yes | yes (Lambton Quay) |
-| I Love Ugly | yes | no |
-| Good As Gold | yes | yes (Victoria St) |
-| Country Road NZ | yes | yes |
-| Workshop | yes | yes |
-| Huffer | yes | yes |
+| Barkers | yes | yes (342 Lambton Quay; also 82 Cuba St) |
+| I Love Ugly | yes | yes (3/115 Victoria St; also Old Bank Arcade) |
+| Good As Gold | yes | yes (20 Bond St, Te Aro) |
+| Country Road NZ | yes | not listed on its own site |
+| Workshop | yes | yes (cnr Customhouse Quay and Hunter St) |
+| Huffer | yes | yes (60 Cuba St) |
 | Crane Brothers | yes | no (Auckland) |
-| Checks Downtown | yes | yes |
-| Commoners | yes | yes |
-| Area 51 | yes | yes |
+| Checks Downtown | yes | no (Auckland only) |
+| Commoners | yes | no (stockists only) |
+| Area 51 | yes | yes (49 Dixon St) |
 | END. (UK, ships to NZ) | yes | no |
 | Hallensteins | no (406) | yes |
 | Rodd & Gunn | no (410) | yes |
@@ -123,8 +123,9 @@ Probed on 2026-11-04:
 One generic Shopify adapter covers the first eleven and any other Shopify store
 Malin pastes a URL for. Non-Shopify stores need a per-retailer adapter each
 (THE ICONIC and Uniqlo have internal JSON search endpoints; ASOS and Mr Porter
-are harder) and are M5 work. Wellington store addresses above are from memory
-and must be verified before they are shown.
+are harder) and are M5 work. The Wellington stores above were first written from memory and
+verified on each retailer's own site on 2026-11-04 (M4); each one's page is
+the `source` in `data/retailers.json`.
 
 Ingest is polite: one request per second per host, a real User-Agent that names
 the app, and the robots.txt of each store checked once and respected.
@@ -285,6 +286,31 @@ model more of him to work with.
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
+
+M4 built 2026-11-04. Gate pending: the app running on Coolify, the finder
+nightly there, and Malin using it from his phone.
+
+- GitHub `malinmalliyawadu/wardrobe` (public, Malin's choice), CI on every
+  push and pull request: typecheck, lint, migrations, tests, build, and the
+  Docker image.
+- Sign-in: a password screen with a year-long signed cookie in place of Basic
+  Auth, chosen by Malin because an installed iPhone web app handles a Basic
+  Auth prompt badly. One secret, `APP_PASSWORD`; changing it signs every
+  device out.
+- Coolify: the README's click-through. The image builds with the network off,
+  migrates and seeds the shop list on boot, keeps photos on a named volume at
+  `/data`, and is health-checked on the database alone so a Claude outage
+  cannot take it down. The finder is a scheduled task with a one-hour timeout.
+- PWA: manifest and icons (the Today swatch fan in his colours on flannel),
+  no service worker.
+- Saved finds: price drops, sell-outs and restocks in his size, replayed from
+  `price_observations`; the night's news is a line on the find and a summary
+  under Saved.
+- Wellington stores verified on the retailers' own sites (table above): six
+  shown as "try on at", Country Road left unverified, Checks Downtown and
+  Commoners have none of their own.
+- Loading states are skeletons in the shape of what streams in, held back
+  300 ms; the empty states each say what comes first and offer the button.
 
 **M5 Reach.** Per-retailer adapters for THE ICONIC, Uniqlo and Hallensteins,
 on-demand searches ("a navy overshirt under $300") that run the pipeline

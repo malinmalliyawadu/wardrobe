@@ -2,6 +2,8 @@ import { connection } from 'next/server'
 
 import { checkAll } from '@/lib/health'
 
+import { TextBone } from './skeleton.tsx'
+
 /**
  * Streams in under Suspense on the You page. connection() keeps the database
  * call out of the prerendered shell.
@@ -35,12 +37,14 @@ export async function StatusList() {
 
 export function StatusSkeleton() {
   return (
-    <ul className="divide-y divide-line border-y border-line" aria-busy>
-      {['Database', 'Claude'].map((name) => (
-        <li key={name} className="flex items-baseline justify-between gap-4 py-3">
-          <div>
+    <ul className="divide-y divide-line border-y border-line" aria-busy aria-label="Checking the systems">
+      {['Database', 'Claude', 'Photos'].map((name) => (
+        <li key={name} className="flex items-start justify-between gap-4 py-3">
+          <div className="min-w-0 flex-1">
             <p className="font-medium">{name}</p>
-            <p className="text-sm text-ink-3">Checking</p>
+            <div className="skeleton">
+              <TextBone className="w-48" size="text-sm" />
+            </div>
           </div>
         </li>
       ))}

@@ -64,8 +64,9 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# Apply pending migrations, then serve. Coolify provides DATABASE_URL,
+# Apply pending migrations, bring the shop list up to date (idempotent, and
+# it never undoes a switch made on /you/finder), then serve. Coolify provides DATABASE_URL,
 # ANTHROPIC_API_KEY, OPENAI_API_KEY and APP_PASSWORD. `&&` means a failed
 # migration stops the container from serving at all, which is the honest
 # outcome.
-CMD ["sh", "-c", "node scripts/migrate.ts && ./node_modules/.bin/next start"]
+CMD ["sh", "-c", "node scripts/migrate.ts && node scripts/seed-retailers.ts && ./node_modules/.bin/next start"]

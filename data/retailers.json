@@ -1,5 +1,5 @@
 {
-  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Whether a store is read is Malin's switch on /you/finder; \"enabled\" here only sets a newly added store's starting state. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
+  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Whether a store is read is Malin's switch on /you/finder; \"enabled\" here only sets a newly added store's starting state. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site, which `source` names. Checked 2026-11-04: Country Road's own store finder lists no NZ stores, so its store stays unverified; Checks Downtown (Auckland only) and Commoners (stockists only) have no Wellington store of their own; Barkers also has 82 Cuba Street and I Love Ugly 233 Lambton Quay, one store each is shown. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
   "retailers": [
     {
       "slug": "barkers",
@@ -13,8 +13,10 @@
       "wellington_store": {
         "name": "Barkers",
         "area": "Lambton Quay",
-        "address": null,
-        "verified": false
+        "address": "342 Lambton Quay",
+        "verified": true,
+        "source": "https://www.barkersonline.co.nz/tools/locations/locations/barkers-lambton-quay-the-chambers",
+        "checked": "2026-11-04"
       }
     },
     {
@@ -27,7 +29,14 @@
       "ships_to_nz": true,
       "catalogue": "menswear",
       "notes": "The NZ store. iloveugly.com is a separate US store priced in USD.",
-      "wellington_store": null
+      "wellington_store": {
+        "name": "I Love Ugly",
+        "area": "Te Aro",
+        "address": "3/115 Victoria Street",
+        "verified": true,
+        "source": "https://www.iloveugly.co.nz/pages/stores",
+        "checked": "2026-11-04"
+      }
     },
     {
       "slug": "good-as-gold",
@@ -44,9 +53,11 @@
       "notes": "goodasgold.co.nz redirects here. The 'mens' collection is the men's range.",
       "wellington_store": {
         "name": "Good As Gold",
-        "area": "Victoria Street",
-        "address": null,
-        "verified": false
+        "area": "Te Aro",
+        "address": "20 Bond Street, Te Aro",
+        "verified": true,
+        "source": "https://goodasgoldshop.com/",
+        "checked": "2026-11-04"
       }
     },
     {
@@ -66,7 +77,9 @@
         "name": "Country Road",
         "area": null,
         "address": null,
-        "verified": false
+        "verified": false,
+        "source": null,
+        "checked": "2026-11-04"
       }
     },
     {
@@ -80,9 +93,11 @@
       "catalogue": "mixed",
       "wellington_store": {
         "name": "Workshop",
-        "area": null,
-        "address": null,
-        "verified": false
+        "area": "Wellington Central",
+        "address": "corner of Customhouse Quay and Hunter Street",
+        "verified": true,
+        "source": "https://www.workshop.co.nz/pages/stores",
+        "checked": "2026-11-04"
       }
     },
     {
@@ -100,9 +115,11 @@
       "notes": "The 'mens' collection is the men's range.",
       "wellington_store": {
         "name": "Huffer",
-        "area": null,
-        "address": null,
-        "verified": false
+        "area": "Te Aro",
+        "address": "60 Cuba Street",
+        "verified": true,
+        "source": "https://www.huffer.co.nz/pages/store-locator",
+        "checked": "2026-11-04"
       }
     },
     {
@@ -128,12 +145,7 @@
       "ships_to_nz": true,
       "catalogue": "menswear",
       "notes": "A unisex streetwear label cut on men's sizing; its listings never say men or women.",
-      "wellington_store": {
-        "name": "Checks Downtown",
-        "area": null,
-        "address": null,
-        "verified": false
-      }
+      "wellington_store": null
     },
     {
       "slug": "commoners",
@@ -144,12 +156,7 @@
       "currency": "NZD",
       "ships_to_nz": true,
       "catalogue": "menswear",
-      "wellington_store": {
-        "name": "Commoners",
-        "area": null,
-        "address": null,
-        "verified": false
-      }
+      "wellington_store": null
     },
     {
       "slug": "area-51",
@@ -162,9 +169,11 @@
       "catalogue": "mixed",
       "wellington_store": {
         "name": "Area 51",
-        "area": null,
-        "address": null,
-        "verified": false
+        "area": "Te Aro",
+        "address": "49 Dixon Street",
+        "verified": true,
+        "source": "https://area51store.co.nz/pages/contact",
+        "checked": "2026-11-04"
       }
     },
     {
