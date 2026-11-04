@@ -10,10 +10,12 @@ type Item = {
   href: '/' | '/looks' | '/blueprint' | '/you'
   label: string
   Icon: ComponentType<SVGProps<SVGSVGElement>>
+  /** Pages outside the tab's own path that belong to it. */
+  also?: string[]
 }
 
 const items: Item[] = [
-  { href: '/', label: 'Today', Icon: HangerIcon },
+  { href: '/', label: 'Today', Icon: HangerIcon, also: ['/shops'] },
   { href: '/looks', label: 'Looks', Icon: ShirtIcon },
   { href: '/blueprint', label: 'Blueprint', Icon: BlueprintIcon },
   { href: '/you', label: 'You', Icon: PersonIcon },
@@ -54,8 +56,9 @@ function NavBar({ pathname }: { pathname: string | null }) {
         <Wordmark />
       </div>
       <ul className="mx-auto flex max-w-md items-stretch justify-around lg:mt-10 lg:max-w-none lg:flex-col lg:gap-1">
-        {items.map(({ href, label, Icon }) => {
-          const active = pathname !== null && (pathname === href || (href !== '/' && pathname.startsWith(href)))
+        {items.map(({ href, label, Icon, also = [] }) => {
+          const active =
+            pathname !== null && [href, ...also].some((path) => pathname === path || (path !== '/' && pathname.startsWith(path)))
           return (
             <li key={href} className="lg:w-full">
               <Link

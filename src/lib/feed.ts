@@ -158,7 +158,7 @@ export function toNzd(cents: number, currency: string, rates: Rates): number {
   return Math.round(cents * (rates[currency] ?? 1))
 }
 
-function price(row: Pick<Row, 'price_cents' | 'compare_at_cents' | 'currency'>, rates: Rates): Price {
+export function findPrice(row: Pick<Row, 'price_cents' | 'compare_at_cents' | 'currency'>, rates: Rates): Price {
   return {
     cents: row.price_cents,
     compareAtCents: row.compare_at_cents,
@@ -185,7 +185,7 @@ function card(row: Row, rates: Rates): FindCard {
     retailer: row.retailer,
     country: row.country,
     try_on: tryOnAt(row.wellington_store),
-    price: price(row, rates),
+    price: findPrice(row, rates),
     sizes: row.sizes,
     size_known: row.size_known,
     on_me: null,
@@ -208,9 +208,40 @@ export async function latestRun(sql: Sql | TransactionSql = db()): Promise<Run |
   return run ?? null
 }
 
-function runRates(run: Run | null): Rates {
+export function runRates(run: Run | null): Rates {
   const fx = run?.stats.fx as { rates?: Rates } | undefined
   return { NZD: 1, ...(fx?.rates ?? {}) }
+}
+
+/**
+ * The products Today shows from a run, for Shops to mark: the same rule as
+ * getFeed (it clears the bar for an open slot it was shortlisted for, nothing
+ * done with it yet, its shop still on), and the same best CARDS_PER_SLOT per
+ * slot in the same order. A test holds the two to each other.
+ */
+export async function shownOnToday(sql: Sql, runId: number): Promise<Set<number>> {
+  const rows = await sql<{ product_id: number }[]>`
+    with latest_action as (
+      select distinct on (product_id) product_id, action
+      from feed_actions order by product_id, created_at desc, id desc
+    ),
+    ranked as (
+      select c.product_id,
+             row_number() over (partition by s.slot_id order by s.score desc, c.price_cents, c.product_id) as place
+      from finder_candidates c
+      join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
+      join products p on p.id = c.product_id and p.removed_at is null
+      join retailers r on r.id = p.retailer_id and r.enabled
+      join blueprint_slots b on b.id = s.slot_id and b.status in ${sql(OPEN_STATUSES)}
+      left join latest_action a on a.product_id = c.product_id
+      where c.run_id = ${runId}
+        and s.score >= ${SHOW_THRESHOLD}
+        and s.slot_id = any (c.slot_ids)
+        and coalesce(a.action, 'cleared') = 'cleared'
+    )
+    select product_id::int as product_id from ranked where place <= ${CARDS_PER_SLOT}
+  `
+  return new Set(rows.map((row) => row.product_id))
 }
 
 export async function getFeed(): Promise<Feed> {

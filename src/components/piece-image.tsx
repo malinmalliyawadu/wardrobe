@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react'
 import type { ProductImage } from '@/lib/finder/shopify'
 import type { PiecePhoto } from '@/lib/pieces'
 
-import { shopifyLoader } from './feed/product'
+import { shopifyLoader } from './feed/product-photo'
 
 export type PieceLook = {
   name: string
