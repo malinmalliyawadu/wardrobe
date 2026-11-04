@@ -3,8 +3,10 @@
 import Link from 'next/link'
 import { useOptimistic, useState, useTransition, type CSSProperties } from 'react'
 
+import { seeLookOnMe } from '@/app/try-on-actions'
 import { Cloth } from '@/components/cloth'
 import { PieceImage } from '@/components/piece-image'
+import { TryOn } from '@/components/try-on'
 import type { Look, LookAction, LookDismissReason } from '@/lib/looks'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
@@ -13,9 +15,10 @@ import { lookAction } from './actions'
 /*
  * One look as a lookbook page: the pieces laid out (the outermost large, the
  * next two beside it, shoes and what is carried along the bottom), then the
- * name, the occasion and weather, why it works and how to wear it. Save and
- * "Wore it" show at once and are saved behind; Dismiss asks why, then the
- * card fades out and the next render drops it.
+ * name, the occasion and weather, why it works and how to wear it. "See it on
+ * me" dresses him in the whole look. Save and "Wore it" show at once and are
+ * saved behind; Dismiss asks why, then the card fades out and the next render
+ * drops it.
  */
 
 const REASONS: { value: LookDismissReason; label: string }[] = [
@@ -115,6 +118,7 @@ export function LookCard({
       {wornLine ? <p className="mt-3 text-[0.8125rem] text-ink-3">{wornLine}</p> : null}
 
       <div className="mt-auto pt-3">
+        {missing === 0 ? <LookOnMe look={look} occasion={occasion} /> : null}
         <div key={asking ? 'ask' : 'act'} className="tray">
           {asking ? (
             <div role="group" aria-label="Why dismiss it?">
@@ -175,6 +179,50 @@ export function LookCard({
         {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
       </div>
     </article>
+  )
+}
+
+/** "See it on me" for the whole look: him dressed in it, beside the pieces it was made from. */
+function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
+  const unseen = look.pieces.filter((piece) => !piece.photo && !piece.image).length
+  const all = unseen === look.pieces.length
+  return (
+    <TryOn
+      initial={look.on_me}
+      start={() => seeLookOnMe(look.id)}
+      content={{
+        eyebrow: occasion,
+        title: look.title,
+        alt: `You wearing ${look.title.toLowerCase()}`,
+        aside: (
+          <figure>
+            <div className="grid grid-cols-3 gap-2">
+              {look.pieces.map((piece) => (
+                <PieceImage
+                  key={piece.id}
+                  piece={piece}
+                  label={GARMENT_LABELS[piece.garment_type]}
+                  sizes="(min-width: 1024px) 7rem, 30vw"
+                  className="aspect-[3/4] rounded-lg"
+                />
+              ))}
+            </div>
+            <figcaption className="mt-2 text-[0.8125rem] text-ink-3">Your pieces</figcaption>
+          </figure>
+        ),
+        note: (
+          <>
+            Made by OpenAI from your full-length photo and the photos of your pieces. Judge the colours against the
+            pieces themselves: the picture cannot know how each one sits on you.
+            {unseen === 0
+              ? null
+              : all
+                ? ' None of these pieces has a photo yet, so each was drawn from its description.'
+                : ` ${unseen === 1 ? 'One piece has' : `${unseen} pieces have`} no photo yet, so ${unseen === 1 ? 'it was' : 'they were'} drawn from the description.`}
+          </>
+        ),
+      }}
+    />
   )
 }
 

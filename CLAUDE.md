@@ -53,8 +53,9 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
 - Claude calls go through `src/lib/claude.ts`. Models are named once there:
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
 - Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
-  `src/lib/try-on.ts`, only on Malin's tap, one at a time. The photo rule in
-  docs/plan.md 1.1 is what he agreed; do not send his photos anywhere else.
+  `src/lib/try-on.ts`, only on Malin's tap, one at a time, of a find or of a
+  whole look. The photo rule in docs/plan.md 1.1 is what he agreed; do not
+  send his photos anywhere else.
 - Fonts are committed under `src/fonts` and loaded with `next/font/local`; the
   Docker build runs with the network off and will fail on any build-time fetch.
 - Plain dash, never an em dash, in copy and comments.
@@ -143,7 +144,12 @@ context (profile, guide, open slots, recent dismissals) one cached system
 block, about $0.0074 a product; stops after ten API errors in a row.
 /you/finder sets the spend (a nightly cap, default US$1, and an optional
 monthly one) and switches stores on and off, with each store's shortlist,
-finds and cost from the last run. Saved on Today also takes a pasted
+finds and cost from the last run. Its "Run now" spawns `scripts/find.ts` as a
+child of the web server (`src/lib/finder/start.ts`) and polls
+`/api/finder/run` while it goes. One run at a time: the script holds a
+Postgres advisory lock for its life (`src/lib/finder/runs.ts`), so a second
+run logs `find.busy` and exits, and a `running` row without the lock is a run
+that died; the next run closes it. Saved on Today also takes a pasted
 product link from any of the shops (`src/lib/finder/product-link.ts`), with
 or without a slot; the nightly run keeps those current too. The feed
 on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with
@@ -183,12 +189,21 @@ fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
 slot themselves, and "Bought it" makes the find a piece. Clothing photos
 (`src/lib/piece-photos.ts`) are their own table and files under
 `PHOTOS_DIR/wardrobe`, read once by Sonnet on add (agreed extension of the
-photo rule, docs/plan.md 1.1), never sent to OpenAI. Looks
+photo rule, docs/plan.md 1.1), and sent to OpenAI only for a look's "See it
+on me" (migration 0008, his own photo of a piece first, else the shop's,
+else words). Looks
 (`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
 only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
 minute or two and US$0.15 to 0.32.
 
-M5 Reach built 2026-11-04 (migration 0008); gate pending (a week of searches
+On me (`/looks/on-me`, the Looks tab's third page, `src/lib/on-me.ts`) lists
+every try-on still kept, newest first, each with what it was made from, and
+its own page shows the prompt and "Make it again". "Choose pieces" puts any
+mix of his pieces and saved finds on him in one image (migration 0009: a
+try-on with neither a find nor a look, only `pieces`), in layer order, with
+whatever he did not choose left as it is in his photo.
+
+M5 Reach built 2026-11-04 (migration 0010); gate pending (a week of searches
 whose finds he would buy, at a cost he is happy with). The three store
 adapters were researched (docs/plan.md, M5) and not built, Malin's call:
 THE ICONIC's terms forbid robots and scraping, Uniqlo does not sell to NZ,

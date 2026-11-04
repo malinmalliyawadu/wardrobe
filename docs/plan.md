@@ -55,9 +55,17 @@ provider; see M3.5.)
 Photos of his clothes (the wardrobe, M5) are a second kind: not of him. Each
 is stored like his photos, without metadata, served only through the app, and
 goes to the Claude API (Sonnet) once, when he adds the piece, to fill in the
-form he checks. Never to OpenAI. Looks are made from the pieces' words, not
-their photos. "Delete photos" stays for photos of him; a clothing photo goes
-with its piece. (Agreed with Malin on 2026-11-04.)
+form he checks. Looks are made from the pieces' words, not their photos.
+"Delete photos" stays for photos of him; a clothing photo goes with its piece.
+(Agreed with Malin on 2026-11-04.) The one other place a clothing photo goes:
+"See it on me" on a look sends his full-length photo to OpenAI with the photos
+of that look's pieces (or the shop's photo for a piece he never
+photographed), only when he taps it, one image at a time, under the same terms
+as a find's try-on. (Asked for by Malin on 2026-11-04.) The same holds for
+pieces he chooses himself on the On me page, any mix of his pieces and the
+finds he saved: his full-length photo goes with his photo of each piece, or
+the shop's photo, on his tap only, one image at a time. (Asked for by Malin on
+2026-11-04.)
 
 ### 1.2 Style guide (what suits you)
 
@@ -291,6 +299,14 @@ sun. He is small in that photo, so detail such as the chest logo is hard to
 judge; a plain-background full-length photo in fitted clothes would give the
 model more of him to work with.
 
+A look can be tried on too (2026-11-04, migration 0008): "See it on me" on
+each look card dresses him in the whole outfit. The pieces go in the look's
+order, outermost first, each shown by his own photo of it, else the shop's
+photo, else described in words (name, colour, cloth and fit), and the prompt
+says which is which. A try-on row is now of a find or of a look, never both;
+it keeps how each piece was sent. A look with a piece gone from the wardrobe
+cannot be tried on. The viewer shows him beside the pieces' photos.
+
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
@@ -383,7 +399,7 @@ the finder stays on the eleven Shopify stores. A store can still be added by
 pasting its Shopify URL into `data/retailers.json`.
 
 **M5 on-demand search**, agreed with Malin and built 2026-11-04 (migration
-0008). A Search tab between Today and Looks, chosen over a field on Today.
+0010). A Search tab between Today and Looks, chosen over a field on Today.
 He types what he wants ("a navy overshirt under $300"); the search page shows
 its progress and then its finds, refreshing itself until it is done, so he
 can leave while it runs.

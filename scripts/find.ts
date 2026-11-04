@@ -4,7 +4,11 @@
  *   node scripts/find.ts
  *   npm run find -- --only=barkers,huffer --max-usd=2
  *
- * How much it may spend, and which stores it reads, are set on /you/finder.
+ * How much it may spend, and which stores it reads, are set on /you/finder,
+ * which can also start a run now; that runs this same script.
+ *
+ * One run at a time: a run that finds another going logs `find.busy` and
+ * exits 0 without starting (see src/lib/finder/runs.ts).
  *
  * Three stages, each recorded in one finder_runs row:
  *   1. ingest   every enabled store's Shopify feed, politely (free)
@@ -34,6 +38,7 @@ import { loadRates } from '../src/lib/finder/fx.ts'
 import { PoliteClient } from '../src/lib/finder/http.ts'
 import { readPhoto } from '../src/lib/finder/photo-colour.ts'
 import { refreshSaved } from '../src/lib/finder/product-link.ts'
+import { closeInterrupted, holdFinderLock } from '../src/lib/finder/runs.ts'
 import { imageAt } from '../src/lib/finder/shopify.ts'
 import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
@@ -73,6 +78,15 @@ function log(fields: Record<string, unknown>): void {
 // The lib functions read through the shared pool, so the script uses it too
 // and ends it on the way out.
 const sql = db()
+
+const lock = await holdFinderLock(sql)
+if (!lock) {
+  log({ event: 'find.busy', reason: 'another finder run is going' })
+  await sql.end()
+  process.exit(0)
+}
+const interrupted = await closeInterrupted(sql)
+if (interrupted > 0) log({ event: 'find.closed_interrupted', runs: interrupted })
 
 const [run] = await sql<{ id: number; started_at: Date }[]>`
   insert into finder_runs (options) values (${sql.json(options)}) returning id::int as id, started_at
@@ -199,6 +213,7 @@ try {
   `
   log({ event: 'find.failed', run: run.id, error: message })
 } finally {
+  await lock.release()
   await sql.end()
 }
 process.exit(exitCode)

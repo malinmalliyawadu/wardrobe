@@ -196,7 +196,7 @@ then the looks he saved from earlier sets; the next set is told his saved and
 dismissed looks (with reasons) and how often each piece was worn in the last
 three weeks.
 
-**Searches (migration 0008)** are the request and its own target, never a
+**Searches (migration 0010)** are the request and its own target, never a
 blueprint slot: the read (garment, colour words and families, price, cut,
 words to rank by) is stored on the search as the same `SlotTarget` the filter
 takes for a slot, with slot id 0, and the scorer is shown it as the only slot.

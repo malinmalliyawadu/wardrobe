@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
 
 import { Live, SubPage } from '@/components/sub-page'
+import { liveRun } from '@/lib/finder/runs'
 import { getFinderSettings, getSpend, storeCounts, usdText, type Spend } from '@/lib/finder/settings'
 import { tryOnSpend, type TryOnSpend } from '@/lib/try-on'
 
 import { FinderForm } from './form'
+import { RunNow } from './run-now'
 
 export const metadata: Metadata = { title: 'Finder' }
 
@@ -22,15 +24,17 @@ export default function FinderPage() {
 }
 
 async function Loaded() {
-  const [settings, spend, stores, tryOns] = await Promise.all([
+  const [settings, spend, stores, tryOns, run] = await Promise.all([
     getFinderSettings(),
     getSpend(),
     storeCounts(),
     tryOnSpend(),
+    liveRun(),
   ])
   return (
     <>
       <SpendSummary spend={spend} />
+      <RunNow run={run} />
       <FinderForm
         key={[settings.max_usd_per_run, settings.max_usd_per_month, settings.max_usd_per_search, ...stores.filter((store) => store.enabled).map((store) => store.slug)].join('|')}
         settings={settings}
