@@ -160,11 +160,14 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
             {[
               find.colour,
               find.yourSizeOut ? `Your ${find.yourSizeOut} is sold out` : null,
-              find.sizes.length > 0 ? sizeLine(find) : null,
+              find.sizes.length === 0 ? null : find.byHand ? `Your size ${find.sizes.join(', ')}` : sizeLine(find),
             ]
               .filter(Boolean)
               .join('. ')}
           </p>
+        ) : null}
+        {find.byHand ? (
+          <p className="mt-1 text-[0.8125rem] text-ink-3">Added by hand, so the price is not checked</p>
         ) : null}
         {change && find.inStock ? (
           <p className={`mt-1 text-[0.8125rem] ${change.tone === 'good' ? 'font-medium text-brass' : 'text-ink-3'}`}>

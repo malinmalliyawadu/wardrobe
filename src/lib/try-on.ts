@@ -6,6 +6,7 @@ import sharp, { type OutputInfo } from 'sharp'
 import { z } from 'zod'
 
 import { db, type Sql } from './db.ts'
+import { findPhotoFile, findPhotoId } from './find-photos.ts'
 import { photosDir } from './photos.ts'
 
 /*
@@ -414,6 +415,13 @@ export function productImageUrl(src: string, width = PRODUCT_EDGE): string {
  * photo would sit.
  */
 export async function fetchProductImage(src: string, fetchImpl: typeof fetch = fetch): Promise<Buffer> {
+  // A find he added by hand shows the photo he chose, which is on our own volume.
+  const own = findPhotoId(src)
+  if (own !== null) {
+    const bytes = await findPhotoFile(own, 'master')
+    if (!bytes) throw new TryOnError('The find’s photo has gone. Add the find again with its photo.')
+    return asJpeg(bytes, 'The find’s photo could not be read.')
+  }
   let response: Response
   try {
     response = await fetchImpl(productImageUrl(src), {

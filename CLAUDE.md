@@ -235,7 +235,7 @@ Verdicts go in `search_results`, never `product_scores`. No slot is made;
 results save without one, and "Add to blueprint" prefills `/blueprint/new`.
 First real search: 51 judged, 7 finds, US$0.33, 40 s.
 
-Outfit of the day built 2026-11-05 (migration 0011); gate pending (a week of
+Outfit of the day built 2026-11-05 (migration 0012); gate pending (a week of
 days he wears what it suggests). On Today between the hero and the finds
 (`src/components/day/`, `src/lib/day-outfit.ts`): the first opening of a day
 (from 6pm, tomorrow) starts it through an action, never a render; Opus makes
@@ -247,3 +247,14 @@ the Looks tab's newest set. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.
+
+Lululemon added 2026-11-05 as a store added by hand (platform `manual`,
+migration 0012): its site answers only robots.txt past a Cloudflare challenge,
+which the finder does not pose as a browser to get through. A Lululemon link
+pasted on Saved opens fields in `AddLink` for the photo (stored on choice by
+`src/lib/find-photos.ts`, under `PHOTOS_DIR/finds`, served by
+`/photos/finds/[id]`), name, kind, price, colour and size; `src/lib/finder/manual.ts`
+writes it through `writePage` as a product with one variant, one per page
+and colour, so adding the same link again updates it. `readable()` keeps
+these stores out of every read, the nightly refresh included; the image
+loader and `fetchProductImage` take the local photo.

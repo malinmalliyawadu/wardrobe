@@ -141,6 +141,7 @@ Probed on 2026-11-04:
 | Rodd & Gunn | no (410) | yes |
 | THE ICONIC | no | no |
 | Uniqlo AU | no | no |
+| Lululemon NZ | no (Cloudflare 403); added by hand | not checked |
 | ASOS | no | no |
 | Mr Porter | no (403) | no |
 
@@ -148,7 +149,12 @@ One generic Shopify adapter covers the first eleven and any other Shopify store
 Malin pastes a URL for. Non-Shopify stores need a per-retailer adapter each;
 THE ICONIC, Uniqlo and Hallensteins were researched in M5 and are not read
 (THE ICONIC's terms forbid robots, Uniqlo does not sell to NZ, Hallensteins
-by Malin's choice; see M5 below). The Wellington stores above were first written from memory and
+by Malin's choice; see M5 below). Lululemon NZ (Salesforce Commerce Cloud)
+answers everything but robots.txt with a Cloudflare challenge, and its
+affiliate feed on Commission Factory needs a public site to promote it from,
+so since 2026-11-05 it is a store added by hand (platform `manual`, migration
+0012): a Lululemon link pasted on Saved opens fields for its photo, name,
+kind, price, colour and size, and the price is never checked. The Wellington stores above were first written from memory and
 verified on each retailer's own site on 2026-11-04 (M4); each one's page is
 the `source` in `data/retailers.json`.
 
@@ -451,7 +457,7 @@ Gate: Malin uses Search for a week and agrees its finds are ones he would
 buy, at a cost per search he is happy with.
 
 **Outfit of the day**, asked for by Malin and built 2026-11-05 (migration
-0011). Today, between the hero and the finds, dresses him for the day from
+0012). Today, between the hero and the finds, dresses him for the day from
 what he owns:
 
 - The first opening of Today on a day starts it (after 6pm it dresses him for

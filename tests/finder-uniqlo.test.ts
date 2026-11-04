@@ -90,6 +90,16 @@ test('one colour is one product: its photo, its sizes, the sale price beside the
   assert.throws(() => normaliseUniqlo(sweater, '99', store), UniqloPageError)
 })
 
+test('a video among the photos is left out, not read as a broken page', () => {
+  // uniqlo.com/us/en on 2026-11-05: a tee whose extra shots include { video: "...mp4" } with no image.
+  const tee = readUniqloPage(page('uniqlo-us-tee.html'))!
+  assert.equal(tee.name, 'SUPIMA® Cotton T-Shirt')
+  const white = normaliseUniqlo(tee, '00', { base_url: 'https://www.uniqlo.com/us/en' })
+  assert.equal(white.images[0]!.src, 'https://image.uniqlo.com/UQ/ST3/us/imagesgoods/455365/item/usgoods_00_455365_3x4.jpg')
+  assert.ok(white.images.every((image) => image.src.endsWith('.jpg')))
+  assert.equal(white.variants[0]!.price_cents, 2490)
+})
+
 test('jeans are sized by waist and at full price have nothing to compare against', () => {
   const blue = normaliseUniqlo(jeans, '66', store)
   assert.equal(blue.garment_type, 'jeans')

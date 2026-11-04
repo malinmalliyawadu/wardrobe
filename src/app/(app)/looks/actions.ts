@@ -8,7 +8,7 @@ import { echo, type ActionState } from '@/lib/action-state'
 import { db } from '@/lib/db'
 import { PoliteClient } from '@/lib/finder/http'
 import { readPhoto } from '@/lib/finder/photo-colour'
-import { addProductFromLink, ProductLinkError } from '@/lib/finder/product-link'
+import { addProductFromLink, ManualStoreError, ProductLinkError } from '@/lib/finder/product-link'
 import { attachPhoto, PieceReadError, readPiecePhoto, storePiecePhoto, valuesFromRead } from '@/lib/piece-photos'
 import {
   createPiece,
@@ -118,6 +118,10 @@ export async function draftFromLink(_prev: DraftState, form: FormData): Promise<
     // The link stays in its field, so he can see what was read.
     return { ok: true, draft, values: echo(form) }
   } catch (error) {
+    if (error instanceof ManualStoreError) {
+      const message = `${error.retailer.name}’s site cannot be read automatically. Add it from a photo, or type it in.`
+      return { ok: false, errors: { link: message }, values: echo(form) }
+    }
     if (error instanceof ProductLinkError || error instanceof PieceError) {
       return { ok: false, errors: { link: error.message }, values: echo(form) }
     }

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { Sql } from '../db.ts'
-import type { Retailer } from '../retailers.ts'
+import { readable, type Retailer } from '../retailers.ts'
 
 import { DisallowedError, FetchError, type PoliteClient } from './http.ts'
 import { writePage } from './ingest.ts'
@@ -26,6 +26,16 @@ import {
  */
 
 export class ProductLinkError extends Error {}
+
+/** A link from a store whose site cannot be read, so the product has to be added by hand. */
+export class ManualStoreError extends ProductLinkError {
+  readonly retailer: Retailer
+
+  constructor(retailer: Retailer) {
+    super(`${retailer.name}’s site cannot be read automatically, so its products are added by hand.`)
+    this.retailer = retailer
+  }
+}
 
 /** A pasted link as a URL, or the reason it is not one. */
 export function parseLink(input: string): URL {
@@ -134,6 +144,7 @@ export function fromProductJs(raw: unknown): ShopifyProduct {
 
 /** Reads one product from its store, ready to store. Null when the store says it no longer exists. */
 export async function fetchProduct(client: PoliteClient, retailer: Retailer, handle: string): Promise<NormalisedProduct | null> {
+  if (!readable(retailer)) throw new ManualStoreError(retailer)
   try {
     if (retailer.platform === 'uniqlo') return await fetchUniqlo(client, retailer, handle)
     const origin = retailer.feed_url ?? retailer.base_url
@@ -186,6 +197,20 @@ function handleForLink(retailer: Retailer, url: URL): string {
   return parseProductLink(url.toString()).handle
 }
 
+/** The store a pasted link is from, or why it is from none of them. */
+export function storeForLink<T extends Pick<Retailer, 'id' | 'name' | 'base_url' | 'feed_url'>>(
+  retailers: T[],
+  link: string,
+): { url: URL; retailer: T } {
+  const url = parseLink(link)
+  const retailer = retailerForLink(retailers, url)
+  if (!retailer) {
+    const names = retailers.map((store) => store.name).join(', ')
+    throw new ProductLinkError(`Wardrobe can only read the shops it knows: ${names}. That link is from ${bareHost(url.host)}.`)
+  }
+  return { url, retailer }
+}
+
 /** Reads a pasted link's product and stores it. Returns the product's id. */
 export async function addProductFromLink(
   sql: Sql,
@@ -193,12 +218,8 @@ export async function addProductFromLink(
   retailers: Retailer[],
   link: string,
 ): Promise<{ productId: number; title: string; retailer: string }> {
-  const url = parseLink(link)
-  const retailer = retailerForLink(retailers, url)
-  if (!retailer) {
-    const names = retailers.map((store) => store.name).join(', ')
-    throw new ProductLinkError(`Wardrobe can only read the shops it knows: ${names}. That link is from ${bareHost(url.host)}.`)
-  }
+  const { url, retailer } = storeForLink(retailers, link)
+  if (!readable(retailer)) throw new ManualStoreError(retailer)
   const handle = handleForLink(retailer, url)
   let product: NormalisedProduct | null
   try {
@@ -247,7 +268,8 @@ export async function refreshSaved(
   const stats = { checked: 0, removed: 0, failed: 0 }
   for (const row of stale) {
     const retailer = byId.get(row.retailer_id)
-    if (!retailer || !row.handle) continue
+    // A find added by hand has no page to read: its price is what he typed.
+    if (!retailer || !readable(retailer) || !row.handle) continue
     try {
       const product = await fetchProduct(client, retailer, row.handle)
       stats.checked += 1

@@ -9,8 +9,13 @@ import type { FindCard as Find } from '@/lib/feed'
  * A client module because next/image takes the loader as a function.
  */
 
-/** Shopify's CDN (and Uniqlo's image host) resize on a width parameter, so the image optimiser is not needed. */
-export const shopifyLoader: ImageLoader = ({ src, width }) => {
+/**
+ * Shopify's CDN (and Uniqlo's image host) resize on a width parameter, so the
+ * image optimiser is not needed. The photo of a find added by hand is ours
+ * (/photos/finds/:id), and its route picks the thumb or the master by width.
+ */
+export const productLoader: ImageLoader = ({ src, width }) => {
+  if (src.startsWith('/') && !src.startsWith('//')) return `${src}?w=${width}`
   const url = new URL(src.startsWith('//') ? `https:${src}` : src)
   url.searchParams.set('width', String(width))
   return url.toString()
@@ -29,7 +34,7 @@ export function ProductPhoto({
     <div className={`photo relative overflow-hidden ${className}`}>
       {find.image ? (
         <Image
-          loader={shopifyLoader}
+          loader={productLoader}
           src={find.image.src}
           alt={find.image.alt ?? find.title}
           fill
