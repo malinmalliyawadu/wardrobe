@@ -17,24 +17,28 @@ import { SHOW_THRESHOLD } from './score.ts'
 export type FinderSettings = {
   max_usd_per_run: number
   max_usd_per_month: number | null
+  /** What one search on the Search tab may spend; it counts toward the month too. */
+  max_usd_per_search: number
 }
 
 /** The form's values: the caps, and the slugs of the stores left on. */
 export type FinderForm = FinderSettings & { stores: string[] }
 
-export const DEFAULT_SETTINGS: FinderSettings = { max_usd_per_run: 1, max_usd_per_month: null }
+export const DEFAULT_SETTINGS: FinderSettings = { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0.5 }
 
 const usd = z.number().min(0).max(1000)
 
 export const FinderFormSchema = z.object({
   max_usd_per_run: usd,
   max_usd_per_month: usd.nullable(),
+  max_usd_per_search: usd,
   stores: z.array(z.string().regex(/^[a-z0-9-]+$/)),
 })
 
 export async function getFinderSettings(sql: Sql = db()): Promise<FinderSettings> {
   const [row] = await sql<FinderSettings[]>`
-    select max_usd_per_run::float as max_usd_per_run, max_usd_per_month::float as max_usd_per_month
+    select max_usd_per_run::float as max_usd_per_run, max_usd_per_month::float as max_usd_per_month,
+           max_usd_per_search::float as max_usd_per_search
     from finder_settings where id = 1
   `
   return row ?? DEFAULT_SETTINGS
@@ -44,10 +48,11 @@ export async function getFinderSettings(sql: Sql = db()): Promise<FinderSettings
 export async function saveFinderSettings(values: FinderForm, sql: Sql = db()): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`
-      insert into finder_settings (id, max_usd_per_run, max_usd_per_month)
-      values (1, ${values.max_usd_per_run}, ${values.max_usd_per_month})
+      insert into finder_settings (id, max_usd_per_run, max_usd_per_month, max_usd_per_search)
+      values (1, ${values.max_usd_per_run}, ${values.max_usd_per_month}, ${values.max_usd_per_search})
       on conflict (id) do update
-      set max_usd_per_run = excluded.max_usd_per_run, max_usd_per_month = excluded.max_usd_per_month
+      set max_usd_per_run = excluded.max_usd_per_run, max_usd_per_month = excluded.max_usd_per_month,
+          max_usd_per_search = excluded.max_usd_per_search
     `
     await tx`update retailers set enabled = (slug = any (${values.stores}::text[]))`
   })
@@ -56,11 +61,14 @@ export async function saveFinderSettings(values: FinderForm, sql: Sql = db()): P
 export function parseFinderSettingsForm(form: FormData): ParseResult<FinderForm> {
   const perRun = number(form, 'max_usd_per_run')
   if (perRun === null) return { ok: false, errors: { max_usd_per_run: 'Give a nightly limit; 0 turns judging off' } }
+  const perSearch = number(form, 'max_usd_per_search')
+  if (perSearch === null) return { ok: false, errors: { max_usd_per_search: 'Give a limit; 0 turns search off' } }
   const stores = [...new Set(form.getAll('stores').filter((value): value is string => typeof value === 'string'))]
   if (stores.length === 0) return { ok: false, errors: { stores: 'Keep at least one shop on' } }
   const parsed = finish(FinderFormSchema, {
     max_usd_per_run: perRun,
     max_usd_per_month: number(form, 'max_usd_per_month'),
+    max_usd_per_search: perSearch,
     stores,
   })
   if (!parsed.ok) return parsed
@@ -69,6 +77,7 @@ export function parseFinderSettingsForm(form: FormData): ParseResult<FinderForm>
     max_usd_per_run: Math.round(parsed.data.max_usd_per_run * 100) / 100,
     max_usd_per_month:
       parsed.data.max_usd_per_month === null ? null : Math.round(parsed.data.max_usd_per_month * 100) / 100,
+    max_usd_per_search: Math.round(parsed.data.max_usd_per_search * 100) / 100,
   }
   if (rounded.max_usd_per_month !== null && rounded.max_usd_per_month < rounded.max_usd_per_run) {
     return { ok: false, errors: { max_usd_per_month: 'At least the nightly limit' } }
@@ -77,7 +86,7 @@ export function parseFinderSettingsForm(form: FormData): ParseResult<FinderForm>
 }
 
 export type Spend = {
-  /** Claude spend by runs started this calendar month, New Zealand time. */
+  /** Claude spend by runs and searches started this calendar month, New Zealand time. */
   thisMonth: number
   lastRun: { usd: number; scored: number; finished_at: Date | null; started_at: Date } | null
   /** Measured cost of one score over the last 30 days, when there is one. */
@@ -87,8 +96,13 @@ export type Spend = {
 export async function getSpend(sql: Sql = db()): Promise<Spend> {
   const [[month], [last], [average]] = await Promise.all([
     sql<{ usd: number }[]>`
-      select coalesce(sum((stats ->> 'usd')::numeric), 0)::float as usd from finder_runs
-      where started_at >= (date_trunc('month', now() at time zone 'Pacific/Auckland') at time zone 'Pacific/Auckland')
+      with month as (
+        select date_trunc('month', now() at time zone 'Pacific/Auckland') at time zone 'Pacific/Auckland' as start
+      )
+      select (
+        coalesce((select sum((stats ->> 'usd')::numeric) from finder_runs where started_at >= (select start from month)), 0)
+        + coalesce((select sum(usd) from searches where started_at >= (select start from month)), 0)
+      )::float as usd
     `,
     sql<{ usd: number; scored: number; finished_at: Date | null; started_at: Date }[]>`
       select coalesce((stats ->> 'usd')::numeric, 0)::float as usd,

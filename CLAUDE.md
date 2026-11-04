@@ -187,3 +187,18 @@ photo rule, docs/plan.md 1.1), never sent to OpenAI. Looks
 (`src/lib/looks.ts`) are Opus through `generate()`, from the pieces' words
 only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
 minute or two and US$0.15 to 0.32.
+
+M5 Reach built 2026-11-04 (migration 0008); gate pending (a week of searches
+whose finds he would buy, at a cost he is happy with). The three store
+adapters were researched (docs/plan.md, M5) and not built, Malin's call:
+THE ICONIC's terms forbid robots and scraping, Uniqlo does not sell to NZ,
+and Hallensteins was left out; the finder stays on the eleven Shopify stores.
+On-demand search is a Search tab (`src/app/(app)/search/`, `src/lib/search.ts`):
+Sonnet reads the request into a `SlotTarget` (slot id 0, never a real slot),
+the nightly filter runs with it over what the last run read, Sonnet judges
+the closest to his words first within `finder_settings.max_usd_per_search`
+(US$0.50, counted in the month), and what will be shown is re-read from the
+shop. The work runs in `after()`; the page refreshes itself while it runs.
+Verdicts go in `search_results`, never `product_scores`. No slot is made;
+results save without one, and "Add to blueprint" prefills `/blueprint/new`.
+First real search: 51 judged, 7 finds, US$0.33, 40 s.

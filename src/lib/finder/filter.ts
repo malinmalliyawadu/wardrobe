@@ -72,7 +72,7 @@ export function slotTargets(
     }))
 }
 
-function allowedFits(slotFit: string | null, guide: string[]): string[] | null {
+export function allowedFits(slotFit: string | null, guide: string[]): string[] | null {
   const fits = [...new Set([...(slotFit ? [slotFit] : []), ...guide])]
   return fits.length > 0 ? fits : null
 }
@@ -97,11 +97,15 @@ export async function findCandidates(
   sql: Sql,
   targets: SlotTarget[],
   rates: Rates,
-  options: { readPhoto?: PhotoReader | null } = {},
+  options: {
+    readPhoto?: PhotoReader | null
+    /** Only these products; a search re-checking what it shows after a fresh read. */
+    productIds?: number[] | null
+  } = {},
 ): Promise<{ candidates: Candidate[]; stats: FilterStats }> {
   const stats: FilterStats = { matched: 0, candidates: 0, photos_read: 0, photos_failed: 0 }
   if (targets.length === 0) return { candidates: [], stats }
-  const matched = await matchInSql(sql, targets, rates)
+  const matched = await matchInSql(sql, targets, rates, options.productIds ?? null)
   const readPhoto = options.readPhoto ?? null
   stats.matched = matched.length
   if (readPhoto) await readMissingPhotos(sql, matched, readPhoto, stats)
@@ -175,7 +179,7 @@ export function applyProductRules(
   })
 }
 
-async function matchInSql(sql: Sql, targets: SlotTarget[], rates: Rates): Promise<Matched[]> {
+async function matchInSql(sql: Sql, targets: SlotTarget[], rates: Rates, productIds: number[] | null): Promise<Matched[]> {
   return sql<Matched[]>`
     with targets as (
       select * from jsonb_to_recordset(${sql.json(targets)})
@@ -200,6 +204,7 @@ async function matchInSql(sql: Sql, targets: SlotTarget[], rates: Rates): Promis
       join product_variants v on v.product_id = p.id and v.available and v.price_cents > 0
       where p.removed_at is null
         and p.menswear
+        and (${productIds}::bigint[] is null or p.id = any (${productIds}::bigint[]))
         and (t.sizes is null or v.size_key = any (t.sizes))
         and (t.max_cents is null or v.price_cents * x.rate <= t.max_cents)
         and (t.min_cents is null

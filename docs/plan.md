@@ -128,9 +128,10 @@ Probed on 2026-11-04:
 | Mr Porter | no (403) | no |
 
 One generic Shopify adapter covers the first eleven and any other Shopify store
-Malin pastes a URL for. Non-Shopify stores need a per-retailer adapter each
-(THE ICONIC and Uniqlo have internal JSON search endpoints; ASOS and Mr Porter
-are harder) and are M5 work. The Wellington stores above were first written from memory and
+Malin pastes a URL for. Non-Shopify stores need a per-retailer adapter each;
+THE ICONIC, Uniqlo and Hallensteins were researched in M5 and are not read
+(THE ICONIC's terms forbid robots, Uniqlo does not sell to NZ, Hallensteins
+by Malin's choice; see M5 below). The Wellington stores above were first written from memory and
 verified on each retailer's own site on 2026-11-04 (M4); each one's page is
 the `source` in `data/retailers.json`.
 
@@ -322,7 +323,8 @@ nightly there, and Malin using it from his phone.
 **M5 Reach.** Per-retailer adapters for THE ICONIC, Uniqlo and Hallensteins,
 on-demand searches ("a navy overshirt under $300") that run the pipeline
 immediately, optional wardrobe inventory and outfit suggestions from owned
-items.
+items. (The adapters were researched and, on Malin's call, not built; see
+below.)
 
 **M5 Wardrobe and looks**, agreed with Malin and built 2026-11-04, ahead of
 the rest of M5. A Looks tab between Today and Blueprint, with two pages:
@@ -350,6 +352,78 @@ his three owned pieces and a bought Chelsea boot), took 46 to 99 s and cost
 US$0.15 to 0.32 each (10.6k to 11k tokens in, 5k to 8k out); every proposed
 look passed the checks. Gate: Malin adds what he owns, photographing it, and
 agrees he would wear the looks.
+
+**M5 Reach: the three stores, researched 2026-11-04** before any code, each
+read with the finder's own User-Agent and, for the terms, on the store's own
+site:
+
+| Store | How its catalogue could be read | robots.txt | Terms on automated access | Currency | Verdict |
+|---|---|---|---|---|---|
+| THE ICONIC (NZ) | Not examined past robots.txt and the terms, which rule out reading it | Allows `/`, disallows `/bff/`, `/assets/`, `/images/` | General Terms 1.2(b), last updated 9 July 2026: you must not "use data mining, robots, screen scraping or similar data gathering and extraction tools on the Site, unless expressly authorised by THE ICONIC" | NZD | Doubtful: barred by its terms, and its API by robots.txt. The authorised route is its affiliate programme (Partnerize), which offers a product feed |
+| Uniqlo (AU) | Not examined: uniqlo.com/au answers the finder's User-Agent with 403, and that is not worked around | Allows product pages, disallows search, cart and filter parameters | Not read, for the same reason | AUD | Not buyable: Uniqlo has no NZ store and its Australian shop "only deliver[s] to addresses within Australia" (its own FAQ). No uniqlo.com/nz exists (404) |
+| Hallensteins | Every category page carries its products as data (`window.category`: title, style, department, category, each colour with its images and every size's price and stock state), 24 a page by `?p=N`; a product page (`window.product`) adds the description and stock counts for every colour of the style. The sitemap lists 1,260 colour pages of 776 styles | Allows everything but account, cart, checkout and the `?f=`, `?s=` and `?q=` search and filter parameters | Terms of use: use is "personal to you"; you may not use its material "for public or commercial purposes"; nothing on robots. One clause opens "Other than connecting to Hallensteins' servers by HTTP requests using a web browser", about gaining access by admin passwords or masquerading | NZD | Readable for a personal, non-commercial finder; about 60 category pages a night (clothing, accessories, suits) |
+
+Sources: [THE ICONIC terms](https://www.theiconic.co.nz/terms-conditions/),
+[THE ICONIC robots.txt](https://www.theiconic.co.nz/robots.txt),
+[THE ICONIC affiliate programme](https://uppromote.com/affiliate-program-directory/the-iconic)
+(third-party summary: Partnerize, product feed for approved affiliates),
+[Uniqlo AU "Do you deliver to New Zealand?"](https://faq-au.uniqlo.com/articles/en_US/FAQ/Do-you-deliver-to-New-Zealand),
+[Uniqlo robots.txt](https://www.uniqlo.com/robots.txt),
+[Hallensteins terms of use](https://www.hallensteins.com/l/terms-conditions),
+[Hallensteins robots.txt](https://www.hallensteins.com/robots.txt),
+[Hallensteins sitemap](https://www.hallensteins.com/content/sitemaps/sitemap.xml).
+
+Hallensteins' Wellington stores, on its own store finder: Lambton Quay
+(Level 2, 312 Lambton Quay) and Cuba Mall (corner of Cuba and Dixon Streets),
+plus Queensgate (Lower Hutt) and North City (Porirua).
+
+Decided by Malin on 2026-11-04: none of the three is built. THE ICONIC and
+Uniqlo are out for the reasons above, and Hallensteins is left out too, so
+the finder stays on the eleven Shopify stores. A store can still be added by
+pasting its Shopify URL into `data/retailers.json`.
+
+**M5 on-demand search**, agreed with Malin and built 2026-11-04 (migration
+0008). A Search tab between Today and Looks, chosen over a field on Today.
+He types what he wants ("a navy overshirt under $300"); the search page shows
+its progress and then its finds, refreshing itself until it is done, so he
+can leave while it runs.
+
+- Sonnet reads the request into the filter's terms: garment, colours (and
+  their neighbours), price, a cut if he named one, and a few words to rank by.
+  A request that is not menswear, or too vague, fails with Sonnet's own
+  sentence saying why.
+- The nightly filter runs with the request as its one target, over what the
+  last nightly run read: his size from the profile, the price, not plainly the
+  wrong colour or cut, not dismissed or bought. What he has saved is left out,
+  so it is not paid for twice. No photos are read during a search.
+- Sonnet judges the candidates closest to his words first, with the request as
+  the only slot, against his profile and guide, until the search's limit
+  (US$0.50 by default, set on /you/finder; it counts toward the monthly cap
+  with the nightly runs). Where his words and his guide disagree, the request
+  decides and the verdict says how it sits with the guide, scored under 75.
+- What the page will show (score 70 or more, at most 12; with none, the
+  closest three at 50 or more) is re-read from its shop for today's price and
+  stock in his size before it is shown.
+- No blueprint slot is made. Results save without a slot, like a pasted link,
+  and land in Saved on Today; dismissals teach the nightly scorer too. "Add to
+  blueprint" opens a new slot already filled from the search (name, garment,
+  colour words and the palette swatch they name, fabrics, cut, price band).
+
+First real search, 2026-11-04, on his local copy (11 stores, 27,822 menswear
+pieces): "a navy overshirt under $300" matched 107 in his size, 51 after the
+colour and cut rules, and all 51 were judged; 7 cleared the bar (best 88,
+Barkers' Renton Overshirt in navy flannel) and all 7 were still in stock on
+the re-check. 40 seconds. US$0.33: US$0.005 to read the request and
+US$0.0063 a product judged (68k fresh input tokens, 10.5k output, 322k read
+from the cached context).
+
+Found on the way and fixed: a nightly run that reached its spend cap
+recorded `skipped_for_budget` as 0, because each of the six scoring workers
+overwrote the count the first had set; Today then said judging "stopped"
+rather than that it stopped at the limit.
+
+Gate: Malin uses Search for a week and agrees its finds are ones he would
+buy, at a cost per search he is happy with.
 
 ## 4. Design direction
 

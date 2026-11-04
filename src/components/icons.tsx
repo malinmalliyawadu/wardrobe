@@ -58,3 +58,13 @@ export function ShirtIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** A lens: search the shops for something. */
+export function SearchIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="10.5" cy="10.5" r="6.25" />
+      <path d="m15.2 15.2 5.3 5.3" />
+    </svg>
+  )
+}
