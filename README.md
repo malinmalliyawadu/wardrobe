@@ -120,6 +120,11 @@ about 2.5 minutes to read the stores, then scoring. The spend is capped on
 /you/finder (US$1 a night by default). **Execute now** once and check
 **Recent executions** ends with a `find.complete` line.
 
+**Run now** on /you/finder starts this same command inside the app's own
+container, with its output in the app's log. Only one run goes at a time: a
+run that finds another going logs `find.busy` and exits 0 without starting, so
+a run started by hand late in the evening makes the scheduled one a no-op.
+
 ### 6. Check it
 
 - Sign in at the domain. `/api/health` (signed in) says ok for the database,

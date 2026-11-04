@@ -9,6 +9,8 @@ import { getFeed, recordAction } from '../src/lib/feed.ts'
 import { findCandidates, photoKey, slotTargets } from '../src/lib/finder/filter.ts'
 import { PoliteClient } from '../src/lib/finder/http.ts'
 import { writePage } from '../src/lib/finder/ingest.ts'
+import { closeInterrupted, holdFinderLock, liveRun } from '../src/lib/finder/runs.ts'
+import { startFinderRun } from '../src/lib/finder/start.ts'
 import { addProductFromLink, ProductLinkError, refreshSaved } from '../src/lib/finder/product-link.ts'
 import { getFinderSettings, saveFinderSettings, storeCounts } from '../src/lib/finder/settings.ts'
 import { listRetailers, seedRetailers, type RetailerSeed } from '../src/lib/retailers.ts'
@@ -391,4 +393,38 @@ test('Saved tracks his size: a drop, selling out and coming back are each news o
 
   const after = await night({ S: { price: '149.00' }, M: { price: '199.00' } })
   assert.equal(after.news, null, 'the next quiet night has no news')
+})
+
+test('one finder run at a time: the lock decides, the live run is the locked one, a dead run is closed', async () => {
+  const first = await holdFinderLock(sql)
+  assert.ok(first, 'the first run takes the lock')
+  assert.equal(await holdFinderLock(sql), null, 'a second run, on another connection, cannot')
+
+  // "Run now" while a run is going: the script itself says so and starts nothing.
+  const runsBefore = await sql`select id from finder_runs`
+  assert.deepEqual(await startFinderRun(), { ok: false, message: 'A run is already going.' })
+  assert.equal((await sql`select id from finder_runs`).length, runsBefore.length, 'no row for a run that did not start')
+
+  const [row] = await sql<{ id: number }[]>`insert into finder_runs default values returning id::int as id`
+  assert.deepEqual(
+    await liveRun(sql).then((run) => run && { id: run.id, stage: run.stage, judged: run.judged, candidates: run.candidates }),
+    { id: row!.id, stage: 'reading', judged: 0, candidates: null },
+  )
+  await sql`update finder_runs set stats = ${sql.json({ filter: {}, candidates: 12 })} where id = ${row!.id}`
+  assert.equal((await liveRun(sql))?.stage, 'judging')
+  assert.equal((await liveRun(sql))?.candidates, 12)
+
+  // The process ends without closing its row: the lock goes with it.
+  await first.release()
+  assert.equal(await liveRun(sql), null, 'a running row without the lock is not a live run')
+
+  const next = await holdFinderLock(sql)
+  assert.ok(next, 'the next run can start')
+  assert.equal(await closeInterrupted(sql), 1)
+  const [closed] = await sql<{ status: string; finished_at: Date | null }[]>`
+    select status, finished_at from finder_runs where id = ${row!.id}
+  `
+  assert.equal(closed?.status, 'failed')
+  assert.ok(closed?.finished_at)
+  await next.release()
 })
