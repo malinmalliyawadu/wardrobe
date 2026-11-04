@@ -4,6 +4,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { FormSkeleton } from '@/components/skeleton'
 import { parseStoredAnalysis } from '@/lib/analysis'
 import { getProfile } from '@/lib/profile'
 
@@ -18,7 +19,7 @@ export default function ColouringPage() {
       <h1 className="mt-2 font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
         Colouring and proportions
       </h1>
-      <Suspense fallback={<p className="mt-6 text-ink-3">Loading</p>}>
+      <Suspense fallback={<FormSkeleton fields={5} />}>
         <Content />
       </Suspense>
     </section>

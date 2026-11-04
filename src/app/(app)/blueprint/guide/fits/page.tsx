@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { FormSkeleton } from '@/components/skeleton'
 import { getGuide } from '@/lib/style-guide'
 
 import { NoGuide } from '../no-guide'
@@ -21,7 +22,7 @@ export default function FitsPage() {
         Tick the retailer fit labels that work on you for each garment. The finder drops
         products cut any other way.
       </p>
-      <Suspense fallback={<p className="mt-8 text-ink-3">Loading</p>}>
+      <Suspense fallback={<FormSkeleton />}>
         <Loaded />
       </Suspense>
     </section>

@@ -2,6 +2,7 @@ import { connection } from 'next/server'
 import { Suspense, type ReactNode } from 'react'
 
 import { BackLink } from './back-link'
+import { FormSkeleton } from './skeleton.tsx'
 
 /**
  * The frame for every profile sub-page: back link, title, one paragraph, then
@@ -23,7 +24,7 @@ export function SubPage({
         {title}
       </h1>
       <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">{intro}</p>
-      <Suspense fallback={<p className="mt-8 text-ink-3">Loading</p>}>{children}</Suspense>
+      <Suspense fallback={<FormSkeleton />}>{children}</Suspense>
     </section>
   )
 }

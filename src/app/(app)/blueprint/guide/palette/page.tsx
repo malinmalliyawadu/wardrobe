@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { FormSkeleton } from '@/components/skeleton'
 import { getGuide } from '@/lib/style-guide'
 
 import { NoGuide } from '../no-guide'
@@ -21,7 +22,7 @@ export default function PalettePage() {
         Slots take their colours from here, and the finder checks products against it. Tap a
         swatch to pick by eye, or type the hex.
       </p>
-      <Suspense fallback={<p className="mt-8 text-ink-3">Loading</p>}>
+      <Suspense fallback={<FormSkeleton />}>
         <Loaded />
       </Suspense>
     </section>

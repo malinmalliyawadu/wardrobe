@@ -7,7 +7,8 @@
  *   node --env-file-if-exists=.env scripts/seed-retailers.ts
  *
  * Also run by scripts/find.ts at the start of every run, so a store added to
- * the file is picked up the next night without a separate step.
+ * the file is picked up the next night without a separate step, and by the
+ * container on every deploy, so a corrected store address shows at once.
  */
 
 import { readFileSync } from 'node:fs'

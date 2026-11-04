@@ -9,6 +9,7 @@ import { PieceImage } from '@/components/piece-image'
 import { inPalette, listPieces, shelve, type Piece } from '@/lib/pieces'
 import { colourNameFor, getGuide, type StoredGuide } from '@/lib/style-guide'
 
+import { PiecesSkeleton } from '../skeletons'
 import { LooksTabs } from '../tabs'
 
 export const metadata: Metadata = { title: 'Pieces' }
@@ -20,7 +21,7 @@ export default function PiecesPage() {
       <p className="mt-5 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
         What you own. Slots you mark owned and finds you buy arrive here on their own; add the rest by photo.
       </p>
-      <Suspense fallback={<p className="mt-10 border-t border-line pt-6 text-ink-3">Loading your pieces</p>}>
+      <Suspense fallback={<PiecesSkeleton />}>
         <Content />
       </Suspense>
     </section>

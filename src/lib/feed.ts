@@ -10,6 +10,7 @@ import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
 import { tryOnAt, type WellingtonStore } from './retailers.ts'
+import { newsSince, savedHistory, type Observation, type SavedEvent } from './saved-history.ts'
 import { latestTryOns, type OnMe } from './try-on.ts'
 import type { GarmentType } from './wardrobe-values.ts'
 
@@ -79,6 +80,12 @@ export type SavedFind = FindCard & {
   savedNzdCents: number | null
   /** False when the latest run found it out of stock in his size, or gone from the store. */
   inStock: boolean
+  /** True when his size for it is known, so "back in stock" means back in his size. */
+  sizeTracked: boolean
+  /** What changed since he saved it, newest first, in NZD at today's rate. */
+  events: SavedEvent[]
+  /** The newest change, when the latest run found it and it is good news. */
+  news: SavedEvent | null
 }
 
 export type Run = {
@@ -250,7 +257,7 @@ export async function getFeed(): Promise<Feed> {
     if (list.length < CARDS_PER_SLOT) list.push(card(row, rates))
     bySlot.set(row.slot_id, list)
   }
-  const saved = await getSaved(sql, run.id, rates)
+  const saved = await getSaved(sql, run, rates)
   const shown = [...bySlot.values()].flat()
   await attachTryOns(sql, [...shown, ...saved])
   const open = slots.filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
@@ -283,7 +290,8 @@ async function attachTryOns(sql: Sql, finds: FindCard[]): Promise<void> {
  * shortlist when the find was on it (so "your size" holds), otherwise from the
  * product's own variants: a link he pasted, or a find whose size sold out.
  */
-async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<SavedFind[]> {
+async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedFind[]> {
+  const runId = run?.id ?? null
   const [profile] = await sql<{ sizes: Partial<Sizes> }[]>`select sizes from profile where id = 1`
   const rows = await sql<
     (Row & {
@@ -292,6 +300,8 @@ async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<S
       in_stock: boolean
       colour: string | null
       garment_type: GarmentType | null
+      slot_garment: GarmentType | null
+      slot_labels: string[] | null
       listed: { label: string; key: string | null }[] | null
     })[]
   >`
@@ -315,7 +325,7 @@ async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<S
                group by option_colour
              ) listed
            )) as colour,
-           p.garment_type,
+           p.garment_type, bs.garment_type as slot_garment, bs.sizes -> 'labels' as slot_labels,
            (
              -- Every size in stock with its key, in the store's order, to check his against.
              select json_agg(json_build_object('label', option_size, 'key', size_key) order by first_id) from (
@@ -327,6 +337,7 @@ async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<S
     from latest_action a
     join products p on p.id = a.product_id
     join retailers r on r.id = p.retailer_id
+    left join blueprint_slots bs on bs.id = a.slot_id
     left join finder_candidates c on c.run_id = ${runId} and c.product_id = a.product_id
     left join lateral (
       select min(pv.price_cents)::int as price_cents,
@@ -350,16 +361,50 @@ async function getSaved(sql: Sql, runId: number | null, rates: Rates): Promise<S
     order by a.created_at desc
   `
   const sizes = profile?.sizes ?? {}
-  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, listed, ...row }) => {
+  const observations = await savedObservations(sql, rows.map((row) => row.product_id))
+  const nzdEvent = (event: SavedEvent, currency: string): SavedEvent => {
+    const nzd = (cents: number) => toNzd(cents, currency, rates)
+    if (event.kind === 'cheaper' || event.kind === 'dearer') return { ...event, from: nzd(event.from), to: nzd(event.to) }
+    if (event.kind === 'back') return { ...event, price: nzd(event.price) }
+    return event
+  }
+  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, ...row }) => {
+    // The slot's own size labels and garment when it was saved for one, as the filter reads them.
+    const garment = slot_garment ?? garment_type
+    const sizeKeys = garment ? wantedSizeKeys(garment, slot_labels ?? [], sizes) : null
+    const history = savedHistory(observations.get(row.product_id) ?? [], { savedAt: saved_at, sizeKeys })
+    const events = history.events.map((event) => nzdEvent(event, row.currency))
     return {
       ...card(withYourSize(row, garment_type, listed ?? [], sizes), rates),
       colour: colour ? titleCase(colour) : null,
       yourSizeOut: yourSizeOut(row.size_known, garment_type, listed ?? [], sizes),
-    saved_at,
+      saved_at,
       savedNzdCents: saved_price_cents === null ? null : toNzd(saved_price_cents, row.currency, rates),
       inStock: in_stock,
+      sizeTracked: sizeKeys !== null,
+      events,
+      // The stores are read before scoring, so a run still scoring has already found the changes.
+      news: newsSince(events, run?.started_at ?? null),
     }
   })
+}
+
+/** Every recorded price and stock change of these products' variants, by product. */
+async function savedObservations(sql: Sql, productIds: number[]): Promise<Map<number, Observation[]>> {
+  const byProduct = new Map<number, Observation[]>()
+  if (productIds.length === 0) return byProduct
+  const rows = await sql<(Observation & { product_id: number })[]>`
+    select v.product_id::int as product_id, o.variant_id::int as variant_id, v.size_key,
+           o.observed_at, o.price_cents, o.available
+    from price_observations o join product_variants v on v.id = o.variant_id
+    where v.product_id = any (${productIds}::bigint[])
+  `
+  for (const { product_id, ...observation } of rows) {
+    const list = byProduct.get(product_id) ?? []
+    list.push(observation)
+    byProduct.set(product_id, list)
+  }
+  return byProduct
 }
 
 // ---------------------------------------------------------------------------

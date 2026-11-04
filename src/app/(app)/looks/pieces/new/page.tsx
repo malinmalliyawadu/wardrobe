@@ -6,6 +6,7 @@ import { Live } from '@/components/sub-page'
 import { fillableSlots } from '@/lib/pieces'
 import { getGuide } from '@/lib/style-guide'
 
+import { AddPieceSkeleton } from '../../skeletons'
 import { paletteSwatches } from '../piece-values'
 import { AddPiece } from './add-piece'
 
@@ -19,7 +20,7 @@ export default function NewPiecePage({ searchParams }: PageProps<'/looks/pieces/
       <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
         Something you already own. Looks are made from these, so the colour and the cloth matter most.
       </p>
-      <Suspense fallback={<p className="mt-8 text-ink-3">Loading</p>}>
+      <Suspense fallback={<AddPieceSkeleton />}>
         <Live>
           <Content searchParams={searchParams} />
         </Live>

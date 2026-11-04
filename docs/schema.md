@@ -122,6 +122,17 @@ The nightly run re-reads any saved product its walk did not see, one request
 each, so a linked product outside the men's collection keeps a current price
 and stock, and one the shop has delisted is marked removed. No new table.
 
+**Saved finds are tracked from `price_observations`, with no new table**
+(M4). Each saved find's observations are replayed in `src/lib/saved-history.ts`
+into the moments its lowest in-stock price changed, counting only the
+variants in his size when the size is known (the slot's size labels first,
+then the profile, as the filter reads them). Consecutive moments give the
+events: cheaper, dearer, sold out, back. The newest event, when it came during
+the latest run and is not a rise, is the night's news: a line on the find and
+a summary under Saved on Today. A delisted saved product writes an
+observation for each size it still had, so it reads as sold out on the night
+it went.
+
 **Finder settings (migration 0004)** are a one-row table, like the profile:
 the nightly and monthly caps on Claude spend, in US dollars because that is
 what Anthropic bills. A run's budget is the nightly cap (or `--max-usd`), held

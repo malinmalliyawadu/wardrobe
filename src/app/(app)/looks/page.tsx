@@ -11,6 +11,7 @@ import { getGuide } from '@/lib/style-guide'
 
 import { LookCard } from './look-card'
 import { MakeLooks } from './make-looks'
+import { LooksSkeleton } from './skeletons'
 import { LooksTabs } from './tabs'
 
 export const metadata: Metadata = { title: 'Looks' }
@@ -22,7 +23,7 @@ export default function LooksPage() {
       <p className="mt-5 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
         Outfits from what you own, put together against your palette, your proportions and your week.
       </p>
-      <Suspense fallback={<p className="mt-10 border-t border-line pt-6 text-ink-3">Loading your looks</p>}>
+      <Suspense fallback={<LooksSkeleton />}>
         <Content />
       </Suspense>
     </section>

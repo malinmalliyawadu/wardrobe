@@ -13,6 +13,7 @@ import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
 import { removePiece, restore, setAsidePiece } from '../../actions'
+import { PieceSkeleton } from '../../skeletons'
 import { PhotoButton } from '../photo-button'
 import { PieceForm } from '../piece-form'
 import { formValues, paletteSwatches } from '../piece-values'
@@ -23,7 +24,7 @@ export default function PiecePage({ params }: PageProps<'/looks/pieces/[id]'>) {
   return (
     <section>
       <BackLink href="/looks/pieces" label="Pieces" />
-      <Suspense fallback={<p className="mt-6 text-ink-3">Loading the piece</p>}>
+      <Suspense fallback={<PieceSkeleton />}>
         <Content params={params} />
       </Suspense>
     </section>

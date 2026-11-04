@@ -14,6 +14,7 @@ import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
 import { removeSlot } from '../actions'
+import { SlotSkeleton } from '../skeletons'
 import { SlotForm } from '../slot-form'
 import { ceilings, formValues, paletteSwatches } from '../slot-values'
 import { StatusControl } from '../status-control'
@@ -25,7 +26,7 @@ export default function SlotPage({ params }: PageProps<'/blueprint/[id]'>) {
   return (
     <section>
       <BackLink href="/blueprint" label="Blueprint" />
-      <Suspense fallback={<p className="mt-6 text-ink-3">Loading the slot</p>}>
+      <Suspense fallback={<SlotSkeleton />}>
         <Content params={params} />
       </Suspense>
     </section>

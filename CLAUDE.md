@@ -157,9 +157,27 @@ his photo's aspect), chosen by Malin over the recommended FASHN; the research
 and the agreed photo rule are in docs/plan.md. Gate pending: a week of
 try-ons he finds honest enough to change what he buys.
 
+M4 deploy and polish built 2026-11-04; gate pending (Malin using it on
+Coolify, from his phone). GitHub: `malinmalliyawadu/wardrobe`, public, CI on
+every push and PR. The sign-in is a password screen, not Basic Auth (Malin's
+choice: an installed iPhone app handles a Basic Auth prompt badly):
+`src/proxy.ts` gates everything but static files, the manifest, the icons
+and `/api/health/live`; `APP_PASSWORD` unset leaves local dev open; the cookie
+is an HMAC keyed by the password and lasts a year (`src/lib/auth.ts`). The
+tabs live in the `(app)` route group so `/login` has no nav. Deploying is the
+README's click-through (Postgres, the data carried across, a named volume at
+`/data`, the finder as a scheduled task with a 3600 s timeout). The container
+health check is `/api/health/live` (database only); `/api/health` adds Claude
+and whether the photos folder is writable. Icons are the Today swatch fan,
+drawn by `scripts/icons.ts` into `public/icons` and `src/app`; no service
+worker. Saved finds are tracked by replaying `price_observations` in his size
+(`src/lib/saved-history.ts`): the newest change from the latest run is news,
+on the row and summed up under Saved. Loading states are skeletons from
+`src/components/skeleton.tsx`, held back 300 ms so a quick load shows nothing.
+
 M5 wardrobe and looks built 2026-11-04 (migrations 0006, 0007), agreed with
 Malin first; gate pending (he adds what he owns and would wear the looks). A
-Looks tab with two pages, Looks and Pieces (`src/app/looks/`). Pieces
+Looks tab with two pages, Looks and Pieces (`src/app/(app)/looks/`). Pieces
 (`src/lib/pieces.ts`) hold the rule that a slot is owned exactly when a piece
 fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
 slot themselves, and "Bought it" makes the find a piece. Clothing photos

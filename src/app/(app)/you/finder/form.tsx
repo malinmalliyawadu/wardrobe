@@ -79,7 +79,12 @@ function StoreSwitches({ stores, initiallyOn, error }: { stores: StoreCount[]; i
         </p>
       ) : null}
 
-      <ul className="mt-4 divide-y divide-line border-y border-line">
+      {stores.length === 0 ? (
+        <p className="mt-4 border-y border-line py-4 text-[0.9375rem] text-ink-3">
+          No shops yet. They are added when the app starts and on every run.
+        </p>
+      ) : null}
+      <ul className="mt-4 divide-y divide-line border-y border-line empty:hidden">
         {stores.map((store) => {
           const checked = on.has(store.slug)
           return (
