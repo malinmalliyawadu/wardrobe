@@ -143,12 +143,15 @@ Model split: Sonnet for scoring (volume, cheap), the top model for the one-off
 profile analysis and blueprint drafting (quality matters, runs rarely). Load
 the `claude-api` skill before writing any of this code.
 
-Rough cost shape, to be confirmed with real numbers in M3:
+Rough cost shape, planned before M3:
 
 | Run | Products scored | Approximate cost |
 |---|---|---|
 | First full pass | 3,000 to 5,000 | $15 to $40 |
 | Nightly delta | 100 to 400 | under $2 |
+
+Measured in M3 (first real pass, 2026-11-04): see "M3 first pass" under the
+build sequence below.
 
 ### 2.4 Feed
 
@@ -180,6 +183,47 @@ actually buy, in roughly that order.
 **M3 Finder.** Shopify adapter, nightly job, filter, scorer, feed with save and
 dismiss. Run it locally for a week against the eleven stores. Gate: the daily
 feed has a hit rate Malin is happy with and the cost per night is known.
+
+M3 built 2026-11-04. Gate pending.
+
+**M3 first pass**, run locally against the eleven stores on 2026-11-04:
+
+| Stage | Count |
+|---|---|
+| Products ingested (Country Road, Good As Gold, Huffer and END. through their men's collections) | 29,048, with 157,442 variants, in 2.5 minutes |
+| Matched: menswear, a wanted slot's garment, in his size, in the slot's band, not dismissed | 5,788 |
+| Candidates after the colour rule (3,410 photos read for listings that name no colour) | 2,738 |
+| Scored by Sonnet before the Anthropic credit balance ran out | 1,050 |
+| Shown (score 70 or more) | 71 |
+
+Claude cost: $7.78 for the 1,050, which is $0.0074 a product (fresh input,
+mostly the photo, $2.92; the run's cached context read 1,050 times, $2.55;
+output, about 220 tokens a verdict, $2.27). 10.8 minutes at six in flight.
+The other 1,688 candidates are scored on the next run once the balance is
+topped up: about $12.50 at the same rate, so a whole first pass comes to
+about $20, at the low end of the $15 to $40 planned.
+
+The 71 are mostly buy-first slots: dark ink denim 31 (best 88), putty chinos
+19 (82), suede Chelsea boots 5 (86), ecru leather sneakers 5 (82), espresso
+chinos 5 (86), the wool overshirt 2, corduroys 2, the ecru tee and the rain
+shell 1 each, from Barkers 23, Country Road 18, END. 15, Area 51 8, I Love
+Ugly 4 and Workshop 3. Scoring runs in slot order, so the knitwear, shirts and
+later slots had not been reached when the credit ran out.
+
+What the verdicts taught, already in the rules for the next run: Sonnet threw
+out stark white tees offered to the ecru slot (a photo read with no warmth in
+it is now white, not ecru), cuts the listing itself calls boxy, oversized or
+relaxed where the slot and the guide do not allow them, and sport kit
+(running shoes, golf polos, gym tees, now activewear, which no slot asks for).
+
+Nightly cost: an ingest an hour after the first found 0 new, 8 changed and 0
+removed products, so a night's scoring is the stores' new arrivals that pass
+the filter, an estimated 20 to 60 products, $0.15 to $0.45 a night. That is
+an estimate until a week of nightly runs gives the real figure, which is the
+gate.
+
+His waist and shoe size are not on the profile yet, so trousers, jeans and
+shoes show every size in stock (and say so) until he adds them.
 
 **M3.5 Try-on.** "See it on me" on a feed item: the product's own image and
 one of Malin's full-length photos go to an image-generation provider, which

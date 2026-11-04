@@ -23,6 +23,8 @@ task running a CLI inside the app image. Ask before adding a dependency.
 | `npm run db:migrate` | Apply `db/migrations/*.sql` in order, once each |
 | `npm run db:reset` | Drop `public` and rebuild from zero. Local only |
 | `npm run health` | Database and Claude reachability from the shell |
+| `npm run find` | The nightly finder: ingest, filter, score (options at the top of `scripts/find.ts`) |
+| `npm run db:seed-retailers` | Upsert `data/retailers.json` into `retailers` (the finder also does this) |
 | `npm run typecheck`, `npm run lint`, `npm test` | What CI runs |
 
 Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
@@ -122,3 +124,22 @@ evenings out and the bands are Claude's NZ estimates; fill those and redraft.
 Cache Components keeps visited pages in the DOM hidden by `<Activity>`: in
 browser checks, select visible elements only, and key server-fed forms on
 what they edit so a return visit shows saved values.
+
+M3 built 2026-11-04; gate pending (a week of daily feed Malin is happy with,
+at a known cost per night). `npm run find` runs three stages into one
+`finder_runs` row. Ingest (`src/lib/finder/ingest.ts`, `shopify.ts`,
+`http.ts`): eleven stores from `data/retailers.json`, one request a second per
+host, robots.txt read once per host per run, about 2.5 minutes. Country Road,
+Good As Gold, Huffer and END. are read through their men's collections;
+Crane Brothers through its myshopify host. Filter (`filter.ts`,
+`classify.ts`, `colour.ts`, `photo-colour.ts`): rules and SQL only, including
+a colour rule that only ever says no and reads the main photo once (cached as
+hex) when a listing names no colour, as END.'s never do. Score (`score.ts`):
+Sonnet 5.5, adaptive thinking at low effort, zod structured output, the run's
+context (profile, guide, open slots, recent dismissals) one cached system
+block, about $0.0074 a product; stops after ten API errors in a row. The feed
+on Today (`src/components/feed/`, `src/lib/feed.ts`) shows the newest run with
+recorded candidates, including one still scoring; save, dismiss with a reason
+and bought move the slot's status. First pass numbers and what is left to
+score are in docs/plan.md under M3. His waist and shoe sizes are not on the
+profile, so trousers and shoes show every size in stock until he adds them.

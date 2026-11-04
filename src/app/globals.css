@@ -22,6 +22,14 @@
   --alert: #b4443c;
   /* The edge of a fabric swatch, so a dark colour still reads on the ground. */
   --swatch-edge: rgb(0 0 0 / 0.14);
+  /*
+   * The card a product photo sits on. Close to a shop's own photo sweep in
+   * both schemes, and the photo multiplies onto it, so a white background
+   * becomes this card instead of a glaring rectangle. It stays light in the
+   * dark on purpose: a darker card would shift the garment's colour, and the
+   * colour is what he is judging.
+   */
+  --photo: #f1f0ec;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -38,6 +46,7 @@
     --on-brass: #1a1612;
     --alert: #e07a72;
     --swatch-edge: rgb(255 255 255 / 0.16);
+    --photo: #ebe9e4;
   }
 }
 
@@ -438,6 +447,7 @@
     padding: 0 0.5rem;
     font-size: 0.9375rem;
     font-weight: 500;
+    white-space: nowrap;
     color: var(--brass);
     touch-action: manipulation;
     user-select: none;
@@ -459,6 +469,89 @@
     .segment:active,
     .swatch-toggle:active,
     .text-button:active {
+      transform: none;
+    }
+  }
+}
+
+@layer components {
+  /* A product photo on its card. See --photo. */
+  .photo {
+    background: var(--photo);
+  }
+
+  .photo img {
+    mix-blend-mode: multiply;
+  }
+
+  /*
+   * A row of finds: native horizontal scroll with snap, so the browser's own
+   * physics carry the swipe. It bleeds to the screen edge and keeps its own
+   * overscroll, and the scrollbar is hidden because the next card peeking in
+   * is the affordance.
+   */
+  .scroller {
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* A dismiss reason: one tap and the card goes. */
+  .chip {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid var(--line);
+    padding: 0 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover {
+      border-color: var(--ink-3);
+    }
+  }
+
+  /*
+   * A find he acted on leaves at once, before the server's answer: a quick
+   * fade and a slight settle, then the next render drops it. Exit is faster
+   * than anything entering would be, and nothing enters.
+   */
+  .find {
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+  }
+
+  .find[data-gone='true'] {
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+  }
+
+  /* The action row swapping for its reasons or its confirm: a short crossfade, no movement. */
+  .tray {
+    opacity: 1;
+    transition: opacity 150ms ease;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .find {
+      transition: opacity 150ms ease;
+    }
+
+    .find[data-gone='true'] {
       transform: none;
     }
   }

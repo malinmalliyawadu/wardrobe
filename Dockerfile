@@ -43,12 +43,13 @@ RUN addgroup -S wardrobe && adduser -S wardrobe -G wardrobe \
 COPY --from=prod-deps --chown=wardrobe:wardrobe /app/node_modules ./node_modules
 COPY --from=builder --chown=wardrobe:wardrobe /app/.next ./.next
 COPY --chown=wardrobe:wardrobe package.json next.config.ts ./
-COPY --chown=wardrobe:wardrobe public ./public
 # The migration runner and the jobs ship with the image: migrations run on
 # boot (see CMD), the rest run as Coolify scheduled tasks inside this image.
 COPY --chown=wardrobe:wardrobe db ./db
 COPY --chown=wardrobe:wardrobe scripts ./scripts
 COPY --chown=wardrobe:wardrobe src ./src
+# The retailer list the finder seeds from. /data stays the photos volume.
+COPY --chown=wardrobe:wardrobe data/retailers.json ./data/retailers.json
 
 # Uploaded photos. Mount a Coolify volume here or they vanish on redeploy.
 VOLUME ["/data"]

@@ -1,0 +1,879 @@
+{
+ "products": [
+  {
+   "id": 9634913648808,
+   "title": "NIGHT CAMO BOX TEE 220 BLACK",
+   "handle": "night-camo-box-tee-220-black",
+   "body_html": "Night Camo Box Tee is an easy win for the everyday rotation. Cut in 100% cotton with a boxy oversized fit, it lands comfortably without feeling overdone. Custom huffer yardage print finishes it off with a Huffer point of difference. Pair it back with denim, shorts or layers and it is ready for whatever the day turns into.",
+   "published_at": "2026-09-25T12:52:08+12:00",
+   "created_at": "2026-09-21T15:10:48+12:00",
+   "updated_at": "2026-11-04T14:20:03+13:00",
+   "vendor": "Huffer",
+   "product_type": "HUFFER BY HUFFER",
+   "tags": [
+    "FP",
+    "mens",
+    "NEW",
+    "XFORX"
+   ],
+   "variants": [
+    {
+     "id": 56025888981160,
+     "title": "BLACK / XS",
+     "option1": "BLACK",
+     "option2": "XS",
+     "option3": null,
+     "sku": "MTE64S55104_9420084150858",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 1,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025889013928,
+     "title": "BLACK / S",
+     "option1": "BLACK",
+     "option2": "S",
+     "option3": null,
+     "sku": "MTE64S55104_9420084136920",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": false,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 2,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025889046696,
+     "title": "BLACK / M",
+     "option1": "BLACK",
+     "option2": "M",
+     "option3": null,
+     "sku": "MTE64S55104_9420084136937",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 3,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025889079464,
+     "title": "BLACK / L",
+     "option1": "BLACK",
+     "option2": "L",
+     "option3": null,
+     "sku": "MTE64S55104_9420084136944",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 4,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025889112232,
+     "title": "BLACK / XL",
+     "option1": "BLACK",
+     "option2": "XL",
+     "option3": null,
+     "sku": "MTE64S55104_9420084136951",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 5,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025889145000,
+     "title": "BLACK / 2XL",
+     "option1": "BLACK",
+     "option2": "2XL",
+     "option3": null,
+     "sku": "MTE64S55104_9420084136968",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "89.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 6,
+     "product_id": 9634913648808,
+     "created_at": "2026-09-21T15:10:48+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 52938263691432,
+     "created_at": "2026-09-25T12:43:02+12:00",
+     "position": 1,
+     "updated_at": "2026-09-25T12:43:03+12:00",
+     "product_id": 9634913648808,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0594/8283/3064/files/MTE64S55104-NIGHT-CAMO-BOX-TEE-220-BLACK2975.jpg?v=1790296983",
+     "width": 1200,
+     "height": 1800
+    },
+    {
+     "id": 52938263822504,
+     "created_at": "2026-09-25T12:43:05+12:00",
+     "position": 2,
+     "updated_at": "2026-09-25T12:43:07+12:00",
+     "product_id": 9634913648808,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0594/8283/3064/files/MTE64S55104-NIGHT-CAMO-BOX-TEE-220-BLACK2977-FULL-BODY.jpg?v=1790296987",
+     "width": 1200,
+     "height": 1800
+    }
+   ],
+   "options": [
+    {
+     "name": "Colour",
+     "position": 1,
+     "values": [
+      "BLACK"
+     ]
+    },
+    {
+     "name": "Size",
+     "position": 2,
+     "values": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "2XL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 9634934161576,
+   "title": "STRIPE SS TEE BAY BLUE/CHALK",
+   "handle": "stripe-ss-tee-bay-blue-chalk",
+   "body_html": "<p>Keep the daily lineup sorted with the Stripe SS Tee.</p>\n<p>Cut in 100% cotton with a relaxed fit, it lands comfortably without feeling overdone. Custom huffer yarn dyed stripe finishes it off with a Huffer point of difference.</p>\n<p>Pair it back with denim, shorts or layers and it is ready for whatever the day turns into.</p>",
+   "published_at": "2026-09-29T14:00:45+13:00",
+   "created_at": "2026-09-21T15:26:04+12:00",
+   "updated_at": "2026-11-04T14:20:03+13:00",
+   "vendor": "Huffer",
+   "product_type": "HUFFER BY HUFFER",
+   "tags": [
+    "FP",
+    "mens",
+    "NEW",
+    "XFORX"
+   ],
+   "variants": [
+    {
+     "id": 56025911754920,
+     "title": "BAY BLUE/CHALK / S",
+     "option1": "BAY BLUE/CHALK",
+     "option2": "S",
+     "option3": null,
+     "sku": "MTE64S2202_9420084135770",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "79.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 1,
+     "product_id": 9634934161576,
+     "created_at": "2026-09-21T15:26:04+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025911787688,
+     "title": "BAY BLUE/CHALK / M",
+     "option1": "BAY BLUE/CHALK",
+     "option2": "M",
+     "option3": null,
+     "sku": "MTE64S2202_9420084135787",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "79.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 2,
+     "product_id": 9634934161576,
+     "created_at": "2026-09-21T15:26:04+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025911820456,
+     "title": "BAY BLUE/CHALK / L",
+     "option1": "BAY BLUE/CHALK",
+     "option2": "L",
+     "option3": null,
+     "sku": "MTE64S2202_9420084135794",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "79.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 3,
+     "product_id": 9634934161576,
+     "created_at": "2026-09-21T15:26:04+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025911853224,
+     "title": "BAY BLUE/CHALK / XL",
+     "option1": "BAY BLUE/CHALK",
+     "option2": "XL",
+     "option3": null,
+     "sku": "MTE64S2202_9420084135800",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "79.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 4,
+     "product_id": 9634934161576,
+     "created_at": "2026-09-21T15:26:04+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    },
+    {
+     "id": 56025911885992,
+     "title": "BAY BLUE/CHALK / 2XL",
+     "option1": "BAY BLUE/CHALK",
+     "option2": "2XL",
+     "option3": null,
+     "sku": "MTE64S2202_9420084135817",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "79.99",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 5,
+     "product_id": 9634934161576,
+     "created_at": "2026-09-21T15:26:04+12:00",
+     "updated_at": "2026-11-04T14:20:03+13:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 52982755459240,
+     "created_at": "2026-09-29T09:57:44+13:00",
+     "position": 1,
+     "updated_at": "2026-09-29T09:57:45+13:00",
+     "product_id": 9634934161576,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0594/8283/3064/files/MTE64S2202-STRIPE-SS-TEE-BAY-BLUE-CHALK0235.jpg?v=1790629065",
+     "width": 1200,
+     "height": 1800
+    },
+    {
+     "id": 52982755557544,
+     "created_at": "2026-09-29T09:57:45+13:00",
+     "position": 2,
+     "updated_at": "2026-09-29T09:57:47+13:00",
+     "product_id": 9634934161576,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0594/8283/3064/files/MTE64S2202-STRIPE-SS-TEE-BAY-BLUE-CHALK0242.jpg?v=1790629067",
+     "width": 1200,
+     "height": 1800
+    }
+   ],
+   "options": [
+    {
+     "name": "Colour",
+     "position": 1,
+     "values": [
+      "BAY BLUE/CHALK"
+     ]
+    },
+    {
+     "name": "Size",
+     "position": 2,
+     "values": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "2XL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 9773659783489,
+   "title": "Barkers Beach Towel",
+   "handle": "barkers-beach-towel-blt51938-navy",
+   "body_html": "<p>A Barkers staple you won’t want to be without this summer. Our classic beach towels are perfect for lounging poolside or drying off after a surf. These are heavily weighted for that cozy, safe haven feel when wrapped around, they’re also crafted from 100% organic cotton and feature our Barkers logo in reverse colour ways. Don’t get caught without —keep one stashed in your car for all your impen",
+   "published_at": "2026-11-02T21:26:08+13:00",
+   "created_at": "2024-10-30T21:41:04+13:00",
+   "updated_at": "2026-11-04T14:20:04+13:00",
+   "vendor": "Barkers",
+   "product_type": "Accessories / General Accessories",
+   "tags": [
+    "AltTextProcessed",
+    "Barkers Beach Towel",
+    "BLT51938_NAVY",
+    "nz-stock-blank",
+    "ontempo_stylecode_BLT51938",
+    "ontempo_uid_A63AF0D9-D084-4739-9607-863DCE2F9C45",
+    "ot-department-Accessories",
+    "ot-productGroup-General Accessories",
+    "ot-story-",
+    "ot-story-General Accessories",
+    "outlet_50",
+    "outlet_product"
+   ],
+   "variants": [
+    {
+     "id": 49612617548097,
+     "title": "OSF",
+     "option1": "OSF",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000205670",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "39.99",
+     "grams": 400,
+     "compare_at_price": "79.99",
+     "position": 1,
+     "product_id": 9773659783489,
+     "created_at": "2024-10-30T21:41:05+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 64565531181377,
+     "created_at": "2026-04-24T00:53:14+12:00",
+     "position": 1,
+     "updated_at": "2026-04-24T00:53:15+12:00",
+     "product_id": 9773659783489,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0889/4968/6593/files/TOWEL_0004.jpg?v=1776948795",
+     "width": 2001,
+     "height": 3000
+    },
+    {
+     "id": 64565531214145,
+     "created_at": "2026-04-24T00:53:14+12:00",
+     "position": 2,
+     "updated_at": "2026-04-24T00:53:16+12:00",
+     "product_id": 9773659783489,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0889/4968/6593/files/TOWEL_0003.jpg?v=1776948796",
+     "width": 2001,
+     "height": 3000
+    }
+   ],
+   "options": [
+    {
+     "name": "Size",
+     "position": 1,
+     "values": [
+      "OSF"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 10105444335937,
+   "title": "Keegan Check Business Shirt",
+   "handle": "keegan-check-bus-shirt-c-bls71613-green-2fwhite",
+   "body_html": "<p>The Keegan Check Business Shirt brings subtle personality to the working week. Crafted from 100% cotton in a classic fit, the fine check design adds depth and texture while remaining easy to pair with tailoring. The muted colour palette keeps things versatile, making it a reliable choice for everything from Monday meetings to after-hours commitments. Finished with an eco non-iron treatment and ",
+   "published_at": "2026-10-30T14:15:47+13:00",
+   "created_at": "2025-12-31T09:47:48+13:00",
+   "updated_at": "2026-11-04T14:20:04+13:00",
+   "vendor": "Barkers",
+   "product_type": "Shirts / Business LS Shirts",
+   "tags": [
+    "BLS71613_GREEN/WHITE",
+    "fullprice_markdown",
+    "Keegan Check Bus Shirt C",
+    "new_arrivals",
+    "nz-stock-blank",
+    "ontempo_stylecode_BLS71613",
+    "ontempo_uid_1D687964-0F60-461E-9E04-E2187AA449E8",
+    "ot-department-Shirts",
+    "ot-productGroup-LS Shirts",
+    "ot-story-Business LS Shirts",
+    "ot-story-Classic"
+   ],
+   "variants": [
+    {
+     "id": 51173519294785,
+     "title": "XS",
+     "option1": "XS",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352718",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 1,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519327553,
+     "title": "S",
+     "option1": "S",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352725",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 2,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519360321,
+     "title": "M",
+     "option1": "M",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352732",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 3,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519393089,
+     "title": "L",
+     "option1": "L",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352749",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 4,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519425857,
+     "title": "XL",
+     "option1": "XL",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352756",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 5,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519458625,
+     "title": "XXL",
+     "option1": "XXL",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352763",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 6,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    },
+    {
+     "id": 51173519491393,
+     "title": "XXXL",
+     "option1": "XXXL",
+     "option2": null,
+     "option3": null,
+     "sku": "2000000352770",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "129.99",
+     "grams": 400,
+     "compare_at_price": "129.99",
+     "position": 7,
+     "product_id": 10105444335937,
+     "created_at": "2025-12-31T09:47:48+13:00",
+     "updated_at": "2026-11-04T14:20:04+13:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 67039180783937,
+     "created_at": "2026-10-30T14:14:03+13:00",
+     "position": 1,
+     "updated_at": "2026-10-30T14:14:05+13:00",
+     "product_id": 10105444335937,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0889/4968/6593/files/BLS71613_KEEGAN_CHECK_BUS_SHIRT_GREEN_WHITE__1446.jpg?v=1793322845",
+     "width": 2001,
+     "height": 3000
+    },
+    {
+     "id": 67039180816705,
+     "created_at": "2026-10-30T14:14:03+13:00",
+     "position": 2,
+     "updated_at": "2026-10-30T14:14:05+13:00",
+     "product_id": 10105444335937,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/0889/4968/6593/files/BLS71613_KEEGAN_CHECK_BUS_SHIRT_GREEN_WHITE__1449__1.jpg?v=1793322845",
+     "width": 2001,
+     "height": 3000
+    }
+   ],
+   "options": [
+    {
+     "name": "Size",
+     "position": 1,
+     "values": [
+      "XS",
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL",
+      "XXXL"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 11172458332498,
+   "title": "Wax London Dean T-Shirts",
+   "handle": "wax-london-dean-t-shirts-aw25-tee-dea-apf-dkb",
+   "body_html": "<p>Founded in 2015, Wax London has built its reputation on creating menswear with character — the Dean t-shirt reflects that. A recurring staple in the label's line-up, it pairs a heavyweight organic jersey with a textured finish that feels luxurious yet lived-in.</p> <ul> <li>100% Cotton</li> <li>280gsm Jersey</li> <li>Boxy Fit</li> <li>Slightly Dropped Shoulders</li> <li>Crewneck</li> <li>Ribbed",
+   "published_at": "2026-09-23T23:22:28+01:00",
+   "created_at": "2026-09-23T23:22:27+01:00",
+   "updated_at": "2026-11-04T01:20:06+00:00",
+   "vendor": "Wax London",
+   "product_type": "",
+   "tags": [
+    "cat_high:Apparel",
+    "cat_low:T-Shirts",
+    "cat_med:Tops",
+    "gender:Mens"
+   ],
+   "variants": [
+    {
+     "id": 54820887429458,
+     "title": "Small",
+     "option1": "Small",
+     "option2": null,
+     "option3": null,
+     "sku": "AC95227-Small-DarkBrown",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "45.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 1,
+     "product_id": 11172458332498,
+     "created_at": "2026-09-23T23:22:27+01:00",
+     "updated_at": "2026-11-04T01:20:06+00:00"
+    },
+    {
+     "id": 54820887462226,
+     "title": "Medium",
+     "option1": "Medium",
+     "option2": null,
+     "option3": null,
+     "sku": "AC95227-Medium-DarkBrown",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "45.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 2,
+     "product_id": 11172458332498,
+     "created_at": "2026-09-23T23:22:27+01:00",
+     "updated_at": "2026-11-04T01:20:06+00:00"
+    },
+    {
+     "id": 54820887494994,
+     "title": "Large",
+     "option1": "Large",
+     "option2": null,
+     "option3": null,
+     "sku": "AC95227-Large-DarkBrown",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "45.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 3,
+     "product_id": 11172458332498,
+     "created_at": "2026-09-23T23:22:27+01:00",
+     "updated_at": "2026-11-04T01:20:06+00:00"
+    },
+    {
+     "id": 54820887527762,
+     "title": "X-Large",
+     "option1": "X-Large",
+     "option2": null,
+     "option3": null,
+     "sku": "AC95227-XLarge-DarkBrown",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "45.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 4,
+     "product_id": 11172458332498,
+     "created_at": "2026-09-23T23:22:27+01:00",
+     "updated_at": "2026-11-04T01:20:06+00:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 73625441141074,
+     "created_at": "2026-09-23T23:14:56+01:00",
+     "position": 1,
+     "updated_at": "2026-09-23T23:15:03+01:00",
+     "product_id": 11172458332498,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/1011/8339/0034/files/aialqrwopjahucedk1bg.jpg?v=1790201703",
+     "width": 1600,
+     "height": 2000
+    },
+    {
+     "id": 73625441173842,
+     "created_at": "2026-09-23T23:14:56+01:00",
+     "position": 2,
+     "updated_at": "2026-09-23T23:15:02+01:00",
+     "product_id": 11172458332498,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/1011/8339/0034/files/yvmntuounrp1x8bdfxun.jpg?v=1790201702",
+     "width": 1600,
+     "height": 2000
+    }
+   ],
+   "options": [
+    {
+     "name": "Size",
+     "position": 1,
+     "values": [
+      "Small",
+      "Medium",
+      "Large",
+      "X-Large"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 11291292959058,
+   "title": "PICANTE Peaks Patch T-Shirt",
+   "handle": "picante-peaks-patch-t-shirt-p2253-ivy",
+   "body_html": "<p>Leaving London’s concrete behind, PICANTE heads outdoors with the PICANTE Peaks lineup. Retro hiking‑inspired graphics meet the brand’s organic midweight jersey for this t-shirt, with an easy drape and lived‑in feel. The vintage black tone and subtle distressing give it the look of a tee that’s seen sun, trails and a few good stories.</p> <ul> <li>100% Organic Cotton</li> <li>195gsm Jersey</li>",
+   "published_at": "2026-11-03T16:46:42+00:00",
+   "created_at": "2026-11-03T16:46:41+00:00",
+   "updated_at": "2026-11-04T00:49:15+00:00",
+   "vendor": "PICANTE",
+   "product_type": "T-Shirts",
+   "tags": [
+    "cat_high:Apparel",
+    "cat_low:T-Shirts",
+    "cat_med:Tops",
+    "gender:Mens"
+   ],
+   "variants": [
+    {
+     "id": 55325695377746,
+     "title": "XLarge",
+     "option1": "XLarge",
+     "option2": null,
+     "option3": null,
+     "sku": "AC93700-XLarge-Ivory",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": false,
+     "price": "0.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 1,
+     "product_id": 11291292959058,
+     "created_at": "2026-11-03T16:46:41+00:00",
+     "updated_at": "2026-11-04T00:49:15+00:00"
+    },
+    {
+     "id": 55325695410514,
+     "title": "Large",
+     "option1": "Large",
+     "option2": null,
+     "option3": null,
+     "sku": "AC93700-Large-Ivory",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "0.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 2,
+     "product_id": 11291292959058,
+     "created_at": "2026-11-03T16:46:41+00:00",
+     "updated_at": "2026-11-04T00:49:15+00:00"
+    },
+    {
+     "id": 55325695443282,
+     "title": "Medium",
+     "option1": "Medium",
+     "option2": null,
+     "option3": null,
+     "sku": "AC93700-Medium-Ivory",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": false,
+     "price": "0.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 3,
+     "product_id": 11291292959058,
+     "created_at": "2026-11-03T16:46:41+00:00",
+     "updated_at": "2026-11-04T00:49:15+00:00"
+    },
+    {
+     "id": 55325695476050,
+     "title": "Small",
+     "option1": "Small",
+     "option2": null,
+     "option3": null,
+     "sku": "AC93700-Small-Ivory",
+     "requires_shipping": true,
+     "taxable": true,
+     "featured_image": null,
+     "available": true,
+     "price": "0.00",
+     "grams": 0,
+     "compare_at_price": null,
+     "position": 4,
+     "product_id": 11291292959058,
+     "created_at": "2026-11-03T16:46:41+00:00",
+     "updated_at": "2026-11-04T00:49:15+00:00"
+    }
+   ],
+   "images": [
+    {
+     "id": 74598123241810,
+     "created_at": "2026-11-03T16:46:05+00:00",
+     "position": 1,
+     "updated_at": "2026-11-03T16:46:10+00:00",
+     "product_id": 11291292959058,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/1011/8339/0034/files/440b4eedd0e955c46356505d88bea97edffa0f4b.jpg?v=1793724370",
+     "width": 1600,
+     "height": 1600
+    },
+    {
+     "id": 74598123274578,
+     "created_at": "2026-11-03T16:46:05+00:00",
+     "position": 2,
+     "updated_at": "2026-11-03T16:46:11+00:00",
+     "product_id": 11291292959058,
+     "variant_ids": [],
+     "src": "https://cdn.shopify.com/s/files/1/1011/8339/0034/files/08304a7bc300aaed0f5932d50f41f24981d3977c.jpg?v=1793724371",
+     "width": 1600,
+     "height": 1600
+    }
+   ],
+   "options": [
+    {
+     "name": "Size",
+     "position": 1,
+     "values": [
+      "XLarge",
+      "Large",
+      "Medium",
+      "Small"
+     ]
+    }
+   ]
+  }
+ ]
+}

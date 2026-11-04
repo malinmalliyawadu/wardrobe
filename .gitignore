@@ -13,5 +13,7 @@ npm-debug.log*
 .env.*
 !.env.example
 
-# Local photo storage (the Docker image mounts /data instead).
-data/
+# Local photo storage (the Docker image mounts /data instead). The retailer
+# list is the one committed file in data/.
+data/*
+!data/retailers.json

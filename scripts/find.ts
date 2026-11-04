@@ -1,0 +1,223 @@
+/**
+ * The nightly finder. Runs as a Coolify scheduled task inside the app image:
+ *
+ *   node scripts/find.ts
+ *   npm run find -- --only=barkers,huffer --max-usd=2
+ *
+ * Three stages, each recorded in one finder_runs row:
+ *   1. ingest   every enabled store's Shopify feed, politely (free)
+ *   2. filter   menswear, the slot's garment, in his size, in the slot's band, not
+ *               dismissed, not plainly the wrong colour (free; reads a photo once
+ *               when the listing names no colour)
+ *   3. score    new or changed candidates, with Sonnet (costs tokens)
+ *
+ * Options:
+ *   --only=a,b        ingest only these retailer slugs (the filter still reads everything)
+ *   --skip-ingest     filter and score what is already stored
+ *   --reclassify      re-apply the classification rules to stored products (implies --skip-ingest)
+ *   --no-score        stop after the filter
+ *   --max-usd=N       stop starting new scores once the run has spent N dollars (default 20)
+ *   --concurrency=N   scores in flight at once (default 6)
+ *
+ * Output is one JSON object per line. Exits non-zero if the run failed.
+ */
+
+import { parseArgs } from 'node:util'
+
+import { listSlots } from '../src/lib/blueprint.ts'
+import { db } from '../src/lib/db.ts'
+import { findCandidates, recordCandidates, slotTargets } from '../src/lib/finder/filter.ts'
+import { loadRates } from '../src/lib/finder/fx.ts'
+import { PoliteClient } from '../src/lib/finder/http.ts'
+import { readPhoto } from '../src/lib/finder/photo-colour.ts'
+import { imageAt } from '../src/lib/finder/shopify.ts'
+import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
+import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
+import { getProfile } from '../src/lib/profile.ts'
+import { listRetailers, seedRetailers } from '../src/lib/retailers.ts'
+import { colourNameFor, getGuide } from '../src/lib/style-guide.ts'
+
+import { readRetailerFile } from './seed-retailers.ts'
+
+const { values: args } = parseArgs({
+  options: {
+    only: { type: 'string' },
+    'skip-ingest': { type: 'boolean', default: false },
+    reclassify: { type: 'boolean', default: false },
+    'no-score': { type: 'boolean', default: false },
+    'max-usd': { type: 'string', default: '20' },
+    concurrency: { type: 'string', default: '6' },
+  },
+})
+
+const options = {
+  only: args.only ? args.only.split(',').map((slug) => slug.trim()).filter(Boolean) : null,
+  // Re-applying the rules to stored products replaces reading the stores.
+  skipIngest: args['skip-ingest'] || args.reclassify,
+  reclassify: args.reclassify,
+  score: !args['no-score'],
+  maxUsd: Number(args['max-usd']),
+  concurrency: Math.max(1, Math.min(16, Number(args.concurrency) || 6)),
+}
+if (!(options.maxUsd >= 0)) throw new Error('--max-usd must be a number of dollars')
+
+function log(fields: Record<string, unknown>): void {
+  process.stdout.write(JSON.stringify({ at: new Date().toISOString(), ...fields }) + '\n')
+}
+
+// The lib functions read through the shared pool, so the script uses it too
+// and ends it on the way out.
+const sql = db()
+
+const [run] = await sql<{ id: number }[]>`
+  insert into finder_runs (options) values (${sql.json(options)}) returning id::int as id
+`
+if (!run) throw new Error('could not start a finder run')
+log({ event: 'find.start', run: run.id, options })
+
+const stats: Record<string, unknown> = {}
+let exitCode = 0
+
+try {
+  const seeded = await seedRetailers(sql, readRetailerFile())
+  log({ event: 'find.retailers', ...seeded })
+  const retailers = (await listRetailers(sql)).filter((retailer) => retailer.enabled)
+
+  // 1. Ingest. Stores run side by side; each host gets its own one-a-second queue.
+  if (!options.skipIngest) {
+    const client = new PoliteClient()
+    const chosen = retailers.filter((retailer) => !options.only || options.only.includes(retailer.slug))
+    const results: RetailerIngest[] = await Promise.all(
+      chosen.map(async (retailer) => {
+        const result = await ingestRetailer(sql, client, retailer, log)
+        log({ event: 'ingest.retailer', ...result })
+        return result
+      }),
+    )
+    stats.ingested = {
+      products: sum(results, 'products'),
+      menswear: sum(results, 'menswear'),
+      variants: sum(results, 'variants'),
+      new: sum(results, 'new'),
+      changed: sum(results, 'changed'),
+      removed: sum(results, 'removed'),
+      observations: sum(results, 'observations'),
+      retailers: results,
+    }
+    stats.saved_price_drops = await savedPriceDrops()
+  }
+
+  if (options.reclassify) {
+    const result = await reclassify(sql, retailers)
+    stats.reclassified = result
+    log({ event: 'find.reclassified', ...result })
+  }
+
+  // 2. Filter.
+  const [profile, guide, slots] = await Promise.all([getProfile(), getGuide(), listSlots()])
+  const fx = await loadRates(sql, retailers.map((retailer) => retailer.currency))
+  stats.fx = fx
+  const targets = slotTargets(
+    slots,
+    profile.sizes,
+    (hex) => colourNameFor(guide, hex),
+    (garment) => guide?.fit_vocabulary.find((entry) => entry.garment === garment)?.fits ?? [],
+  )
+  const photos = new PoliteClient()
+  const { candidates, stats: filtered } = await findCandidates(sql, targets, fx.rates, async (src) => {
+    return (await readPhoto(await photos.bytes(imageAt(src, 160)))).colours
+  })
+  await recordCandidates(sql, run.id, candidates)
+  stats.slots_open = targets.length
+  stats.slots_size_unknown = targets.filter((target) => target.sizes === null).length
+  stats.filter = filtered
+  stats.candidates = candidates.length
+  log({ event: 'filter.done', slots: targets.length, ...filtered })
+  // Saved now, not only at the end: the feed shows a run's finds while it is
+  // still scoring, and needs its exchange rates to price END. in NZD.
+  await sql`update finder_runs set stats = ${sql.json(stats as never)} where id = ${run.id}`
+
+  // 3. Score.
+  let scoring: ScoreStats | null = null
+  if (options.score && candidates.length > 0) {
+    if (!guide) throw new Error('No style guide yet: the scorer has nothing to judge against.')
+    const products = await unscored(sql, candidates, slots)
+    const openSlots = slots.filter((slot) => targets.some((target) => target.slot_id === slot.id))
+    const dismissals = await recentDismissals()
+    const context = contextBlock({ profile, guide, slots: openSlots, dismissals })
+    log({ event: 'score.start', needed: products.length, max_usd: options.maxUsd })
+    scoring = await scoreAll(sql, run.id, context, products, {
+      maxUsd: options.maxUsd,
+      concurrency: options.concurrency,
+      log,
+    })
+    log({ event: 'score.done', ...scoring })
+  }
+  stats.scored = scoring?.scored ?? 0
+  stats.scoring = scoring
+  stats.usd = scoring?.usd ?? 0
+  stats.shown = await shownCount(run.id)
+
+  // A run whose scoring was stopped (no credit, an outage) still succeeded:
+  // what it found and scored is good, and the rest is scored next run. It
+  // says why in the error column and exits non-zero, so the task is flagged.
+  const stopped = scoring?.stopped ?? null
+  await sql`
+    update finder_runs set status = 'succeeded', finished_at = now(), stats = ${sql.json(stats as never)}, error = ${stopped}
+    where id = ${run.id}
+  `
+  log({ event: 'find.complete', run: run.id, candidates: stats.candidates, scored: stats.scored, shown: stats.shown, usd: stats.usd })
+  if (stopped) {
+    exitCode = 1
+    log({ event: 'find.incomplete', run: run.id, reason: stopped })
+  }
+} catch (error) {
+  exitCode = 1
+  const message = (error as Error).message
+  await sql`
+    update finder_runs set status = 'failed', finished_at = now(), stats = ${sql.json(stats as never)}, error = ${message}
+    where id = ${run.id}
+  `
+  log({ event: 'find.failed', run: run.id, error: message })
+} finally {
+  await sql.end()
+}
+process.exit(exitCode)
+
+function sum(results: RetailerIngest[], key: keyof RetailerIngest): number {
+  return results.reduce((total, result) => total + (typeof result[key] === 'number' ? (result[key] as number) : 0), 0)
+}
+
+/** Saved products whose cheapest in-stock price is now below the price they were saved at. */
+async function savedPriceDrops(): Promise<number> {
+  const [row] = await sql<{ count: number }[]>`
+    with saved as (
+      select distinct on (product_id) product_id, action, price_cents
+      from feed_actions order by product_id, created_at desc, id desc
+    )
+    select count(*)::int as count from saved s
+    where s.action = 'saved' and s.price_cents is not null
+      and (select min(v.price_cents) from product_variants v where v.product_id = s.product_id and v.available) < s.price_cents
+  `
+  return row?.count ?? 0
+}
+
+/** The last 40 dismissals, so the scorer learns his taste. */
+async function recentDismissals() {
+  return sql<{ title: string; reason: string | null; note: string | null }[]>`
+    select p.title, a.reason, a.note from feed_actions a join products p on p.id = a.product_id
+    where a.action = 'dismissed'
+    order by a.created_at desc limit 40
+  `
+}
+
+/** Candidates in this run whose current score clears the threshold for a slot they were offered. */
+async function shownCount(runId: number): Promise<number> {
+  const [row] = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from finder_candidates c
+    join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
+    where c.run_id = ${runId} and s.score >= ${SHOW_THRESHOLD} and s.slot_id = any (c.slot_ids)
+  `
+  return row?.count ?? 0
+}

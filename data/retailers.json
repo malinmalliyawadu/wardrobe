@@ -1,0 +1,186 @@
+{
+  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
+  "retailers": [
+    {
+      "slug": "barkers",
+      "name": "Barkers",
+      "platform": "shopify",
+      "base_url": "https://www.barkersonline.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "wellington_store": {
+        "name": "Barkers",
+        "area": "Lambton Quay",
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "i-love-ugly",
+      "name": "I Love Ugly",
+      "platform": "shopify",
+      "base_url": "https://www.iloveugly.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "notes": "The NZ store. iloveugly.com is a separate US store priced in USD.",
+      "wellington_store": null
+    },
+    {
+      "slug": "good-as-gold",
+      "name": "Good As Gold",
+      "platform": "shopify",
+      "base_url": "https://goodasgoldshop.com",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "goodasgold.co.nz redirects here. The 'mens' collection is the men's range.",
+      "wellington_store": {
+        "name": "Good As Gold",
+        "area": "Victoria Street",
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "country-road",
+      "name": "Country Road",
+      "platform": "shopify",
+      "base_url": "https://www.countryroad.co.nz",
+      "feed_collections": [
+        "man"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "One Shopify shop (AUD base) with an NZ market on this domain; products.json here returns NZD prices. The 'man' collection is the men's range (about 4,000 of 22,600 products).",
+      "wellington_store": {
+        "name": "Country Road",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "workshop",
+      "name": "Workshop",
+      "platform": "shopify",
+      "base_url": "https://www.workshop.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "wellington_store": {
+        "name": "Workshop",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "huffer",
+      "name": "Huffer",
+      "platform": "shopify",
+      "base_url": "https://www.huffer.co.nz",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "The 'mens' collection is the men's range.",
+      "wellington_store": {
+        "name": "Huffer",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "crane-brothers",
+      "name": "Crane Brothers",
+      "platform": "shopify",
+      "base_url": "https://crane-brothers.com",
+      "feed_url": "https://crane-brothers-nz.myshopify.com",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "notes": "The public site is headless (Hydrogen), so the feed is read from the shop's own myshopify host; product links go to the public site. cranebrothers.com is a parked domain.",
+      "wellington_store": null
+    },
+    {
+      "slug": "checks-downtown",
+      "name": "Checks Downtown",
+      "platform": "shopify",
+      "base_url": "https://checksdowntown.com",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "notes": "A unisex streetwear label cut on men's sizing; its listings never say men or women.",
+      "wellington_store": {
+        "name": "Checks Downtown",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "commoners",
+      "name": "Commoners",
+      "platform": "shopify",
+      "base_url": "https://www.commoners.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "wellington_store": {
+        "name": "Commoners",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "area-51",
+      "name": "Area 51",
+      "platform": "shopify",
+      "base_url": "https://area51store.co.nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "wellington_store": {
+        "name": "Area 51",
+        "area": null,
+        "address": null,
+        "verified": false
+      }
+    },
+    {
+      "slug": "end",
+      "name": "END.",
+      "platform": "shopify",
+      "base_url": "https://www.endclothing.com",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "GB",
+      "currency": "GBP",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "Prices are GBP, converted for display; duty and shipping to NZ are extra. The whole catalogue (25,001) is past Shopify's 25,000-product page limit; the 'mens' collection (about 21,700) is under it. Some new arrivals list a price of 0.00 until release, and those are skipped.",
+      "wellington_store": null
+    }
+  ]
+}
