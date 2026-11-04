@@ -157,6 +157,12 @@ recorded candidates, including one still scoring; save, dismiss with a reason
 and bought move the slot's status. First pass numbers and what is left to
 score are in docs/plan.md under M3. His waist and shoe sizes are not on the
 profile, so trousers and shoes show every size in stock until he adds them.
+Shops (`/shops`, `src/lib/shops.ts`, linked from the finds on Today) is
+everything the finder read, searchable by words (variant colours included),
+kind, shop and his size: Claude's matches for open slots first, then the
+shortlist still waiting to be judged, then the rest. Save there is the feed's
+save, for a slot or none. What it marks as on Today comes from
+`shownOnToday` in feed.ts, which a test holds to `getFeed`.
 
 M3.5 try-on built 2026-11-04 with OpenAI (`gpt-image-2.5-sunburst`, high,
 his photo's aspect), chosen by Malin over the recommended FASHN; the research

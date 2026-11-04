@@ -4,7 +4,8 @@ import { seeItOnMe } from '@/app/try-on-actions'
 import { TryOn } from '@/components/try-on'
 import type { FindCard as Find } from '@/lib/feed'
 
-import { PriceLine, ProductPhoto } from './product'
+import { PriceLine } from './product'
+import { ProductPhoto } from './product-photo'
 
 /** "See it on me" on a find: him in it, beside the shop's own photo. */
 export function SeeItOnMe({ find }: { find: Find }) {

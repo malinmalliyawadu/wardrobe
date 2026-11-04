@@ -1,41 +1,13 @@
-import Image, { type ImageLoader } from 'next/image'
-
 import type { FindCard as Find } from '@/lib/feed'
 
-/* The product's photo and price, shared by the find card and the try-on viewer. */
-
-/** Shopify's CDN resizes on a width parameter, so the image optimiser is not needed. */
-export const shopifyLoader: ImageLoader = ({ src, width }) => {
-  const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  url.searchParams.set('width', String(width))
-  return url.toString()
-}
-
-export function ProductPhoto({ find, sizes, className = '' }: { find: Find; sizes: string; className?: string }) {
-  return (
-    <div className={`photo relative overflow-hidden ${className}`}>
-      {find.image ? (
-        <Image
-          loader={shopifyLoader}
-          src={find.image.src}
-          alt={find.image.alt ?? find.title}
-          fill
-          sizes={sizes}
-          className="object-contain"
-        />
-      ) : (
-        <span className="absolute inset-0 grid place-items-center text-sm text-ink-3">No photo</span>
-      )}
-    </div>
-  )
-}
+/* The product's price and sizes, shared by the find card, the try-on viewer and Shops. */
 
 export const nzd = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-NZ')}`
 const SYMBOLS: Record<string, string> = { GBP: '£', USD: 'US$', AUD: 'A$', EUR: '€' }
 const foreign = (cents: number, currency: string) =>
   `${SYMBOLS[currency] ?? `${currency} `}${Math.round(cents / 100).toLocaleString('en-NZ')}`
 
-export function PriceLine({ find }: { find: Find }) {
+export function PriceLine({ find }: { find: Pick<Find, 'price'> }) {
   const { price } = find
   if (price.currency !== 'NZD') {
     return (
@@ -57,3 +29,16 @@ export function PriceLine({ find }: { find: Find }) {
   )
 }
 
+/** "34 inch Waist x 32 inch Leg" reads as "34/32" on a card. */
+function shortSize(label: string): string {
+  const waistLeg = /^(\d{2})\s*(?:"|inch(?:es)?|in)?\s*waist\s*x\s*(\d{2})\s*(?:"|inch(?:es)?|in)?\s*leg$/i.exec(label.trim())
+  return waistLeg ? `${waistLeg[1]}/${waistLeg[2]}` : label
+}
+
+export function sizeLine(find: Pick<Find, 'sizes' | 'size_known'>): string {
+  if (find.sizes.length === 1 && /^one size$/i.test(find.sizes[0]!)) return 'One size'
+  const sizes = [...new Set(find.sizes.map(shortSize))]
+  if (find.size_known) return `Your ${sizes.join(', ')} in stock`
+  const shown = sizes.slice(0, 6).join(', ')
+  return `In stock: ${shown}${sizes.length > 6 ? ' and more' : ''}`
+}

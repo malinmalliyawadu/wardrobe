@@ -91,6 +91,11 @@ export async function Feed() {
         <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-3">
           {runLine(feed.run, feed.total, feed.groups.length, finds < feed.total)}
         </p>
+        <p className="mt-2 text-[0.9375rem]">
+          <Link href="/shops" className="font-medium text-brass underline-offset-4 hover:underline">
+            Search everything it read
+          </Link>
+        </p>
         {missing.length > 0 ? (
           <p className="mt-3 max-w-[44ch] text-[0.9375rem] text-ink-2">
             Your {missing.map((item) => item.size).join(' and ')} {missing.length > 1 ? 'are' : 'is'} not on your
