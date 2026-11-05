@@ -472,7 +472,9 @@ what he owns:
 - Three options, best first, each held to what a look must be (tidyLooks);
   one he wore this past week or dismissed is dropped. Each option is a look,
   so Save and "Wear this" are the looks' own, and wearing one saves it. An
-  option that is piece for piece a look he saved is that look, not a copy.
+  option that is piece for piece a look already made (saved, or offered
+  before on another day or in a set, and not dismissed) is that look, not a
+  copy, so its picture is kept rather than drawn again.
   "Another" turns to the next. "Something on today?" makes a new three with
   his note ("dinner out tonight").
 - The option on show gets a picture: a flat lay drawn by OpenAI from photos

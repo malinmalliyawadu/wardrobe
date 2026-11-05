@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import type postgres from 'postgres'
 import { z } from 'zod'
 
 import { MODELS, callUsd } from './claude.ts'
@@ -37,9 +38,11 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  *
  * Each option is a look, so Save and "Wore it today" are the looks' own and
  * the next set of looks learns from them. When an option is piece for piece a
- * look he saved, it is that look, not a copy. The option on show gets a
- * picture, a flat lay of the outfit drawn by OpenAI (look-image.ts), made
- * after the outfit and kept with the look. Made the first time Today is
+ * look already made (saved, or offered before on another day or in a set of
+ * looks, and not dismissed), it is that look, not a copy, so it keeps its
+ * picture and nothing is drawn again. The option on show gets a picture, a
+ * flat lay of the outfit drawn by OpenAI (look-image.ts), made after the
+ * outfit and kept with the look. Made the first time Today is
  * opened for a day (after six in the evening, for tomorrow), in the
  * background; the card refreshes until it is there.
  *
@@ -360,8 +363,9 @@ export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps>
 
 /**
  * The call as a set of the day's kind, then each option and the gym fit: the
- * saved look it matches piece for piece, else a new look. The day is ready
- * once all of it is in. Returns the first option's look, the one on show.
+ * look it matches piece for piece (matchingLooks), else a new look. The day
+ * is ready once all of it is in. Returns the first option's look, the one on
+ * show.
  */
 export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: Sql = db()): Promise<number> {
   return sql.begin(async (tx) => {
@@ -384,23 +388,15 @@ export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: 
       returning id::int as id
     `
     if (!set) throw new Error('set insert returned nothing')
-    const saved = await tx<{ id: number; piece_ids: number[] }[]>`
-      select l.id::int as id, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
-      from looks l where l.status = 'saved' order by l.acted_at desc
-    `
-    const savedBySignature = new Map<string, number>()
-    for (const look of saved) {
-      const key = signature(look.piece_ids)
-      if (!savedBySignature.has(key)) savedBySignature.set(key, look.id)
-    }
+    const existing = await matchingLooks(tx)
     const lookIds: number[] = []
     for (const [position, option] of draft.options.entries()) {
-      const lookId = savedBySignature.get(signature(option.piece_ids)) ?? (await insertLook(tx, set.id, position, option))
+      const lookId = existing.get(lookKey(option)) ?? (await insertLook(tx, set.id, position, option))
       await tx`insert into day_outfit_options ${tx({ day_id: id, position, look_id: lookId, today: option.today })}`
       lookIds.push(lookId)
     }
     const gymId = draft.gym
-      ? (savedBySignature.get(signature(draft.gym.piece_ids)) ?? (await insertLook(tx, set.id, draft.options.length, draft.gym)))
+      ? (existing.get(lookKey(draft.gym)) ?? (await insertLook(tx, set.id, draft.options.length, draft.gym)))
       : null
     await tx`
       update day_outfits
@@ -410,6 +406,36 @@ export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: 
     `
     return lookIds[0]!
   })
+}
+
+/** What makes two looks the same outfit: the same pieces, and gym or not. */
+export function lookKey(look: { occasion: string; piece_ids: number[] }): string {
+  return `${look.occasion === 'gym' ? 'gym' : 'everyday'}:${signature(look.piece_ids)}`
+}
+
+/**
+ * Every look an option may turn out to be, by lookKey: saved ones, and ones
+ * offered before (on another day, or in a set of looks) that he has not
+ * dismissed. Where more than one has the same pieces, the one he saved wins,
+ * then one with a picture already drawn, then the newest. A dismissed look is
+ * never reused; tidyDay keeps the recent ones out, and an older one comes back
+ * as a new look.
+ */
+export async function matchingLooks(sql: Sql | postgres.TransactionSql): Promise<Map<string, number>> {
+  const looks = await sql<{ id: number; occasion: string; piece_ids: number[] }[]>`
+    select l.id::int as id, l.occasion, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
+    from looks l
+    where l.status <> 'dismissed'
+    order by l.status = 'saved' desc,
+             exists (select 1 from look_images i where i.look_id = l.id and i.status = 'ready') desc,
+             l.created_at desc, l.id desc
+  `
+  const byKey = new Map<string, number>()
+  for (const look of looks) {
+    const key = lookKey(look)
+    if (!byKey.has(key)) byKey.set(key, look.id)
+  }
+  return byKey
 }
 
 export type DayOutfit = {
