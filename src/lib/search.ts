@@ -27,7 +27,7 @@ import { type ProductImage } from './finder/shopify.ts'
 import { getFinderSettings, getSpend } from './finder/settings.ts'
 import { getProfile, type Profile } from './profile.ts'
 import { FITS } from './profile-values.ts'
-import { listRetailers, type WellingtonStore } from './retailers.ts'
+import { listRetailers, STOCK_PLATFORMS, type WellingtonStore } from './retailers.ts'
 import { getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { finalText, plainDashes } from './structured.ts'
 import { latestTryOns } from './try-on.ts'
@@ -720,7 +720,7 @@ export async function getSearch(id: number, sql: Sql = db()): Promise<SearchView
         select r.product_id::int as product_id, r.score, r.why, r.colour_verdict, r.fit_verdict, r.fabric_notes,
                r.colour_option, p.title, p.vendor, p.url, p.images -> 0 as image,
                rt.name as retailer, rt.country, rt.currency, rt.ships_to_nz, rt.wellington_store,
-               rt.platform = 'shopify' as stock_known,
+               rt.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known,
                r.price_cents, r.compare_at_cents, r.sizes, r.size_known
         from search_results r
         join products p on p.id = r.product_id

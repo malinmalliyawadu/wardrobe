@@ -1,5 +1,5 @@
 {
-  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Whether a store is read is Malin's switch on /you/finder; \"enabled\" here only sets a newly added store's starting state. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site, which `source` names. Checked 2026-11-04: Country Road's own store finder lists no NZ stores, so its store stays unverified; Checks Downtown (Auckland only) and Commoners (stockists only) have no Wellington store of their own; Barkers also has 82 Cuba Street and I Love Ugly 233 Lambton Quay, one store each is shown. Probed 2026-11-04: every feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
+  "_note": "Seeded by scripts/seed-retailers.ts, matched on slug. Whether a store is read is Malin's switch on /you/finder; \"enabled\" here only sets a newly added store's starting state. Wellington stores are shown as 'try on at' only once verified is true, and an address is only filled in after checking it on the retailer's own site, which `source` names. Checked 2026-11-04: Country Road's own store finder lists no NZ stores, so its store stays unverified; Checks Downtown (Auckland only) and Commoners (stockists only) have no Wellington store of their own; Barkers also has 82 Cuba Street and I Love Ugly 233 Lambton Quay, one store each is shown. Probed 2026-11-04: every Shopify feed below answers /products.json (or the listed men's collections), robots.txt allows it, and prices come back in the currency listed.",
   "retailers": [
     {
       "slug": "barkers",
@@ -205,6 +205,26 @@
       "catalogue": "mixed",
       "notes": "The NZ site is its own Shopify shop priced in NZD; patagonia.com.au is a separate shop in AUD. The 'mens' collection is the men's range (about 1,070 products). Product types read like 'Medium,Bottoms & One Pieces', so the garment comes from the title; colours come from the variants' Color option and a colour: tag. Much of the range is technical kit the rules file as activewear. Probed 2026-11-05: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, which the client waits out. Its store locator is drawn by script, so no Wellington store could be read from the site.",
       "wellington_store": null
+    },
+    {
+      "slug": "rodd-and-gunn",
+      "name": "Rodd & Gunn",
+      "platform": "rodd-and-gunn",
+      "base_url": "https://www.roddandgunn.com/nz",
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "menswear",
+      "enabled": false,
+      "notes": "Links only, for pieces he owns or wants: never walked and no switch on /you/finder, like Uniqlo. The site is Salesforce Commerce Cloud, not Shopify, so it has no products.json, and its catalogue is a page per colour (about 2,540 colours of 1,900 styles in the NZ sitemap, outlet included), which at one request a second would take most of an hour each night. A pasted link is read from its own page on the NZ site whatever region it was copied from (the ids are the same): a schema.org Product, the data layer's view_item, the usual price beside a sale price, the colour's photos and per-size stock. Trousers and jeans list each leg length as its own page and id; they are read together and stored as one colour. A link to a style with no colour chosen lists the colours to choose from. Every non-canonical product link answers 301 to the colour's own page; a colour no longer sold answers 410, and a saved one is then marked gone. A page priced in anything but NZD is refused. Probed 2026-11-05: robots.txt allows the product pages (it disallows the paginated category grids and the Product-Variation endpoint), and they answer the finder's own User-Agent with no challenge.",
+      "wellington_store": {
+        "name": "Rodd & Gunn",
+        "area": "Wellington Central",
+        "address": "46 Willis Street",
+        "verified": true,
+        "source": "https://www.roddandgunn.com/nz/stores/willis-street_1460",
+        "checked": "2026-11-05"
+      }
     },
     {
       "slug": "uniqlo",

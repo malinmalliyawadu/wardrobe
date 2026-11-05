@@ -9,6 +9,20 @@ import type { Sql } from './db.ts'
  * what the runs learn (robots.txt, last ingest).
  */
 
+export const PLATFORMS = ['shopify', 'rodd-and-gunn', 'uniqlo', 'manual'] as const
+
+export type Platform = (typeof PLATFORMS)[number]
+
+/** The platforms the nightly finder reads whole, so the ones with a switch on /you/finder. */
+export const WALKED_PLATFORMS = ['shopify'] as const satisfies readonly Platform[]
+
+/**
+ * The platforms whose pages say which sizes are in stock. Uniqlo's page does
+ * not (every size it makes counts as available), and a find added by hand
+ * has only the size he typed.
+ */
+export const STOCK_PLATFORMS = ['shopify', 'rodd-and-gunn'] as const satisfies readonly Platform[]
+
 const url = z
   .string()
   .url()
@@ -35,13 +49,15 @@ export const RetailerSeedSchema = z.object({
   name: z.string().min(1),
   /**
    * How a product is read. "shopify": the whole catalogue from /products.json
-   * every night, and one product from /products/<handle>.js. "uniqlo": one
-   * product at a time from its own page, only for a link he pastes; never
-   * walked, so never on the finder's switches. "manual": a site that cannot
+   * every night, and one product from /products/<handle>.js. "uniqlo" and
+   * "rodd-and-gunn": one product at a time from its own page, only for a link
+   * he pastes; never walked, so never on the finder's switches (Rodd & Gunn's
+   * catalogue is a page per colour, too slow to walk at a page a second).
+   * "manual": a site that cannot
    * be read at all (Lululemon's answers with a bot challenge), so a find from
    * it is typed in by him on Saved, and never checked again.
    */
-  platform: z.enum(['shopify', 'uniqlo', 'manual']),
+  platform: z.enum(PLATFORMS),
   base_url: url,
   /** Where /products.json is read, when it is not the public site. */
   feed_url: url.optional(),
@@ -69,7 +85,7 @@ export type Retailer = {
   id: number
   slug: string
   name: string
-  platform: 'shopify' | 'uniqlo' | 'manual'
+  platform: Platform
   base_url: string
   feed_url: string | null
   feed_collections: string[]
@@ -83,7 +99,7 @@ export type Retailer = {
 
 /** Whether the nightly finder reads the store's whole catalogue, and so whether it has a switch. */
 export function walkedNightly(retailer: Pick<Retailer, 'platform'>): boolean {
-  return retailer.platform === 'shopify'
+  return (WALKED_PLATFORMS as readonly Platform[]).includes(retailer.platform)
 }
 
 /** Whether a product can be read from the store's site at all, or is only ever typed in by him. */

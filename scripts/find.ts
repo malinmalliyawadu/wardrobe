@@ -45,7 +45,6 @@ import { PoliteClient } from '../src/lib/finder/http.ts'
 import { readPhoto } from '../src/lib/finder/photo-colour.ts'
 import { refreshSaved } from '../src/lib/finder/product-link.ts'
 import { closeInterrupted, holdFinderLock } from '../src/lib/finder/runs.ts'
-import { imageAt } from '../src/lib/finder/shopify.ts'
 import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
 import { getFinderSettings, getSpend, runBudget, statementsBudget } from '../src/lib/finder/settings.ts'
@@ -57,6 +56,7 @@ import {
   unjudgedStatements,
 } from '../src/lib/finder/statements.ts'
 import { listPieces } from '../src/lib/pieces.ts'
+import { productImageAt } from '../src/lib/product-image.ts'
 import { getProfile } from '../src/lib/profile.ts'
 import { listRetailers, seedRetailers, walkedNightly } from '../src/lib/retailers.ts'
 import { colourNameFor, getGuide } from '../src/lib/style-guide.ts'
@@ -124,7 +124,7 @@ try {
   log({ event: 'find.retailers', ...seeded })
   const allRetailers = await listRetailers(sql)
   // Only a store the finder walks can be switched on; one read only from
-  // pasted links (Uniqlo) never is, whatever its row says.
+  // pasted links (Uniqlo, Rodd & Gunn) never is, whatever its row says.
   const retailers = allRetailers.filter((retailer) => retailer.enabled && walkedNightly(retailer))
 
   // 1. Ingest. Stores run side by side; each host gets its own one-a-second queue.
@@ -184,7 +184,7 @@ try {
   )
   const photos = new PoliteClient()
   const { candidates, stats: filtered } = await findCandidates(sql, targets, fx.rates, {
-    readPhoto: async (src) => (await readPhoto(await photos.bytes(imageAt(src, 160)))).colours,
+    readPhoto: async (src) => (await readPhoto(await photos.bytes(productImageAt(src, 160)))).colours,
   })
   await recordCandidates(sql, run.id, candidates)
   stats.slots_open = targets.length

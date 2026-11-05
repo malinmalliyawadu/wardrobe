@@ -4,7 +4,7 @@ import { wantedSizeKeys } from './finder/classify.ts'
 import { OPEN_STATUSES } from './finder/filter.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
-import { tryOnAt, type WellingtonStore } from './retailers.ts'
+import { tryOnAt, WALKED_PLATFORMS, type WellingtonStore } from './retailers.ts'
 import { SHOPS_PAGE_SIZE, type ShopQuery } from './shop-query.ts'
 import { GARMENT_TYPES, type GarmentType } from './wardrobe-values.ts'
 
@@ -149,7 +149,7 @@ export async function searchShops(query: ShopQuery, sql: Sql = db()): Promise<Sh
                else 4
              end as tier
       from products p
-      join retailers r on r.id = p.retailer_id and r.enabled and r.platform = 'shopify'
+      join retailers r on r.id = p.retailer_id and r.enabled and r.platform = any (${[...WALKED_PLATFORMS]}::text[])
       left join rates x on x.currency = r.currency
       left join wanted w on w.garment_type = p.garment_type
       cross join lateral (

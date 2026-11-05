@@ -6,7 +6,9 @@ import type { Slot } from '../blueprint.ts'
 import { claude, MODELS } from '../claude.ts'
 import type { Sql } from '../db.ts'
 import type { Piece } from '../pieces.ts'
+import { productImageAt } from '../product-image.ts'
 import type { Profile, Sizes } from '../profile.ts'
+import { WALKED_PLATFORMS } from '../retailers.ts'
 import { finalText, plainDashes } from '../structured.ts'
 import { colourNameFor, profileBrief, type Guide } from '../style-guide.ts'
 import { BUDGET_CATEGORY, forEveryday, type GarmentType } from '../wardrobe-values.ts'
@@ -27,7 +29,7 @@ import {
   type ScoreStats,
   type Usage,
 } from './score.ts'
-import { imageAt, type ProductImage } from './shopify.ts'
+import type { ProductImage } from './shopify.ts'
 
 /*
  * Stage 4 of the nightly run: statement pieces, asked for by Malin on
@@ -244,7 +246,7 @@ export async function findStatementCandidates(
            p.images -> 0 ->> 'src' as image_src, p.image_colour_src, p.image_colours, p.first_seen_at,
            v.colours, v.sizes, w.keys is not null or v.one_size as size_known, v.price_cents, v.compare_at_cents
     from products p
-    join retailers r on r.id = p.retailer_id and r.enabled and r.platform = 'shopify'
+    join retailers r on r.id = p.retailer_id and r.enabled and r.platform = any (${[...WALKED_PLATFORMS]}::text[])
     join rates x on x.currency = r.currency
     left join wanted w on w.garment_type = p.garment_type
     left join ceilings c on c.garment_type = p.garment_type
@@ -411,7 +413,7 @@ export function buildStatementRequest(context: string, product: ProductForStatem
   }
   const content: Anthropic.Beta.BetaContentBlockParam[] = []
   const image = product.images[0]
-  if (image) content.push({ type: 'image', source: { type: 'url', url: imageAt(image.src, IMAGE_WIDTH) } })
+  if (image) content.push({ type: 'image', source: { type: 'url', url: productImageAt(image.src, IMAGE_WIDTH) } })
   content.push({
     type: 'text',
     text: [
