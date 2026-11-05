@@ -105,7 +105,7 @@ describe('a picture made and filed', () => {
               ${sql.json([{ src: '//cdn.shopify.com/s/files/1/derby.jpg' }])}, 'h1', 'shoes')
       returning id::int as id
     `
-    const blank = { colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, brand: null, size: null, notes: null, slot_id: null }
+    const blank = { colour_hex: null, colour_name: null, fabric: null, fit: null, warmth: null, worn_for: 'everyday' as const, brand: null, size: null, notes: null, slot_id: null }
     const typed = { source: 'typed' as const, photo_id: null, product_id: null }
     const ids = [
       await createPiece({ ...blank, name: 'Pine crew', garment_type: 'knitwear', colour_hex: '#2f4a3a', colour_name: 'pine' }, typed),

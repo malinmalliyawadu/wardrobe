@@ -4,7 +4,11 @@ import { z } from 'zod'
 import { MODELS, callUsd } from './claude.ts'
 import { db, type Sql } from './db.ts'
 import {
+  dressable,
   getLooks,
+  GYM_FIT_RULES,
+  gymForPrompt,
+  gymReadiness,
   insertLook,
   LookDraftSchema,
   pieceForPrompt,
@@ -20,6 +24,7 @@ import {
 import { ensureLookImage, latestLookImages, type LookImage } from './look-image.ts'
 import { listPieces, type Piece } from './pieces.ts'
 import { getProfile, type Profile } from './profile.ts'
+import { weekdayOf } from './profile-values.ts'
 import { GenerationError, generate, type GenerationMeta } from './structured.ts'
 import { getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type Forecast } from './weather.ts'
@@ -37,6 +42,10 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  * after the outfit and kept with the look. Made the first time Today is
  * opened for a day (after six in the evening, for tomorrow), in the
  * background; the card refreshes until it is there.
+ *
+ * On a day he trains (a gym day on his week, or a note that says so) the same
+ * call adds a gym fit from his gym kit (migration 0014): one look of the gym
+ * occasion, shown under the day's outfit. It gets no picture without a tap.
  */
 
 export const DAY_OPTIONS = 3
@@ -61,6 +70,7 @@ export const DayOptionSchema = LookDraftSchema.omit({ better_with: true }).exten
 
 export const DaySchema = z.object({
   options: z.array(DayOptionSchema).describe(`${DAY_OPTIONS} outfits for the day, best first, each a different outfit.`),
+  gym: DayOptionSchema.nullable().describe('On a day he trains, one gym fit from his gym kit, occasion gym; otherwise null.'),
 })
 
 export type DayOption = z.infer<typeof DayOptionSchema>
@@ -74,6 +84,8 @@ Dress him for the forecast, not the month. You are given the hours he is likely 
 The season sets the fabric weights and the mood within his palette: the lighter and brighter of his colours in spring and summer, the deeper ones in autumn and winter. Never step outside his palette to follow a season.
 
 Work out the day from the weekday and his week: an office day, a weekend, or a day with an evening out. Where his week is empty, weekdays are office days. Office means smart casual unless his profile says otherwise. If he said what is on, that decides; dress for the most demanding part of the day and say how to adjust for the rest.
+
+${GYM_FIT_RULES} The day's options are everyday outfits, never gym fits. When he trains this day (trains_today, or his note says he is training) and his gym kit is ready (gym.kit_ready), also give gym: one gym fit for this day's weather on the walk there, a layer when it is cold, windy or wet; its today line says what about the day it answers. Otherwise gym is null. A gym fit may repeat one he wore this week or saved; kit is small.
 
 He may re-wear a look he saved, piece for piece, when it suits the day; it is often the best option. Never offer an outfit he wore in the past week, piece for piece, nor one he dismissed, and learn from the reasons he gave. Prefer pieces he has worn less lately.
 
@@ -114,13 +126,18 @@ function forecastForPrompt(forecast: Forecast) {
   }
 }
 
+/** Whether his week says he trains on this day. */
+export function trainsOn(profile: Pick<Profile, 'life'>, date: string): boolean {
+  return profile.life.gym_days?.includes(weekdayOf(date)) ?? false
+}
+
 export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessageParam[] {
   const now = input.now ?? new Date()
-  const active = input.pieces.filter((piece) => !piece.set_aside_at && piece.garment_type !== 'activewear')
   const body = {
     day: {
       date: input.date,
       weekday: weekday(input.date),
+      trains_today: trainsOn(input.profile, input.date),
       dressing_for: input.date === nzDate(now) ? 'today' : 'tomorrow, laid out the evening before',
       season_in_new_zealand: nzSeason(input.date),
     },
@@ -128,6 +145,7 @@ export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessagePar
       ? { forecast_wellington: forecastForPrompt(input.forecast) }
       : { usual_weather: `${wellingtonToday(new Date(`${input.date}T12:00:00+12:00`)).weather} (no forecast could be read)` }),
     profile: profileBrief(input.profile),
+    gym: gymForPrompt(input.profile, input.pieces),
     style_guide: {
       palette: input.guide.palette,
       silhouette: input.guide.silhouette,
@@ -135,7 +153,7 @@ export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessagePar
       accessories: input.guide.accessories,
       fit_vocabulary: input.guide.fit_vocabulary,
     },
-    pieces: active.map((piece) => pieceForPrompt(piece, input.guide, input.history.worn)),
+    pieces: dressable(input.pieces).map((piece) => pieceForPrompt(piece, input.guide, input.history.worn)),
     looks_he_saved: input.history.saved,
     looks_he_dismissed: input.history.dismissed,
     worn_this_week: input.wornThisWeek,
@@ -146,7 +164,7 @@ export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessagePar
   return [{ role: 'user', content: `${JSON.stringify(body, null, 2)}\n\n${ask}` }]
 }
 
-export type DayDraft = { options: DayOption[]; proposed: number; meta: GenerationMeta; usd: number }
+export type DayDraft = { options: DayOption[]; gym: DayOption | null; proposed: number; meta: GenerationMeta; usd: number }
 
 export async function draftDay(input: DayInput): Promise<DayDraft> {
   const { data, meta } = await generate({
@@ -158,17 +176,25 @@ export async function draftDay(input: DayInput): Promise<DayDraft> {
     model: MODELS.day,
   })
   const usd = callUsd(MODELS.day, { input_tokens: meta.input_tokens, output_tokens: meta.output_tokens })
-  return { options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek), proposed: data.options.length, meta, usd }
+  const gym = gymReadiness(input.pieces).ready && data.gym ? tidyGym(data.gym, input.pieces, input.history) : null
+  return {
+    options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek),
+    gym,
+    proposed: data.options.length,
+    meta,
+    usd,
+  }
 }
 
 /**
  * Holds the options to what a look must be (tidyLooks), with the day's own
  * rules on what has gone before: a look he saved may come back, one he
- * dismissed or wore this past week may not. At most DAY_OPTIONS are kept.
+ * dismissed or wore this past week may not. A gym fit is not one of the
+ * day's options. At most DAY_OPTIONS are kept.
  */
 export function tidyDay(
   options: DayOption[],
-  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at'>[],
+  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>[],
   history: Pick<History, 'dismissed'>,
   wornThisWeek: Pick<Worn, 'piece_ids'>[],
 ): DayOption[] {
@@ -177,11 +203,29 @@ export function tidyDay(
     ...wornThisWeek.map((look) => ({ title: '', piece_ids: look.piece_ids, reason: 'not_me' as LookDismissReason })),
   ]
   return tidyLooks(
-    options.map((option) => ({ ...option, title: option.title.trim(), better_with: null })),
+    options.filter((option) => option.occasion !== 'gym').map((option) => ({ ...option, title: option.title.trim(), better_with: null })),
     pieces,
     [],
     { saved: [], dismissed: notAgain },
   ).slice(0, DAY_OPTIONS)
+}
+
+/**
+ * The day's gym fit held to what a gym fit must be. Kit is small, so one he
+ * wore this week or saved may come back; one he dismissed may not.
+ */
+export function tidyGym(
+  gym: DayOption,
+  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>[],
+  history: Pick<History, 'dismissed'>,
+): DayOption | null {
+  const [kept] = tidyLooks(
+    [{ ...gym, occasion: 'gym' as const, title: gym.title.trim(), better_with: null }],
+    pieces,
+    [],
+    { saved: [], dismissed: history.dismissed },
+  )
+  return kept ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +338,15 @@ export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps>
     }
     const first = await saveDay(id, made, pieces.filter((piece) => !piece.set_aside_at).length, sql)
     console.info(
-      JSON.stringify({ event: 'day.ready', id, options: made.options.length, proposed: made.proposed, usd: made.usd, ms: Date.now() - started }),
+      JSON.stringify({
+        event: 'day.ready',
+        id,
+        options: made.options.length,
+        gym: made.gym !== null,
+        proposed: made.proposed,
+        usd: made.usd,
+        ms: Date.now() - started,
+      }),
     )
     await draw(first, sql)
   } catch (error) {
@@ -307,9 +359,9 @@ export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps>
 }
 
 /**
- * The call as a set of the day's kind, then each option: the saved look it
- * matches piece for piece, else a new look. The day is ready once all of it
- * is in. Returns the first option's look, the one on show.
+ * The call as a set of the day's kind, then each option and the gym fit: the
+ * saved look it matches piece for piece, else a new look. The day is ready
+ * once all of it is in. Returns the first option's look, the one on show.
  */
 export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: Sql = db()): Promise<number> {
   return sql.begin(async (tx) => {
@@ -347,7 +399,15 @@ export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: 
       await tx`insert into day_outfit_options ${tx({ day_id: id, position, look_id: lookId, today: option.today })}`
       lookIds.push(lookId)
     }
-    await tx`update day_outfits set status = 'ready', set_id = ${set.id}, shown = 0, finished_at = now() where id = ${id}`
+    const gymId = draft.gym
+      ? (savedBySignature.get(signature(draft.gym.piece_ids)) ?? (await insertLook(tx, set.id, draft.options.length, draft.gym)))
+      : null
+    await tx`
+      update day_outfits
+      set status = 'ready', set_id = ${set.id}, shown = 0, gym_look_id = ${gymId}, gym_today = ${draft.gym?.today ?? null},
+          finished_at = now()
+      where id = ${id}
+    `
     return lookIds[0]!
   })
 }
@@ -362,14 +422,23 @@ export type DayOutfit = {
   shown: number
   usd: number | null
   started_at: Date
-  options: { look: Look; today: string; image: LookImage | null }[]
+  options: DayLook[]
+  /** On a day he trains, what to wear to the gym. */
+  gym: DayLook | null
 }
+
+export type DayLook = { look: Look; today: string; image: LookImage | null }
 
 /** The newest outfit for a day, with its options, or null when there is none yet. */
 export async function readDay(date: string, sql: Sql = db()): Promise<DayOutfit | null> {
-  const [row] = await sql<(Omit<DayOutfit, 'options'> & { option_rows: { look_id: number; today: string }[] | null })[]>`
+  type Row = Omit<DayOutfit, 'options' | 'gym'> & {
+    option_rows: { look_id: number; today: string }[] | null
+    gym_look_id: number | null
+    gym_today: string | null
+  }
+  const [row] = await sql<Row[]>`
     select d.id::int as id, to_char(d.for_date, 'YYYY-MM-DD') as for_date, d.status, d.note, d.forecast, d.error, d.shown,
-           s.usd::float as usd, d.started_at,
+           s.usd::float as usd, d.started_at, d.gym_look_id::int as gym_look_id, d.gym_today,
            (select json_agg(json_build_object('look_id', o.look_id::int, 'today', o.today) order by o.position)
             from day_outfit_options o where o.day_id = d.id) as option_rows
     from day_outfits d left join look_sets s on s.id = d.set_id
@@ -378,16 +447,16 @@ export async function readDay(date: string, sql: Sql = db()): Promise<DayOutfit 
     limit 1
   `
   if (!row) return null
-  const { option_rows, ...day } = row
-  const lookIds = (option_rows ?? []).map((option) => option.look_id)
+  const { option_rows, gym_look_id, gym_today, ...day } = row
+  const rows = [...(option_rows ?? []), ...(gym_look_id && gym_today ? [{ look_id: gym_look_id, today: gym_today }] : [])]
+  const lookIds = rows.map((option) => option.look_id)
   const [looks, images] = await Promise.all([getLooks(lookIds, sql), latestLookImages(lookIds, sql)])
   const byId = new Map(looks.map((look) => [look.id, look]))
-  const options = (option_rows ?? []).flatMap((option) =>
-    byId.has(option.look_id)
-      ? [{ look: byId.get(option.look_id)!, today: option.today, image: images.get(option.look_id) ?? null }]
-      : [],
-  )
-  return { ...day, shown: options.length > 0 ? day.shown % options.length : 0, options }
+  const dayLook = (option: { look_id: number; today: string }): DayLook[] =>
+    byId.has(option.look_id) ? [{ look: byId.get(option.look_id)!, today: option.today, image: images.get(option.look_id) ?? null }] : []
+  const options = (option_rows ?? []).flatMap(dayLook)
+  const [gym = null] = gym_look_id && gym_today ? dayLook({ look_id: gym_look_id, today: gym_today }) : []
+  return { ...day, shown: options.length > 0 ? day.shown % options.length : 0, options, gym }
 }
 
 /** Turns the day to its next option, round to the first after the last. Returns the look now on show. */

@@ -13,6 +13,7 @@ export type PieceFormValues = {
   fabric: string
   fit: string
   warmth: string
+  worn_for: string
   brand: string
   size: string
   notes: string
@@ -28,6 +29,7 @@ export function formValues(values: Partial<PieceValues>): PieceFormValues {
     fabric: values.fabric ?? '',
     fit: values.fit ?? '',
     warmth: values.warmth ?? '',
+    worn_for: values.worn_for ?? 'everyday',
     brand: values.brand ?? '',
     size: values.size ?? '',
     notes: values.notes ?? '',

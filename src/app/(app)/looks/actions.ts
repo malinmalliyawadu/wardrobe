@@ -28,6 +28,7 @@ import { text } from '@/lib/form-parse'
 import {
   actOnLook,
   draftLooks,
+  gymReadiness,
   readHistory,
   readiness,
   saveSet,
@@ -199,6 +200,7 @@ export async function removePiece(form: FormData): Promise<void> {
 /** A new set of looks from what he owns. Opus, about a minute; the page waits with a note. */
 export async function makeLooks(_prev: ActionState, form: FormData): Promise<ActionState> {
   const note = text(form, 'note')?.slice(0, 300) ?? null
+  const kind = text(form, 'kind') === 'gym' ? ('gym' as const) : ('week' as const)
   try {
     const [profile, guide, pieces, wanted, history] = await Promise.all([
       getProfile(),
@@ -208,16 +210,19 @@ export async function makeLooks(_prev: ActionState, form: FormData): Promise<Act
       readHistory(),
     ])
     if (!guide) return { ok: false, message: 'Draft your style guide first. Looks are put together against it.' }
-    const ready = readiness(pieces)
-    if (!ready.ready) return { ok: false, message: `Add ${ready.missing.join(', ')} first.` }
-    const draft = await draftLooks({ profile, guide, pieces, wanted, history, note })
+    const ready = kind === 'gym' ? gymReadiness(pieces) : readiness(pieces)
+    if (!ready.ready) {
+      const what = ready.missing.join(', ')
+      return { ok: false, message: kind === 'gym' ? `Mark ${what} as gym kit first.` : `Add ${what} first.`, values: echo(form) }
+    }
+    const draft = await draftLooks({ profile, guide, pieces, wanted, history, note, kind })
     if (draft.looks.length === 0) {
       console.warn(JSON.stringify({ event: 'looks.none_kept', proposed: draft.proposed, usd: draft.usd }))
       return { ok: false, message: 'None of the looks Claude made held together. Try again.', values: echo(form) }
     }
     const { date, weather } = wellingtonToday()
     const active = pieces.filter((piece) => !piece.set_aside_at).length
-    await saveSet(draft, { note, pieces: active, date, weather })
+    await saveSet(draft, { note, pieces: active, date, weather, kind })
   } catch (error) {
     if (error instanceof GenerationError) {
       console.warn(JSON.stringify({ event: 'looks.failed', message: error.message, cause: error.cause ?? null }))

@@ -4,9 +4,10 @@ import type { ReactNode } from 'react'
 import { ButtonLink } from '@/components/button-link'
 import { Refresh } from '@/components/refresh'
 import { Bone } from '@/components/skeleton'
-import { readDay, type DayOutfit as Day } from '@/lib/day-outfit'
-import { OCCASION_LABELS, readiness } from '@/lib/looks'
+import { readDay, trainsOn, type DayLook, type DayOutfit as Day } from '@/lib/day-outfit'
+import { gymReadiness, OCCASION_LABELS, readiness } from '@/lib/looks'
 import { listPieces } from '@/lib/pieces'
+import { getProfile } from '@/lib/profile'
 import { getGuide } from '@/lib/style-guide'
 import { dateLabel, dressDate, forecastLine, nzDate, nzSeason } from '@/lib/weather'
 
@@ -19,8 +20,8 @@ import { Starter } from './starter'
  * is a style guide and enough of a wardrobe, the first opening of Today on a
  * day starts its outfit (Starter) and the section waits, refreshing, until
  * Opus has put it together; after six in the evening it dresses him for
- * tomorrow. Nothing here animates in: the swatch fan is the page's one
- * entrance.
+ * tomorrow. On a day he trains, a gym fit follows the outfit. Nothing here
+ * animates in: the swatch fan is the page's one entrance.
  */
 
 export async function DayOutfit() {
@@ -28,7 +29,7 @@ export async function DayOutfit() {
   const now = new Date()
   const date = dressDate(now)
   const isToday = date === nzDate(now)
-  const [guide, pieces, day] = await Promise.all([getGuide(), listPieces(), readDay(date)])
+  const [guide, pieces, day, profile] = await Promise.all([getGuide(), listPieces(), readDay(date), getProfile()])
   // Until there is a guide the hero says what comes first.
   if (!guide) return null
   const ready = readiness(pieces)
@@ -86,6 +87,7 @@ export async function DayOutfit() {
   }
 
   const shownImageUsd = day.options[day.shown]?.image?.usd ?? null
+  const canDraw = Boolean(process.env.OPENAI_API_KEY)
   return (
     <Frame date={date} heading={`What to wear ${when}`} weather={weather}>
       <div className="mt-8">
@@ -101,15 +103,20 @@ export async function DayOutfit() {
           shown={day.shown}
           today={nzDate(now)}
           isToday={isToday}
-          canDraw={Boolean(process.env.OPENAI_API_KEY)}
+          canDraw={canDraw}
         />
       </div>
-      {/* The picture of the option on show is being drawn: ask again until it is there. */}
-      {day.options[day.shown]?.image?.status === 'making' ? <Refresh /> : null}
+      {/* The picture of the option on show (or of the gym fit) is being drawn: ask again until it is there. */}
+      {day.options[day.shown]?.image?.status === 'making' || day.gym?.image?.status === 'making' ? <Refresh /> : null}
       {day.note ? <p className="mt-6 text-[0.8125rem] text-ink-3">Dressed for &ldquo;{day.note}&rdquo;.</p> : null}
       <div className="mt-4">
         <DressAgain when={when} />
       </div>
+      {day.gym ? (
+        <Gym dayId={day.id} gym={day.gym} today={nzDate(now)} isToday={isToday} canDraw={canDraw} />
+      ) : trainsOn(profile, date) ? (
+        <GymNotReady missing={gymReadiness(pieces).missing} when={when} />
+      ) : null}
       <p className="mt-4 text-[0.8125rem] text-ink-3">
         Forecast from{' '}
         <a href="https://open-meteo.com/" className="underline decoration-line underline-offset-[3px] hover:text-ink-2">
@@ -119,6 +126,51 @@ export async function DayOutfit() {
         {shownImageUsd !== null ? `, drawn by OpenAI for US$${shownImageUsd.toFixed(2)}` : ''}.
       </p>
     </Frame>
+  )
+}
+
+/** The day's gym fit, under the outfit: one look, no "Another". */
+function Gym({ dayId, gym, today, isToday, canDraw }: { dayId: number; gym: DayLook; today: string; isToday: boolean; canDraw: boolean }) {
+  return (
+    <section aria-labelledby="gym" className="mt-12 border-t border-line pt-8">
+      <h3 id="gym" className="font-display text-[1.375rem] leading-tight">
+        For the gym
+      </h3>
+      <div className="mt-6">
+        <DayCard
+          dayId={dayId}
+          options={[{ look: gym.look, today: gym.today, occasion: OCCASION_LABELS.gym, image: gym.image }]}
+          shown={0}
+          today={today}
+          isToday={isToday}
+          canDraw={canDraw}
+        />
+      </div>
+    </section>
+  )
+}
+
+/**
+ * A day he trains whose outfit came without a gym fit: his kit is not marked
+ * yet (or it could not make one). Says what to mark.
+ */
+function GymNotReady({ missing, when }: { missing: string[]; when: string }) {
+  return (
+    <section aria-labelledby="gym" className="mt-12 border-t border-line pt-8">
+      <h3 id="gym" className="font-display text-[1.375rem] leading-tight">
+        For the gym
+      </h3>
+      <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
+        {missing.length > 0
+          ? `You train ${when}. Mark ${list(missing)} as gym kit on Pieces and the next outfit comes with a gym fit.`
+          : `You train ${when}, but this outfit was put together without a gym fit. Dress again for one.`}
+      </p>
+      {missing.length > 0 ? (
+        <ButtonLink href="/looks/pieces" variant="quiet" className="mt-5">
+          Your pieces
+        </ButtonLink>
+      ) : null}
+    </section>
   )
 }
 

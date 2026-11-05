@@ -116,11 +116,15 @@ export function categoryText(productType: string | null, tags: string[]): string
   return [productType ?? '', ...fromTags].filter(Boolean).join(' / ')
 }
 
-export function garmentOf(title: string, productType: string | null): { garment_type: GarmentType | null; garment_kind: string | null } {
+export function garmentOf(
+  title: string,
+  productType: string | null,
+  options: { sport?: boolean } = {},
+): { garment_type: GarmentType | null; garment_kind: string | null } {
   const type = productType ?? ''
   const text = `${title} | ${type}`
   if (NOT_CLOTHING.test(text) || NOT_CLOTHING_TYPE.test(type)) return { garment_type: null, garment_kind: null }
-  if (SPORT.test(text)) return { garment_type: 'activewear', garment_kind: null }
+  if (options.sport !== false && SPORT.test(text)) return { garment_type: 'activewear', garment_kind: null }
   for (const rule of RULES) {
     if (rule.pattern.test(text)) return { garment_type: rule.garment, garment_kind: rule.kind ?? null }
   }
@@ -128,6 +132,15 @@ export function garmentOf(title: string, productType: string | null): { garment_
     if (rule.pattern.test(type)) return { garment_type: rule.garment, garment_kind: rule.kind ?? null }
   }
   return { garment_type: null, garment_kind: null }
+}
+
+/**
+ * What a piece of sport kit is as a garment, for a piece he owns: a training
+ * tank is a tank, running shorts are shorts. Pieces say they are for the gym
+ * on their own (worn_for), so the finder's activewear catch-all is left out.
+ */
+export function kitGarmentOf(title: string, productType: string | null): GarmentType | null {
+  return garmentOf(title, productType, { sport: false }).garment_type
 }
 
 /** The accessory kind a slot asks for, from its name ("Espresso fine merino beanie" -> "beanie"). */

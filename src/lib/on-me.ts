@@ -3,7 +3,7 @@ import type { ProductImage } from './finder/shopify.ts'
 import { OCCASION_LABELS, type Occasion } from './looks.ts'
 import { listPieces, type PiecePhoto } from './pieces.ts'
 import { STALE_MINUTES, findColour, type PieceSent } from './try-on.ts'
-import { GARMENT_TYPES, type GarmentType } from './wardrobe-values.ts'
+import { GARMENT_TYPES, type GarmentType, type WornFor } from './wardrobe-values.ts'
 
 /*
  * The On me page: every picture of him OpenAI made, newest first, each with
@@ -212,6 +212,8 @@ export type Choice = {
   /** The shop, for a saved find. */
   retailer: string | null
   garment_type: GarmentType | null
+  /** What a piece is worn for, so gym kit shelves apart; null for a find. */
+  worn_for: WornFor | null
   colour_hex: string | null
   colour_name: string | null
   photo: PiecePhoto | null
@@ -224,7 +226,7 @@ export type Choices = { pieces: Choice[]; finds: Choice[] }
 export async function outfitChoices(sql: Sql = db()): Promise<Choices> {
   const [pieces, finds] = await Promise.all([
     listPieces(sql),
-    sql<(Omit<Choice, 'key' | 'colour_hex' | 'photo' | 'garment_type'> & { garment_type: string | null })[]>`
+    sql<(Omit<Choice, 'key' | 'colour_hex' | 'photo' | 'garment_type' | 'worn_for'> & { garment_type: string | null })[]>`
       with latest_action as (
         select distinct on (product_id) product_id, slot_id, action, created_at
         from feed_actions order by product_id, created_at desc, id desc
@@ -250,6 +252,7 @@ export async function outfitChoices(sql: Sql = db()): Promise<Choices> {
         name: piece.name,
         retailer: null,
         garment_type: piece.garment_type,
+        worn_for: piece.worn_for,
         colour_hex: piece.colour_hex,
         colour_name: piece.colour_name,
         photo: piece.photo,
@@ -259,6 +262,7 @@ export async function outfitChoices(sql: Sql = db()): Promise<Choices> {
       ...find,
       key: `f${find.id}`,
       garment_type: garment(find.garment_type),
+      worn_for: null,
       colour_hex: null,
       photo: null,
     })),

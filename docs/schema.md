@@ -21,13 +21,13 @@ Three layers, each derived from the one above, then the finder's tables.
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
 | `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
-| `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, the slot it fills, the product it was bought as |
+| `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, what it is worn for (`everyday`, `gym` or `both`), the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
 | `find_photos` | one per find added by hand | Index of the photos of finds from a store that cannot be read (Lululemon), on disk under `finds/`; `products.find_photo_id` keeps one from being cleared |
 | `look_sets` | one per "Make new looks", and one per outfit of the day | His note, the weather it was dressed for, tokens and cost; `kind` is `set` (Looks tab) or `day` |
-| `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion, weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
+| `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion (`gym` for a gym fit), weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
 | `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
-| `day_outfits` | one a day, more when he asks again | The outfit of the day: the date it dresses him for, his note, the forecast it was dressed for, which option is on show |
+| `day_outfits` | one a day, more when he asks again | The outfit of the day: the date it dresses him for, his note, the forecast it was dressed for, which option is on show, and on a day he trains the gym fit and its line for the day |
 | `day_outfit_options` | three a day | The day's options, best first, each a look (a saved one when it matches piece for piece) with a sentence for that day |
 | `look_images` | one per look on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, cost, the file on the photos volume |
 | `searches` | one per search on the Search tab | What he typed, what it was read as, its limit, what it spent |

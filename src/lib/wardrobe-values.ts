@@ -123,6 +123,30 @@ export const WARMTH_LABELS: Record<Warmth, string> = {
   warm: 'Warm',
 }
 
+/*
+ * What a piece is worn for (migration 0014): everyday looks, gym fits, or
+ * both. A gym tank stays a tank; this says it is for training.
+ */
+export const WORN_FOR = ['everyday', 'gym', 'both'] as const
+export type WornFor = (typeof WORN_FOR)[number]
+
+export const WORN_FOR_LABELS: Record<WornFor, string> = {
+  everyday: 'Everyday',
+  gym: 'The gym',
+  both: 'Both',
+}
+
+/** Whether a piece can go in an everyday look, and in a gym fit. */
+export const forEveryday = (piece: { worn_for: WornFor }) => piece.worn_for !== 'gym'
+export const forGym = (piece: { worn_for: WornFor }) => piece.worn_for !== 'everyday'
+
+/**
+ * The garments a piece can be. Activewear says nothing about what a piece is,
+ * so a new piece names its garment and says it is for the gym instead; a
+ * piece filed as activewear before keeps it until he says what it is.
+ */
+export const PIECE_GARMENT_TYPES = GARMENT_TYPES.filter((type) => type !== 'activewear')
+
 export const PIECE_SOURCES = ['slot', 'find', 'link', 'photo', 'typed'] as const
 export type PieceSource = (typeof PIECE_SOURCES)[number]
 
@@ -135,3 +159,6 @@ export const GARMENT_GROUPS: { title: string; types: GarmentType[] }[] = [
   { title: 'Accessories', types: ['belt', 'accessory', 'bag'] },
   { title: 'Activewear', types: ['activewear'] },
 ]
+
+/** Pieces worn only for the gym have a shelf of their own on the Pieces page, whatever they are. */
+export const GYM_SHELF = 'Gym kit'

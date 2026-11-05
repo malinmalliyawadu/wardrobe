@@ -248,6 +248,21 @@ OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.
 
+Gym fits built 2026-11-05 (migration 0014), agreed with Malin first; gate
+pending (a week of gym days he wears what it suggests). A piece keeps the
+garment it is and says what it is `worn_for`: everyday, gym or both
+(`src/lib/wardrobe-values.ts`); everyday looks leave gym-only kit out, and a
+gym fit (a look of occasion `gym`) is made only from gym and both pieces,
+held by `tidyLooks`. Activewear is no longer offered for a piece: the photo
+read and "Bought it" name sport kit for what it is (`kitGarmentOf`,
+`asPiece`) and mark it gym, and pieces filed as activewear before became gym
+kit that stays out of fits until he names it. Your week takes the days he
+trains (`life.gym_days`); on one, the outfit of the day's same Opus call adds
+a gym fit (`day_outfits.gym_look_id`), shown under the outfit on Today and
+never drawn without a tap. The Looks tab makes a set for his week (a gym fit
+or two in it when he trains) or gym fits only. Pieces shelves gym-only kit
+as Gym kit.
+
 Lululemon added 2026-11-05 as a store added by hand (platform `manual`,
 migration 0012): its site answers only robots.txt past a Cloudflare challenge,
 which the finder does not pose as a browser to get through. A Lululemon link
