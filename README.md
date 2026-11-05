@@ -130,4 +130,4 @@ a run started by hand late in the evening makes the scheduled one a no-op.
 - Sign in at the domain. `/api/health` (signed in) says ok for the database,
   Claude and the photos volume.
 - On the iPhone, in Safari: **Share → Add to Home Screen**. It opens as
-  Wardrobe, with the swatch fan icon, signed in.
+  Wardrobe, with the palette strip as its icon, signed in.

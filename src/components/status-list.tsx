@@ -13,7 +13,7 @@ export async function StatusList() {
   const checks = await checkAll()
 
   return (
-    <ul className="divide-y divide-line border-y border-line">
+    <ul className="divide-y divide-line">
       {checks.map((check) => (
         <li key={check.name} className="flex items-start justify-between gap-4 py-3">
           <div className="min-w-0">
@@ -25,7 +25,7 @@ export async function StatusList() {
           >
             <span
               aria-hidden
-              className={`size-1.5 rounded-full ${check.ok ? 'bg-brass' : 'bg-alert'}`}
+              className={`size-1.5 rounded-full ${check.ok ? 'bg-accent' : 'bg-alert'}`}
             />
             {check.ok ? `${check.latencyMs} ms` : 'Down'}
           </p>
@@ -37,7 +37,7 @@ export async function StatusList() {
 
 export function StatusSkeleton() {
   return (
-    <ul className="divide-y divide-line border-y border-line" aria-busy aria-label="Checking the systems">
+    <ul className="divide-y divide-line" aria-busy aria-label="Checking the systems">
       {['Database', 'Claude', 'Photos'].map((name) => (
         <li key={name} className="flex items-start justify-between gap-4 py-3">
           <div className="min-w-0 flex-1">

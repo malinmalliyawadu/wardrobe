@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import { connection } from 'next/server'
-import { Suspense } from 'react'
 
-import { BackLink } from '@/components/back-link'
-import { FormSkeleton } from '@/components/skeleton'
+import { SubPage } from '@/components/sub-page'
 import { getGuide } from '@/lib/style-guide'
 
 import { NoGuide } from '../no-guide'
@@ -13,19 +11,13 @@ export const metadata: Metadata = { title: 'Edit fit by garment' }
 
 export default function FitsPage() {
   return (
-    <section>
-      <BackLink href="/blueprint/guide" label="Style guide" />
-      <h1 className="mt-2 font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
-        Fit by garment
-      </h1>
-      <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-        Tick the retailer fit labels that work on you for each garment. The finder drops
-        products cut any other way.
-      </p>
-      <Suspense fallback={<FormSkeleton />}>
-        <Loaded />
-      </Suspense>
-    </section>
+    <SubPage
+      title="Fit by garment"
+      intro="The retailer fit labels that work on you, garment by garment. The finder drops products cut any other way."
+      back={{ href: '/blueprint/guide', label: 'Style guide' }}
+    >
+      <Loaded />
+    </SubPage>
   )
 }
 

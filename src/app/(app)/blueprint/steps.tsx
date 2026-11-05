@@ -27,7 +27,7 @@ export function GuideStep({ again = false }: { again?: boolean }) {
 export function DraftForm({ replaces, first }: { replaces: number; first: boolean }) {
   const [state, action] = useActionState(draftBlueprint, null)
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="max-w-2xl space-y-4">
       {first ? null : (
         <Field
           label="What should change"
@@ -57,7 +57,7 @@ export function RefillForm({ id, compact = false }: { id: number; compact?: bool
           <TextArea name="note" defaultValue={state?.values?.note} rows={2} />
         </Field>
       )}
-      <SubmitButton pending="Refilling" variant="quiet" className={compact ? 'h-11 px-4 text-[0.9375rem]' : ''}>
+      <SubmitButton pending="Refilling" variant="quiet" size={compact ? 'small' : 'normal'}>
         Refill
       </SubmitButton>
       <PendingNote>About a minute.</PendingNote>

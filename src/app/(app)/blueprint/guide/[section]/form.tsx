@@ -19,7 +19,7 @@ export function SectionForm({ name, section }: { name: RuleSectionName; section:
     : keyed(section.rules)
 
   return (
-    <form action={action} className="mt-8 space-y-10" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
+    <form action={action} className="mt-8 max-w-2xl space-y-10" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
       <input type="hidden" name="section" value={name} />
       <Field label="The idea behind the rules" name="summary" error={errors.summary}>
         <TextArea name="summary" defaultValue={v.summary} rows={3} error={errors.summary} />
@@ -38,13 +38,13 @@ function Rules({ initial, errors }: { initial: Keyed<RuleRow>[]; errors: Record<
   return (
     <fieldset>
       <legend className="text-sm font-medium text-ink-2">Rules</legend>
-      <ul className="mt-3 divide-y divide-line border-y border-line">
+      <ul className="mt-1 divide-y divide-line">
         {rows.map((row, index) => {
           const topic = rowInput('rules', row.key, 'topic', errors)
           const rule = rowInput('rules', row.key, 'rule', errors)
           return (
             <li key={row.key} className="flex gap-3 py-4">
-              <div className="grid min-w-0 flex-1 gap-3">
+              <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
                 <MiniField label="Topic" htmlFor={topic.props.id} error={topic.error}>
                   <input {...topic.props} type="text" defaultValue={row.value.topic} className="field" />
                 </MiniField>

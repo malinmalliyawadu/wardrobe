@@ -176,7 +176,7 @@ async function resolve(sql: Sql, rows: Row[]): Promise<OnMeDetail[]> {
     const sources = (row.pieces ?? []).map((piece, index): Source => {
       const owned = piece.piece_id !== null
       const href = owned
-        ? kept.has(piece.piece_id!) ? `/looks/pieces/${piece.piece_id}` : null
+        ? kept.has(piece.piece_id!) ? `/wardrobe/${piece.piece_id}` : null
         : piece.product_id ? (urlById.get(piece.product_id) ?? null) : null
       return {
         key: owned ? `p${piece.piece_id}` : piece.product_id ? `f${piece.product_id}` : `x${index}`,

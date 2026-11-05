@@ -471,3 +471,16 @@ export async function showNext(id: number, sql: Sql = db()): Promise<number | nu
   `
   return row?.look_id ?? null
 }
+
+/** Turns the day to the option at `index` (round, so 3 of 3 is the first). Returns the look now on show. */
+export async function showOption(id: number, index: number, sql: Sql = db()): Promise<number | null> {
+  const [row] = await sql<{ look_id: number }[]>`
+    with turned as (
+      update day_outfits d set shown = ${index} % greatest(1, (select count(*) from day_outfit_options o where o.day_id = d.id))
+      where d.id = ${id} and d.status = 'ready'
+      returning d.id, d.shown
+    )
+    select o.look_id::int as look_id from turned t join day_outfit_options o on o.day_id = t.id and o.position = t.shown
+  `
+  return row?.look_id ?? null
+}

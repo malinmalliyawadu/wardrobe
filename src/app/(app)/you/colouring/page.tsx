@@ -4,6 +4,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
+import { SectionHead } from '@/components/section'
 import { FormSkeleton } from '@/components/skeleton'
 import { parseStoredAnalysis } from '@/lib/analysis'
 import { getProfile } from '@/lib/profile'
@@ -16,9 +17,7 @@ export default function ColouringPage() {
   return (
     <section>
       <BackLink />
-      <h1 className="mt-2 font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
-        Colouring and proportions
-      </h1>
+      <h1 className="headline mt-3 text-[2rem] sm:text-[2.5rem]">Colouring and proportions</h1>
       <Suspense fallback={<FormSkeleton fields={5} />}>
         <Content />
       </Suspense>
@@ -33,40 +32,31 @@ async function Content() {
 
   if (!analysis) {
     return (
-      <>
-        <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-          Claude reads undertone, depth, contrast, season and proportions from your photos.
-          You confirm or correct each one.
-        </p>
-        <p className="mt-10 border-t border-line pt-6 text-ink-3">
-          No read yet.{' '}
-          <Link href="/you/photos" className="text-brass underline decoration-brass/40 underline-offset-4">
-            Add photos
-          </Link>{' '}
-          and ask for one.
-        </p>
-      </>
+      <p className="mt-8 max-w-[44ch] text-ink-2">
+        No read yet.{' '}
+        <Link href="/you/photos" className="text-accent underline decoration-accent/40 underline-offset-4">
+          Add photos
+        </Link>{' '}
+        and ask for one.
+      </p>
     )
   }
 
   return (
     <>
-      <blockquote className="mt-6 max-w-[42ch] font-display text-[1.375rem] leading-snug text-ink">
-        {analysis.summary}
-      </blockquote>
+      <p className="prose mt-8 max-w-[44ch] text-[1.125rem] leading-normal text-ink">{analysis.summary}</p>
       {analysis.photo_notes.length > 0 ? (
-        <div className="mt-6 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink-2">
-          <p className="font-medium text-ink">About the photos</p>
-          <ul className="mt-1 list-disc space-y-1 pl-5">
+        <section className="mt-8">
+          <SectionHead title="About the photos" as="p" />
+          <ul className="mt-2 space-y-1 border-l-2 border-line pl-3 text-sm text-ink-2">
             {analysis.photo_notes.map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : null}
-      <p className="mt-6 text-sm text-ink-3">
-        Each line is Claude&rsquo;s pick with how sure it was. Change anything you know to be
-        wrong, then confirm.
+      <p className="mt-8 max-w-[44ch] text-sm text-ink-3">
+        Each line is Claude&rsquo;s pick and how sure it was. Change anything you know to be wrong, then confirm.
         {profile.confirmed_at ? ' Confirming again replaces the earlier confirmation.' : ''}
       </p>
       <ColouringForm analysis={analysis} />

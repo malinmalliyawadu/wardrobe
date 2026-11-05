@@ -1,23 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { useOptimistic, useState, useTransition } from 'react'
+import { useOptimistic, useRef, useState, useTransition } from 'react'
 
-import { lookAction } from '@/app/(app)/looks/actions'
-import { drawLook, nextOption } from '@/app/day-actions'
-import { FlatLay, LookOnMe, Tick } from '@/components/look-parts'
+import { lookAction } from '@/app/(app)/wardrobe/actions'
+import { drawLook, turnTo } from '@/app/day-actions'
+import { TickIcon } from '@/components/icons'
+import { FlatLay, LookOnMe } from '@/components/look-parts'
 import { PieceImage } from '@/components/piece-image'
 import type { LookImage } from '@/lib/look-image'
 import type { Look, LookAction } from '@/lib/looks'
 
 /*
- * The day's outfit as a lookbook page: its picture (a flat lay OpenAI draws
- * from the pieces, with the pieces themselves in a row under it to judge the
- * colours against), or the pieces laid out until it is drawn; the occasion and
- * the kind of day, the name, why it suits this day (the forecast, what is
- * on), why it works on him, how to wear it. "Wore it today" logs it (and
- * saves it, as on the Looks tab); "Another" turns to the next option at once
- * and tells the server behind, so every device opens on the same one.
+ * The day's outfit as a lookbook spread: the picture (a flat lay OpenAI
+ * draws from the pieces, or the pieces laid out until it is drawn) on the
+ * left, and beside it the occasion, the name set big, why it suits the day,
+ * why it works on him, how to wear it, and "Wear this". The other options
+ * sit under the words as small pictures; a tap turns the spread to one of
+ * them at once and tells the server behind, so every device opens on the
+ * same one, and it gets its picture drawn.
  */
 
 export type DayCardOption = { look: Look; today: string; occasion: string; image: LookImage | null }
@@ -42,74 +43,118 @@ export function DayCard({
 }) {
   const [index, setIndex] = useOptimistic(shown)
   const [, startTransition] = useTransition()
+  const top = useRef<HTMLDivElement>(null)
   const option = options[index % options.length]!
-  const { look } = option
+  const others = options.map((other, position) => ({ ...other, position })).filter((other) => other.position !== index)
 
-  function next() {
+  function turn(next: number) {
+    if (next === index) return
     startTransition(async () => {
-      setIndex((index + 1) % options.length)
-      await nextOption(dayId)
+      setIndex(next)
+      await turnTo(dayId, next)
     })
+    // The spread is tall on the phone: come back to its top for the new one.
+    top.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' })
   }
 
   return (
-    <article aria-roledescription="outfit" aria-label={look.title}>
+    <div ref={top} className="scroll-mt-4">
       {/* A new option crossfades in; nothing moves. */}
-      <div key={look.id} className="tray">
-        <Picture look={look} image={option.image} canDraw={canDraw} />
+      <article
+        key={option.look.id}
+        aria-roledescription="outfit"
+        aria-label={option.look.title}
+        className="tray lg:grid lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-12"
+      >
+        <Picture look={option.look} image={option.image} canDraw={canDraw} />
 
-        <p className="mt-4 text-[0.8125rem] font-medium tracking-[0.02em] text-ink-3 uppercase">
-          {option.occasion}
-          <span aria-hidden> · </span>
-          <span className="normal-case tracking-normal">{look.weather}</span>
-        </p>
-        <h3 className="mt-1.5 font-display text-[1.5rem] leading-[1.1] tracking-[-0.005em]">{look.title}</h3>
-        <p className="mt-2.5 text-[1rem] leading-relaxed text-ink">{option.today}</p>
-        <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-2">{look.why}</p>
-        {look.styling ? (
-          <p className="mt-2 font-display text-[1.0625rem] leading-snug italic text-ink">{look.styling}</p>
-        ) : null}
+        <div className="pt-5 lg:pt-1">
+          <p className="caption">
+            {option.occasion}, {option.look.weather.toLowerCase()}
+          </p>
+          <h2 className="display mt-1.5 text-[2.5rem] sm:text-[3.25rem] xl:text-[3.75rem]">{option.look.title}</h2>
+          <p className="prose mt-5 max-w-[46ch] text-[1.0625rem] leading-normal text-ink lg:text-[1.125rem]">{option.today}</p>
+          <p className="prose mt-3 max-w-[46ch] text-[0.9375rem] leading-normal text-ink-2 lg:text-[1rem]">{option.look.why}</p>
+          {option.look.styling ? (
+            <p className="prose mt-3 max-w-[46ch] text-[0.9375rem] leading-normal text-ink-2 italic lg:text-[1rem]">{option.look.styling}</p>
+          ) : null}
 
-        <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-0.5 text-[0.8125rem] leading-relaxed text-ink-3">
-          {look.pieces.map((piece, position) => (
-            <li key={piece.id}>
-              <Link href={`/looks/pieces/${piece.id}`} className="underline decoration-line underline-offset-[3px] hover:text-ink-2">
-                {piece.name}
-              </Link>
-              {position < look.pieces.length - 1 ? ',' : ''}
-            </li>
-          ))}
-        </ul>
-      </div>
+          <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-3">
+            {option.look.pieces.map((piece, position) => (
+              <span key={piece.id}>
+                <Link href={`/wardrobe/${piece.id}`} className="underline decoration-line underline-offset-[3px]">
+                  {piece.name}
+                </Link>
+                {position < option.look.pieces.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </p>
 
-      {/* Keyed by the look, so each option keeps its own try-on and its own saved and worn state. */}
-      <div key={`actions-${look.id}`} className="mt-3">
-        {look.pieces.length === look.piece_count ? <LookOnMe look={look} occasion={option.occasion} /> : null}
-        <Actions
-          look={look}
-          today={today}
-          isToday={isToday}
-          another={options.length > 1 ? { label: `${index + 1} of ${options.length}`, onClick: next } : null}
-        />
-      </div>
-    </article>
+          {/* Keyed by the look, so each option keeps its own saved and worn state and its own try-on. */}
+          <Actions key={`actions-${option.look.id}`} look={option.look} today={today} isToday={isToday} />
+          {option.look.pieces.length === option.look.piece_count ? (
+            <div className="mt-2">
+              <LookOnMe key={`on-me-${option.look.id}`} look={option.look} occasion={option.occasion} />
+            </div>
+          ) : null}
+
+          {others.length > 0 ? (
+            <div className="mt-10" role="group" aria-label="The other options">
+              <p className="caption">Or, for the same day</p>
+              <ul className="mt-3 grid grid-cols-2 gap-4 sm:max-w-md">
+                {others.map((other) => (
+                  <li key={other.look.id}>
+                    <button
+                      type="button"
+                      onClick={() => turn(other.position)}
+                      className="pressable flex w-full items-center gap-3 text-left"
+                    >
+                      <Thumb option={other} />
+                      <span className="min-w-0">
+                        <span className="title block text-[0.9375rem] leading-snug">{other.look.title}</span>
+                        <span className="caption mt-0.5 block">{other.occasion}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </article>
+    </div>
+  )
+}
+
+/** One of the other options, small: its drawn picture if it has one, else its first two pieces. */
+function Thumb({ option }: { option: DayCardOption }) {
+  const { look, image } = option
+  if (image?.status === 'ready' && image.width && image.height) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- a private, already-sized file; the optimiser would only copy it
+      <img
+        src={`/photos/looks/${image.id}`}
+        alt=""
+        width={image.width}
+        height={image.height}
+        loading="lazy"
+        className="aspect-[4/5] w-16 shrink-0 rounded-[var(--radius-tile)] bg-surface object-cover"
+      />
+    )
+  }
+  const [first, second] = look.pieces
+  return (
+    <span className="grid aspect-[4/5] w-16 shrink-0 grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-tile)]" aria-hidden>
+      {first ? <PieceImage piece={first} sizes="2rem" className={`h-full ${second ? '' : 'col-span-2'}`} /> : <span className="bone h-full" />}
+      {second ? <PieceImage piece={second} sizes="2rem" className="h-full" /> : null}
+    </span>
   )
 }
 
 type Shown = { saved: boolean; woreToday: boolean }
 
-/** Wore it today, Save, and Another: the first two show at once and are saved behind. */
-function Actions({
-  look,
-  today,
-  isToday,
-  another,
-}: {
-  look: Look
-  today: string
-  isToday: boolean
-  another: { label: string; onClick: () => void } | null
-}) {
+/** Wear this and Save: both show at once and are saved behind. */
+function Actions({ look, today, isToday }: { look: Look; today: string; isToday: boolean }) {
   const [failed, setFailed] = useState(false)
   const [shown, setShown] = useOptimistic<Shown>({ saved: look.status === 'saved', woreToday: look.worn[0] === today })
   const [, startTransition] = useTransition()
@@ -124,13 +169,13 @@ function Actions({
   }
 
   return (
-    <>
-      <div className="-ml-2 flex items-center gap-1">
+    <div className="mt-6">
+      <div className="flex flex-wrap items-center gap-2">
         {isToday ? (
           <button
             type="button"
             aria-pressed={shown.woreToday}
-            className="text-button"
+            className={`btn ${shown.woreToday ? 'btn-quiet' : 'btn-primary'}`}
             onClick={() =>
               send(
                 { action: shown.woreToday ? 'unwore' : 'wore', look_id: look.id },
@@ -138,28 +183,22 @@ function Actions({
               )
             }
           >
-            {shown.woreToday ? <Tick /> : null}
+            {shown.woreToday ? <TickIcon /> : null}
             {shown.woreToday ? 'Wearing it' : 'Wear this'}
           </button>
         ) : null}
         <button
           type="button"
           aria-pressed={shown.saved}
-          className={`text-button ${isToday ? 'text-ink-2' : ''}`}
+          className="btn btn-quiet"
           onClick={() => send({ action: shown.saved ? 'unsave' : 'save', look_id: look.id }, { ...shown, saved: !shown.saved })}
         >
-          {shown.saved ? <Tick /> : null}
+          {shown.saved ? <TickIcon /> : null}
           {shown.saved ? 'Saved' : 'Save'}
         </button>
-        {another ? (
-          <button type="button" className="text-button ml-auto text-ink-2" onClick={another.onClick}>
-            Another
-            <span className="font-normal text-ink-3 tabular-nums">{another.label}</span>
-          </button>
-        ) : null}
       </div>
-      {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
-    </>
+      {failed ? <p className="mt-2 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
+    </div>
   )
 }
 
@@ -170,37 +209,38 @@ function Actions({
 function Picture({ look, image, canDraw }: { look: Look; image: LookImage | null; canDraw: boolean }) {
   if (image?.status === 'ready' && image.width && image.height) {
     return (
-      <figure>
+      <figure className="bleed lg:mx-0">
         {/* eslint-disable-next-line @next/next/no-img-element -- a private, already-sized file; the optimiser would only copy it */}
         <img
           src={`/photos/looks/${image.id}`}
           alt={`${look.title}, laid out`}
           width={image.width}
           height={image.height}
-          className="aspect-[3/4] w-full rounded-xl bg-surface object-cover"
+          className="aspect-[4/5] w-full bg-surface object-cover lg:rounded-[var(--radius-tile)]"
         />
-        <div className="mt-2 flex gap-2" role="group" aria-label="The pieces themselves">
+        <div className="mt-px flex gap-px px-[var(--gutter)] lg:px-0" role="group" aria-label="The pieces themselves">
           {look.pieces.map((piece) => (
-            <PieceImage key={piece.id} piece={piece} sizes="3rem" className="h-16 w-12 shrink-0 rounded-md" />
+            <PieceImage key={piece.id} piece={piece} sizes="3rem" className="h-14 w-11 shrink-0" />
           ))}
         </div>
-        <figcaption className="mt-2 text-[0.8125rem] text-ink-3">
+        <figcaption className="mt-2 px-[var(--gutter)] text-[0.8125rem] text-ink-3 lg:px-0">
           Drawn by OpenAI from your pieces. Judge the colours against the pieces themselves.
         </figcaption>
       </figure>
     )
   }
   return (
-    <div>
-      <div className="relative">
-        <FlatLay look={look} />
+    <div className="bleed lg:mx-0">
+      <FlatLay look={look} className="lg:overflow-hidden lg:rounded-[var(--radius-tile)]" />
+      <div className="px-[var(--gutter)] lg:px-0">
         {image?.status === 'making' ? (
-          <p role="status" className="absolute top-3 left-3 rounded-full bg-ground/85 px-3 py-1.5 text-[0.8125rem] font-medium text-ink-2">
-            Drawing the outfit
+          <p role="status" className="mt-2 text-[0.8125rem] text-ink-3">
+            Drawing the outfit.
           </p>
+        ) : canDraw ? (
+          <Draw lookId={look.id} failed={image?.status === 'failed' ? image.error : null} />
         ) : null}
       </div>
-      {canDraw && image?.status !== 'making' ? <Draw lookId={look.id} failed={image?.status === 'failed' ? image.error : null} /> : null}
     </div>
   )
 }
@@ -214,7 +254,7 @@ function Draw({ lookId, failed }: { lookId: number; failed: string | null }) {
     })
   }
   return (
-    <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[0.8125rem] text-ink-3">
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.8125rem] text-ink-3">
       {failed ? <span>The picture could not be drawn. {failed}</span> : null}
       <button type="button" disabled={pending} className="text-button -ml-2 min-h-9 text-[0.8125rem]" onClick={start}>
         {pending ? 'Starting' : failed ? 'Draw it again' : 'Draw the outfit'}

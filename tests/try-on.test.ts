@@ -478,7 +478,7 @@ describe('the lifecycle', () => {
     assert.deepEqual(listed.subject, { kind: 'outfit', title: 'Field Jacket and Grey tee', count: 2 })
     assert.deepEqual(listed.sources.map((source) => [source.name, source.kind, source.shown, source.href]), [
       ['Field Jacket', 'saved', 'product', 'https://shop.test/p/2'],
-      ['Grey tee', 'piece', 'photo', `/looks/pieces/${tee!.id}`],
+      ['Grey tee', 'piece', 'photo', `/wardrobe/${tee!.id}`],
     ])
     assert.equal(listed.sources[1]!.photo?.id, teePhoto!.id)
     assert.equal(listed.sources[0]!.garment_type, 'jacket')

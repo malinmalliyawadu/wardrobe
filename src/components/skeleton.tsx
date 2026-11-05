@@ -4,13 +4,12 @@ import type { ReactNode } from 'react'
  * What a page shows while its data streams in: the shape of what is coming,
  * in the surface colour, so nothing jumps when it lands. A skeleton stays
  * invisible for its first 300 ms (`.skeleton` in globals.css), so a quick
- * load shows nothing at all rather than a flash of grey. Static: no shimmer,
- * since the only page-load motion in the app is the swatch fan.
+ * load shows nothing at all rather than a flash of grey. Static: no shimmer.
  */
 
 /** One placeholder: a line of text, a heading, a photo. */
 export function Bone({ className = '' }: { className?: string }) {
-  return <span aria-hidden className={`bone block ${className}`} />
+  return <span aria-hidden className={`bone block rounded-[var(--radius-tile)] ${className}`} />
 }
 
 /** Wraps a fallback, and tells a screen reader what is loading. */
@@ -26,7 +25,7 @@ export function Skeleton({ label, className = '', children }: { label: string; c
 export function TextBone({ className = '', size = '' }: { className?: string; size?: string }) {
   return (
     <span aria-hidden className={`flex h-[1.5em] items-center ${size}`}>
-      <Bone className={`h-[0.7em] rounded-full ${className}`} />
+      <Bone className={`h-[0.7em] rounded-[2px] ${className}`} />
     </span>
   )
 }
@@ -46,23 +45,23 @@ export function FormBones({ fields = 3 }: { fields?: number }) {
     <div className="mt-8 grid gap-6">
       {Array.from({ length: fields }, (_, index) => (
         <div key={index}>
-          <Bone className="mb-2.5 h-3.5 w-28 rounded-full" />
-          <Bone className="h-12 rounded-xl" />
+          <Bone className="mb-2.5 h-3.5 w-28 rounded-[2px]" />
+          <Bone className="h-12 rounded-[var(--radius-control)]" />
         </div>
       ))}
-      <Bone className="mt-2 h-12 w-32 rounded-full" />
+      <Bone className="mt-2 h-12 w-32 rounded-[var(--radius-control)]" />
     </div>
   )
 }
 
-/** A blueprint slot row: three fanned swatches' footprint, a name, a why, a status. */
+/** A blueprint slot row: the colour block, a name, a why, a status. */
 export function SlotRowSkeleton() {
   return (
     <div className="flex gap-3 py-4">
-      <Bone className="h-11 w-11 shrink-0 rounded-lg" />
+      <Bone className="h-11 w-11 shrink-0" />
       <div className="min-w-0 flex-1">
-        <span className="flex h-[1.65rem] items-center text-[1.1875rem]">
-          <Bone className="h-[0.75em] w-3/5 rounded-full" />
+        <span className="flex h-[1.5rem] items-center text-[1.125rem]">
+          <Bone className="h-[0.75em] w-3/5 rounded-[2px]" />
         </span>
         <div className="mt-1 text-[0.9375rem]">
           <TextBone className="w-full" />
@@ -80,12 +79,12 @@ export function SlotRowSkeleton() {
 export function TitleSkeleton() {
   return (
     <>
-      <div className="mt-2 text-[2.25rem] sm:text-[2.75rem]">
-        <span className="flex h-[1.05em] items-center">
-          <Bone className="h-[0.7em] w-2/3 rounded-full" />
+      <div className="mt-3 text-[2rem] sm:text-[2.5rem]">
+        <span className="flex h-[1em] items-center">
+          <Bone className="h-[0.7em] w-2/3 rounded-[2px]" />
         </span>
       </div>
-      <div className="mt-4 max-w-[40ch] text-[1.0625rem]">
+      <div className="mt-3 max-w-[44ch] text-[0.9375rem]">
         <TextBone className="w-full" />
         <TextBone className="w-1/2" />
       </div>
@@ -101,9 +100,9 @@ export function PhotosSkeleton() {
         <div key={section} className="mt-10">
           <TextBone className="w-20" size="text-sm" />
           <TextBone className="w-64 max-w-full" size="text-sm" />
-          <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
             {Array.from({ length: tiles }, (_, index) => (
-              <Bone key={index} className="aspect-[3/4] w-full rounded-xl" />
+              <Bone key={index} className="aspect-[3/4] w-full" />
             ))}
           </div>
         </div>

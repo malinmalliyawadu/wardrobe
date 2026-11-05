@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 
 import { echo, type ActionState } from '@/lib/action-state'
-import { runDay, showNext, startDay } from '@/lib/day-outfit'
+import { runDay, showNext, showOption, startDay } from '@/lib/day-outfit'
 import { text } from '@/lib/form-parse'
 import { makeLookImage, startLookImage } from '@/lib/look-image'
 
@@ -43,6 +43,19 @@ export async function nextOption(dayId: number): Promise<{ ok: boolean }> {
   if (!Number.isInteger(dayId) || dayId <= 0) return { ok: false }
   try {
     const lookId = await showNext(dayId)
+    if (lookId !== null) await draw(lookId)
+  } catch {
+    return { ok: false }
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true }
+}
+
+/** The option he swiped to, and its picture if it has none yet. */
+export async function turnTo(dayId: number, index: number): Promise<{ ok: boolean }> {
+  if (!Number.isInteger(dayId) || dayId <= 0 || !Number.isInteger(index) || index < 0) return { ok: false }
+  try {
+    const lookId = await showOption(dayId, index)
     if (lookId !== null) await draw(lookId)
   } catch {
     return { ok: false }

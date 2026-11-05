@@ -5,6 +5,8 @@ import { useFormStatus } from 'react-dom'
 
 import { FormMessage, Spinner, SubmitButton } from '@/components/form'
 import { HoldButton } from '@/components/hold-button'
+import { CrossIcon, PlusIcon } from '@/components/icons'
+import { SectionHead } from '@/components/section'
 import type { Photo, PhotoKind } from '@/lib/photos'
 
 import { deleteAllPhotos, deletePhoto, runAnalysis, uploadPhoto } from '../actions'
@@ -25,10 +27,10 @@ export function PhotoSection({
   const [state, action] = useActionState(uploadPhoto, null)
 
   return (
-    <section className="mt-10">
-      <h2 className="text-sm font-medium text-ink-2">{title}</h2>
-      <p className="mt-1 text-sm text-ink-3">{hint}</p>
-      <ul className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
+    <section className="mt-12 first-of-type:mt-10">
+      <SectionHead title={title} aside={`${photos.length} of ${max}`} />
+      <p className="text-sm text-ink-3">{hint}</p>
+      <ul className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-5">
         {photos.map((photo) => (
           <li key={photo.id} className="tile-enter relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -37,7 +39,7 @@ export function PhotoSection({
               alt={`${title} photo`}
               width={photo.width ?? 480}
               height={photo.height ?? 640}
-              className="aspect-[3/4] w-full rounded-xl border border-line object-cover"
+              className="aspect-[3/4] w-full rounded-[var(--radius-tile)] object-cover"
             />
             <form action={deletePhoto} className="absolute top-1.5 right-1.5">
               <input type="hidden" name="id" value={photo.id} />
@@ -73,7 +75,7 @@ function AddTile() {
 
   return (
     <label
-      className={`pressable flex aspect-[3/4] w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm text-ink-2 ${pending ? 'cursor-progress' : ''}`}
+      className={`pressable flex aspect-[3/4] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[var(--radius-tile)] border border-dashed border-line text-sm font-medium text-ink-2 ${pending ? 'cursor-progress' : ''}`}
     >
       <input
         ref={inputRef}
@@ -93,18 +95,7 @@ function AddTile() {
         </>
       ) : (
         <>
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+          <PlusIcon />
           <span>Add</span>
         </>
       )}
@@ -121,18 +112,7 @@ function RemoveButton() {
       aria-label="Remove photo"
       className="pressable flex size-8 items-center justify-center rounded-full bg-ground/85 text-ink backdrop-blur-sm disabled:opacity-50"
     >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        aria-hidden
-      >
-        <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
+      <CrossIcon width={16} height={16} />
     </button>
   )
 }

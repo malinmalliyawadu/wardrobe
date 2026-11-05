@@ -340,7 +340,7 @@ nightly there, and Malin using it from his phone.
   migrates and seeds the shop list on boot, keeps photos on a named volume at
   `/data`, and is health-checked on the database alone so a Claude outage
   cannot take it down. The finder is a scheduled task with a one-hour timeout.
-- PWA: manifest and icons (the Today swatch fan in his colours on flannel),
+- PWA: manifest and icons (the palette strip in his colours on pine, since the 2026-11-05 redesign; the Today swatch fan before),
   no service worker.
 - Saved finds: price drops, sell-outs and restocks in his size, replayed from
   `price_observations`; the night's news is a line on the find and a summary
@@ -487,6 +487,9 @@ he opens.
 Gate: Malin uses it for a week and wears what it suggests on most days.
 
 ## 4. Design direction
+
+Redesigned on 2026-11-05: see `docs/design.md`. The paragraph below is the
+intent as it stood at M0.
 
 Decide properly at M1 with the frontend-design and ui-ux-pro-max skills loaded,
 but the intent is set: editorial rather than dashboard. Think a well-set

@@ -71,10 +71,10 @@ export function HoldButton({
           }
         }}
         aria-busy={done || undefined}
-        className="hold pressable inline-flex h-12 items-center justify-center rounded-full border border-line px-6 text-base font-medium text-ink select-none"
+        className="hold btn btn-quiet select-none"
       >
         <span className="hold-fill" aria-hidden />
-        <span className={`transition-colors duration-150 ${holding || done ? 'text-on-brass' : ''}`}>
+        <span className={`transition-colors duration-150 ${holding || done ? 'text-on-accent' : ''}`}>
           {done ? pendingLabel : label}
         </span>
       </button>

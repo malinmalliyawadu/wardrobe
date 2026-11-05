@@ -11,7 +11,7 @@ export default function BudgetPage() {
   return (
     <SubPage
       title="Budget"
-      intro="Ceilings in New Zealand dollars. The finder drops anything above a category's ceiling before Claude ever sees it, and the monthly figure paces the blueprint."
+      intro="Ceilings in New Zealand dollars. Anything above one is dropped before Claude sees it."
     >
       <Live>
         <Loaded />

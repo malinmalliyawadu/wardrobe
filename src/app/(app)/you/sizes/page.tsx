@@ -9,10 +9,7 @@ export const metadata: Metadata = { title: 'Height and sizes' }
 
 export default function SizesPage() {
   return (
-    <SubPage
-      title="Height and sizes"
-      intro="Measured, not guessed, in centimetres. Leave anything you do not know blank; the finder only filters on what is here."
-    >
+    <SubPage title="Height and sizes" intro="Measured, in centimetres. Leave what you do not know blank.">
       <Live>
         <Loaded />
       </Live>

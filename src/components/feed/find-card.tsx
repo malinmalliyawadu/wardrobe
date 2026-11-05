@@ -11,9 +11,9 @@ import type { ChangeLine } from './saved-change'
 import { SeeItOnMe } from './try-on'
 
 /*
- * One find on Today. The photo and title open the shop's page; the actions sit
- * under the why. Dismiss swaps the actions for its reasons, Bought asks once
- * (it fills the slot), and whatever the card is acted on with, it fades out at
+ * One find. The photo and title open the shop's page; the actions sit under
+ * the why. Dismiss swaps the actions for its reasons, Bought asks once (it
+ * fills the slot), and whatever the card is acted on with, it fades out at
  * once and the server's next render drops it. If the save fails, it comes back.
  */
 
@@ -54,38 +54,37 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string | nu
     <article
       data-gone={gone}
       aria-hidden={gone || undefined}
-      className="find flex w-[15.5rem] shrink-0 snap-start flex-col sm:w-[16.5rem] lg:w-auto"
+      className="find flex w-[72vw] max-w-[20rem] flex-col sm:w-[20rem] lg:w-auto lg:max-w-none"
     >
-      <a href={find.url} target="_blank" rel="noopener noreferrer" className="pressable block rounded-xl" tabIndex={gone ? -1 : 0}>
-        <ProductPhoto find={find} sizes="(min-width: 1024px) 13.5rem, (min-width: 640px) 16.5rem, 15.5rem" className="aspect-[4/5] rounded-xl" />
-        <p className="mt-3 flex items-baseline justify-between gap-3 text-[0.8125rem] text-ink-3">
+      <a href={find.url} target="_blank" rel="noopener noreferrer" className="pressable block" tabIndex={gone ? -1 : 0}>
+        <ProductPhoto find={find} sizes="(min-width: 1024px) 15rem, (min-width: 640px) 20rem, 72vw" className="aspect-[4/5] rounded-[var(--radius-tile)]" />
+        <p className="caption mt-3 flex items-baseline justify-between gap-3">
           <span className="truncate">{find.retailer}</span>
           <span className="shrink-0 tabular-nums">Match {find.score}</span>
         </p>
-        <h4 className="mt-1 line-clamp-2 text-[0.9375rem] leading-snug font-medium text-ink">{find.title}</h4>
+        <h3 className="mt-0.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium text-ink">{find.title}</h3>
       </a>
-      <div className="mt-1.5">
+      <div className="mt-1">
         <PriceLine find={find} />
       </div>
-      {find.why ? <p className="mt-2 line-clamp-4 text-[0.875rem] leading-snug text-ink-2">{find.why}</p> : null}
+      {find.why ? <p className="prose mt-2 line-clamp-4 text-[0.875rem] leading-snug text-ink-2">{find.why}</p> : null}
       <p className="mt-2 text-[0.8125rem] text-ink-3">
         {sizeLine(find)}
         {find.colour_option ? ` in ${find.colour_option}` : ''}
       </p>
-      {find.try_on ? <p className="mt-1 text-[0.8125rem] text-ink-3">Try on at {find.try_on}</p> : null}
+      {find.try_on ? <p className="mt-0.5 text-[0.8125rem] text-ink-3">Try on at {find.try_on}</p> : null}
 
-      <div className="mt-auto pt-2">
-        <SeeItOnMe find={find} />
+      <div className="mt-auto pt-3">
         <div key={mode} className="tray">
           {mode === 'actions' ? (
-            <div className="-ml-2 flex items-center gap-1">
-              <button type="button" className="text-button" onClick={() => send({ action: 'saved', ...ids })}>
+            <div className="flex items-center gap-2">
+              <button type="button" className="btn btn-quiet btn-small" onClick={() => send({ action: 'saved', ...ids })}>
                 Save
               </button>
               <button type="button" className="text-button text-ink-2" onClick={() => setMode('bought')}>
                 Bought it
               </button>
-              <button type="button" className="text-button ml-auto text-ink-2" onClick={() => setMode('dismiss')}>
+              <button type="button" className="text-button ml-auto -mr-2 text-ink-2" onClick={() => setMode('dismiss')}>
                 Dismiss
               </button>
             </div>
@@ -123,6 +122,9 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string | nu
             </div>
           )}
         </div>
+        <div className="mt-1">
+          <SeeItOnMe find={find} />
+        </div>
         {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
       </div>
     </article>
@@ -136,14 +138,12 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
 
   return (
-    <li data-gone={gone} aria-hidden={gone || undefined} className="find flex gap-4 py-4">
-      <a href={find.url} target="_blank" rel="noopener noreferrer" className="pressable block shrink-0 rounded-lg" tabIndex={gone ? -1 : 0}>
-        <ProductPhoto find={find} sizes="5rem" className="aspect-[4/5] w-20 rounded-lg" />
+    <li data-gone={gone} aria-hidden={gone || undefined} className="find flex gap-4 py-4 lg:border-b lg:border-line">
+      <a href={find.url} target="_blank" rel="noopener noreferrer" className="pressable block shrink-0" tabIndex={gone ? -1 : 0}>
+        <ProductPhoto find={find} sizes="5.5rem" className="aspect-[4/5] w-22 rounded-[var(--radius-tile)]" />
       </a>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[0.8125rem] text-ink-3">
-          {slotName ? `${find.retailer}, for your ${slotName.toLowerCase()}` : find.retailer}
-        </p>
+        <p className="caption truncate">{slotName ? `${find.retailer}, for your ${slotName.toLowerCase()}` : find.retailer}</p>
         <a href={find.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium">
           {find.title}
         </a>
@@ -166,13 +166,9 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
               .join('. ')}
           </p>
         ) : null}
-        {find.byHand ? (
-          <p className="mt-1 text-[0.8125rem] text-ink-3">Added by hand, so the price is not checked</p>
-        ) : null}
+        {find.byHand ? <p className="mt-1 text-[0.8125rem] text-ink-3">Added by hand, so the price is not checked</p> : null}
         {change && find.inStock ? (
-          <p className={`mt-1 text-[0.8125rem] ${change.tone === 'good' ? 'font-medium text-brass' : 'text-ink-3'}`}>
-            {change.text}
-          </p>
+          <p className={`mt-1 text-[0.8125rem] ${change.tone === 'good' ? 'font-medium text-accent' : 'text-ink-3'}`}>{change.text}</p>
         ) : null}
         {find.try_on && find.inStock ? <p className="mt-1 text-[0.8125rem] text-ink-3">Try on at {find.try_on}</p> : null}
         <div className="mt-1">

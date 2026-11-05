@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ComponentType, SVGProps } from 'react'
 
-import { BlueprintIcon, HangerIcon, PersonIcon, SearchIcon, ShirtIcon } from './icons.tsx'
+import { PaletteStrip } from './palette-strip.tsx'
+import { BlueprintIcon, FindsIcon, PersonIcon, TodayIcon, WardrobeIcon } from './icons.tsx'
 
 type Item = {
-  href: '/' | '/search' | '/looks' | '/blueprint' | '/you'
+  href: '/' | '/finds' | '/wardrobe' | '/blueprint' | '/you'
   label: string
   Icon: ComponentType<SVGProps<SVGSVGElement>>
   /** Pages outside the tab's own path that belong to it. */
@@ -15,48 +16,50 @@ type Item = {
 }
 
 const items: Item[] = [
-  { href: '/', label: 'Today', Icon: HangerIcon, also: ['/shops'] },
-  { href: '/search', label: 'Search', Icon: SearchIcon },
-  { href: '/looks', label: 'Looks', Icon: ShirtIcon },
+  { href: '/', label: 'Today', Icon: TodayIcon },
+  { href: '/finds', label: 'Finds', Icon: FindsIcon, also: ['/search', '/shops'] },
+  { href: '/wardrobe', label: 'Wardrobe', Icon: WardrobeIcon },
   { href: '/blueprint', label: 'Blueprint', Icon: BlueprintIcon },
   { href: '/you', label: 'You', Icon: PersonIcon },
 ]
 
 export function Wordmark() {
   return (
-    <Link href="/" className="inline-block font-display text-[1.375rem] italic tracking-[-0.01em] text-ink">
+    <Link href="/" className="display inline-block text-[1.375rem] text-ink">
       Wardrobe
     </Link>
   )
 }
 
 /**
- * Five destinations. A bottom tab bar on the phone, a left rail from the
- * laptop breakpoint up. Switching tabs happens tens of times a day, so the
- * only motion is a 150ms colour change and the press feedback.
+ * Five destinations. A translucent tab bar on the phone that the page
+ * scrolls under, a rail down the left from the laptop breakpoint up.
+ * Switching tabs happens tens of times a day, so the only motion is a 150ms
+ * colour change and the press feedback.
  *
  * The pathname is request data on dynamic routes (/blueprint/[id]), so the
  * layout renders Nav inside Suspense with NavShell, the same bar with nothing
  * marked, as the prerendered fallback.
  */
-export function Nav() {
-  return <NavBar pathname={usePathname()} />
+export function Nav({ strip }: { strip?: React.ReactNode }) {
+  return <NavBar pathname={usePathname()} strip={strip} />
 }
 
-export function NavShell() {
-  return <NavBar pathname={null} />
+export function NavShell({ strip }: { strip?: React.ReactNode }) {
+  return <NavBar pathname={null} strip={strip} />
 }
 
-function NavBar({ pathname }: { pathname: string | null }) {
+function NavBar({ pathname, strip }: { pathname: string | null; strip?: React.ReactNode }) {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:sticky lg:top-0 lg:h-dvh lg:border-t-0 lg:border-r lg:bg-surface lg:px-4 lg:pt-10 lg:pb-8 lg:backdrop-blur-none"
+      className="tabbar fixed inset-x-0 bottom-0 z-20 border-t border-line pb-[env(safe-area-inset-bottom)] lg:sticky lg:top-0 lg:h-dvh lg:border-t-0 lg:border-r lg:px-5 lg:pt-10 lg:pb-8"
     >
-      <div className="hidden px-3 lg:block">
+      <div className="hidden lg:block">
         <Wordmark />
+        <div className="mt-4">{strip ?? <PaletteStrip colours={null} />}</div>
       </div>
-      <ul className="mx-auto flex max-w-md items-stretch justify-around lg:mt-10 lg:max-w-none lg:flex-col lg:gap-1">
+      <ul className="mx-auto flex max-w-md items-stretch justify-around lg:mt-12 lg:max-w-none lg:flex-col lg:gap-0.5">
         {items.map(({ href, label, Icon, also = [] }) => {
           const active =
             pathname !== null && [href, ...also].some((path) => pathname === path || (path !== '/' && pathname.startsWith(path)))
@@ -65,11 +68,11 @@ function NavBar({ pathname }: { pathname: string | null }) {
               <Link
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                data-active={active}
-                className="pressable flex min-h-14 min-w-18 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-medium text-ink-3 transition-colors duration-150 ease-out data-[active=true]:text-brass lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:text-[0.9375rem] lg:data-[active=true]:bg-brass-soft"
+                className="tab pressable flex min-h-14 min-w-16 flex-col items-center justify-center gap-0.5 px-2 pt-1.5 pb-1 text-[0.6875rem] font-medium lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:rounded-[var(--radius-control)] lg:px-3 lg:py-0 lg:text-[0.9375rem]"
               >
                 <Icon className="size-6 lg:size-5" />
                 <span>{label}</span>
+                <span aria-hidden className="tab-mark lg:hidden" />
               </Link>
             </li>
           )

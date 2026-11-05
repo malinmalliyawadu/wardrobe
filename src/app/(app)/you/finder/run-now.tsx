@@ -69,12 +69,12 @@ export function RunNow({ run: initial }: { run: LiveRun | null }) {
   if (run) return <Running run={run} />
 
   return (
-    <form action={action} className="mt-6">
+    <form action={action} className="mt-8 max-w-2xl">
       <div className="flex items-center justify-between gap-4">
-        <p className="max-w-[32ch] text-[0.9375rem] text-ink-2">
+        <p className="max-w-[32ch] text-sm text-ink-2">
           Runs on its own each night. A run now may spend up to the nightly limit again.
         </p>
-        <SubmitButton variant="quiet" pending="Starting" className="shrink-0">
+        <SubmitButton variant="quiet" size="small" pending="Starting" className="shrink-0">
           Run now
         </SubmitButton>
       </div>
@@ -94,10 +94,10 @@ function Running({ run }: { run: LiveRun }) {
     run.stage === 'reading'
       ? 'Reading the shops and sorting out what fits, a few minutes.'
       : run.judged === 0
-        ? 'Judging what is new, the most important slots first. New finds reach Today as they come.'
-        : `Judging: ${run.judged.toLocaleString('en-NZ')} so far, US$${run.usd.toFixed(2)}. New finds reach Today as they come.`
+        ? 'Judging what is new, the most important slots first. New finds reach Finds as they come.'
+        : `Judging: ${run.judged.toLocaleString('en-NZ')} so far, US$${run.usd.toFixed(2)}. New finds reach Finds as they come.`
   return (
-    <div aria-live="polite" className="mt-6 flex min-h-12 flex-col justify-center">
+    <div aria-live="polite" className="mt-8 flex min-h-12 flex-col justify-center">
       <p className="flex items-center gap-2 text-[0.9375rem] font-medium text-ink">
         <Spinner />
         Running since {time}

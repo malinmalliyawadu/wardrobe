@@ -25,7 +25,7 @@ export function FitsForm({ fits }: { fits: FitEntry[] }) {
     : keyed(fits.map((entry) => ({ garment: entry.garment, note: entry.note, fits: entry.fits })))
 
   return (
-    <form action={action} className="mt-8 space-y-10" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
+    <form action={action} className="mt-6 max-w-2xl space-y-10" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
       <Rows initial={initial} errors={errors} />
       <div className="space-y-4">
         <FormMessage message={state?.message ?? (Object.keys(errors).length ? 'Check the rows marked above.' : undefined)} />
@@ -40,7 +40,7 @@ function Rows({ initial, errors }: { initial: Keyed<FitRow>[]; errors: Record<st
   return (
     <fieldset>
       <legend className="sr-only">Fit by garment</legend>
-      <ul className="divide-y divide-line border-y border-line">
+      <ul className="divide-y divide-line">
         {rows.map((row, index) => {
           const garment = rowInput('fits', row.key, 'garment', errors)
           const note = rowInput('fits', row.key, 'note', errors)

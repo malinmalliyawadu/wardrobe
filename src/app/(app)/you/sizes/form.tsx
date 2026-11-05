@@ -43,8 +43,8 @@ export function SizesForm({
   )
 
   return (
-    <form action={action} className="mt-8">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+    <form action={action} className="mt-8 max-w-2xl">
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <Field label="Height" name="height_cm" error={e.height_cm}>
           <NumberInput name="height_cm" defaultValue={v.height_cm} unit="cm" error={e.height_cm} />
         </Field>
@@ -53,8 +53,8 @@ export function SizesForm({
         </Field>
       </div>
 
-      <h2 className="mt-10 text-sm font-medium text-ink-2">Measurements</h2>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5">
+      <h2 className="caption mt-10 text-ink-2">Measurements</h2>
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
         <Field label="Chest" name="chest_cm" error={e.chest_cm}>
           <NumberInput name="chest_cm" defaultValue={v.chest_cm} unit="cm" error={e.chest_cm} />
         </Field>
@@ -75,7 +75,7 @@ export function SizesForm({
         </Field>
       </div>
 
-      <h2 className="mt-10 text-sm font-medium text-ink-2">Shoes</h2>
+      <h2 className="caption mt-10 text-ink-2">Shoes</h2>
       <div className="mt-3 grid grid-cols-3 gap-x-4 gap-y-5">
         <Field label="EU" name="shoe_eu" error={e.shoe_eu}>
           <NumberInput name="shoe_eu" defaultValue={v.shoe_eu} error={e.shoe_eu} />
@@ -88,8 +88,8 @@ export function SizesForm({
         </Field>
       </div>
 
-      <h2 className="mt-10 text-sm font-medium text-ink-2">The fit you prefer</h2>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5">
+      <h2 className="caption mt-10 text-ink-2">The fit you prefer</h2>
+      <div className="mt-3 grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <Field label="Tops" name="tops" error={e.tops}>
           <Select name="tops" defaultValue={v.tops} options={fitOptions} error={e.tops} />
         </Field>

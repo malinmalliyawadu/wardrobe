@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 
+import { Swatch } from '@/components/cloth'
 import { Field, FormMessage, Select, SubmitButton, TextInput, withEcho } from '@/components/form'
 import type { Analysis } from '@/lib/analysis'
 import {
@@ -50,9 +51,9 @@ export function ColouringForm({ analysis }: { analysis: Analysis }) {
   )
 
   return (
-    <form action={action} className="mt-8">
-      <h2 className="text-sm font-medium text-ink-2">Colouring</h2>
-      <div className="mt-3 divide-y divide-line border-y border-line">
+    <form action={action} className="mt-10 max-w-2xl">
+      <h2 className="caption text-ink-2">Colouring</h2>
+      <div className="divide-y divide-line">
         <ReadRow name="season" title="Season" read={c.season} error={errors.season}>
           <Select name="season" defaultValue={v.season} options={SEASONS.map((s) => ({ value: s, label: seasonName(s) }))} onChange={(v) => { if (v) setSeason(v as Season) }} error={errors.season} />
           <SeasonStrip season={season} />
@@ -80,8 +81,8 @@ export function ColouringForm({ analysis }: { analysis: Analysis }) {
         </ReadRow>
       </div>
 
-      <h2 className="mt-10 text-sm font-medium text-ink-2">Proportions</h2>
-      <div className="mt-3 divide-y divide-line border-y border-line">
+      <h2 className="caption mt-10 text-ink-2">Proportions</h2>
+      <div className="divide-y divide-line">
         <ReadRow name="build" title="Build" read={p.build} error={errors.build}>
           <Select name="build" defaultValue={v.build} options={options(BUILDS)} error={errors.build} />
         </ReadRow>
@@ -96,7 +97,7 @@ export function ColouringForm({ analysis }: { analysis: Analysis }) {
         </ReadRow>
       </div>
 
-      <div className="mt-8 space-y-4">
+      <div className="mt-10 space-y-4">
         <FormMessage message={state?.message} />
         <SubmitButton pending="Saving">Confirm profile</SubmitButton>
       </div>
@@ -135,19 +136,14 @@ function ReadRow({
   )
 }
 
+/** The chosen season's six colours as flat chips, and its traits in a line. */
 function SeasonStrip({ season }: { season: Season }) {
   const info = SEASON_INFO[season]
   return (
     <div className="mt-3">
-      <div className="flex gap-1.5" aria-hidden>
+      <div className="flex gap-1.5">
         {info.swatches.map((colour) => (
-          <span
-            key={colour.hex}
-            className="relative h-8 flex-1 rounded-md border border-black/10 transition-colors duration-200 ease-out"
-            style={{ backgroundColor: colour.hex }}
-          >
-            <span className="swatch-tip">{colour.name}</span>
-          </span>
+          <Swatch key={colour.hex} colour={colour.hex} label={colour.name} className="h-8 flex-1" />
         ))}
       </div>
       <p className="mt-2 text-sm text-ink-2">

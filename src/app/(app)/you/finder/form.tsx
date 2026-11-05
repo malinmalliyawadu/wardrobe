@@ -32,8 +32,9 @@ export function FinderForm({
     : stores.filter((store) => store.enabled).map((store) => store.slug)
 
   return (
-    <form action={action} className="mt-8">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+    <form action={action} className="mt-12 max-w-2xl">
+      <h2 className="caption text-ink-2">Limits</h2>
+      <div className="mt-3 grid gap-x-4 gap-y-5 sm:grid-cols-3">
         <Field
           label="Most in one night"
           name="max_usd_per_run"
@@ -86,10 +87,10 @@ function StoreSwitches({ stores, initiallyOn, error }: { stores: StoreCount[]; i
 
   return (
     <fieldset className="mt-12" aria-describedby={error ? 'stores-error' : undefined}>
-      <legend className="font-display text-[1.5rem] leading-tight">Shops</legend>
-      <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
-        A shop switched off is not read, judged or shown. The numbers are from the last run: how many of its pieces
-        made the shortlist Claude judges, how many of those were good enough to show, and what judging them cost.
+      <legend className="caption text-ink-2">Shops</legend>
+      <p className="mt-1 max-w-[44ch] text-sm text-ink-3">
+        A shop switched off is not read, judged or shown. The numbers are from the last run: shortlisted, good enough
+        to show, and what judging cost.
       </p>
       {error ? (
         <p id="stores-error" role="alert" className="mt-3 text-sm text-alert">
@@ -98,11 +99,9 @@ function StoreSwitches({ stores, initiallyOn, error }: { stores: StoreCount[]; i
       ) : null}
 
       {stores.length === 0 ? (
-        <p className="mt-4 border-y border-line py-4 text-[0.9375rem] text-ink-3">
-          No shops yet. They are added when the app starts and on every run.
-        </p>
+        <p className="mt-4 text-[0.9375rem] text-ink-3">No shops yet. They are added when the app starts and on every run.</p>
       ) : null}
-      <ul className="mt-4 divide-y divide-line border-y border-line empty:hidden">
+      <ul className="mt-3 divide-y divide-line empty:hidden">
         {stores.map((store) => {
           const checked = on.has(store.slug)
           return (

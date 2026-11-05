@@ -4,9 +4,10 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
-import { Cloth } from '@/components/cloth'
+import { Swatch } from '@/components/cloth'
+import { SectionHead } from '@/components/section'
 import { isKeptOnRedraft, listSlots, type Slot } from '@/lib/blueprint'
-import { band, money } from '@/lib/format'
+import { band, day, money } from '@/lib/format'
 import { getProfile } from '@/lib/profile'
 import { colourNameFor, getGuide, type StoredGuide } from '@/lib/style-guide'
 import { PRIORITIES, PRIORITY_LABELS, STATUS_LABELS } from '@/lib/wardrobe-values'
@@ -17,16 +18,10 @@ import { DraftForm, GuideStep, RefillForm } from './steps'
 
 export const metadata: Metadata = { title: 'Blueprint' }
 
+/** Opens on the guide's palette, then says how big the wardrobe is; no title. */
 export default function BlueprintPage() {
   return (
     <section>
-      <h1 className="font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
-        Blueprint
-      </h1>
-      <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-        Thirty to forty slots, each a specific item with a why, a priority and a budget. The
-        nightly finder matches real products against the ones you want.
-      </p>
       <Suspense fallback={<BlueprintSkeleton />}>
         <Content />
       </Suspense>
@@ -40,11 +35,10 @@ async function Content() {
 
   if (!profile.confirmed_at || !profile.season) {
     return (
-      <div className="mt-10 border-t border-line pt-8">
-        <h2 className="font-display text-[1.625rem] leading-tight">First, your profile</h2>
-        <p className="mt-3 max-w-[42ch] text-ink-2">
-          The blueprint is drafted from your style guide, and the guide from your colouring once you have confirmed
-          it. A few photos and a few minutes under You.
+      <div className="mt-4">
+        <p className="prose max-w-[44ch] text-[1.0625rem] text-ink-2">
+          The blueprint is drafted from your style guide, and the guide from your colouring once you have confirmed it
+          under You.
         </p>
         <ButtonLink href="/you" className="mt-6">
           Start your profile
@@ -55,12 +49,10 @@ async function Content() {
 
   if (!guide) {
     return (
-      <div className="mt-10 border-t border-line pt-8">
-        <h2 className="font-display text-[1.625rem] leading-tight">First, your style guide</h2>
-        <p className="mt-3 max-w-[42ch] text-ink-2">
-          Your palette with real colours to shop for, proportion rules for your height and build,
-          shoes, accessories and fit. You can edit every part of it, and the blueprint is drafted
-          from it next.
+      <div className="mt-4">
+        <p className="prose max-w-[44ch] text-[1.0625rem] text-ink-2">
+          First the style guide: your palette with real colours to shop for, proportion rules for your height and
+          build, shoes, accessories and fit. The blueprint is drafted from it next.
         </p>
         <div className="mt-6">
           <GuideStep />
@@ -73,96 +65,119 @@ async function Content() {
   const retired = slots.filter((slot) => slot.status === 'retired')
   const replaces = slots.filter((slot) => !isKeptOnRedraft(slot)).length
 
-  return (
-    <>
-      <GuideRow guide={guide} />
-
-      {slots.length === 0 ? (
-        <div className="mt-12">
-          <h2 className="font-display text-[1.625rem] leading-tight">Now the blueprint</h2>
-          <p className="mt-3 max-w-[42ch] text-ink-2">
-            Claude drafts the whole wardrobe from your profile and guide, in the order to buy it.
-            You can then edit, reorder, retire or add to any of it.
+  if (slots.length === 0) {
+    return (
+      <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
+        <PaletteRow guide={guide} />
+        <div className="mt-12 lg:mt-0">
+          <p className="prose max-w-[44ch] text-[1.0625rem] text-ink-2">
+            Claude drafts the whole wardrobe from your profile and guide, in the order to buy it. You can then edit,
+            reorder, retire or add to any of it.
           </p>
           <div className="mt-6">
             <DraftForm replaces={0} first />
           </div>
         </div>
-      ) : (
-        <>
-          <Overview slots={active} />
-          {PRIORITIES.map((priority) => {
-            const group = active.filter((slot) => slot.priority === priority)
-            if (group.length === 0) return null
-            return (
-              <SlotGroup
-                key={priority}
-                title={PRIORITY_LABELS[priority].title}
-                hint={PRIORITY_LABELS[priority].hint}
-                summary={groupSummary(group)}
-                rows={group.map((slot) => toRow(slot, guide))}
-              />
-            )
-          })}
+      </div>
+    )
+  }
 
-          <div className="mt-10">
-            <ButtonLink href="/blueprint/new" variant="quiet">
-              Add your own
-            </ButtonLink>
-          </div>
-
-          {retired.length > 0 ? <Retired slots={retired} guide={guide} /> : null}
-
-          <section aria-labelledby="redraft" className="mt-16 border-t border-line pt-8">
-            <h2 id="redraft" className="font-display text-[1.625rem] leading-tight">
-              Redraft
-            </h2>
-            <p className="mt-2 max-w-[42ch] text-ink-2">
-              Claude drafts the blueprint again from your profile and guide as they are now.
-            </p>
-            <div className="mt-6">
-              <DraftForm replaces={replaces} first={false} />
-            </div>
-          </section>
-        </>
-      )}
-    </>
-  )
-}
-
-/** The way into the guide, wearing the palette it holds. */
-function GuideRow({ guide }: { guide: StoredGuide }) {
+  // On the laptop the palette, the overview and "Add your own" hold the left
+  // column and stay put while the slots scroll on the right.
   return (
-    <div className="mt-8 border-y border-line">
-      <Link href="/blueprint/guide" className="pressable -mx-2 flex min-h-16 items-center gap-4 rounded-xl px-2 py-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-medium">Style guide</p>
-          <p className="mt-0.5 text-sm text-ink-2">Palette, proportion, shoes, accessories and fit</p>
+    <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-12">
+      <div className="lg:sticky lg:top-12 lg:self-start">
+        <PaletteRow guide={guide} />
+        <Overview slots={active} />
+        <div className="mt-8 hidden lg:block">
+          <ButtonLink href="/blueprint/new" variant="quiet">
+            Add your own
+          </ButtonLink>
         </div>
-        <div className="flex shrink-0 -space-x-1.5" aria-hidden>
-          {guide.palette.best.slice(0, 5).map((colour) => (
-            <Cloth key={colour.hex} colour={colour.hex} className="h-8 w-5 rounded-[0.25rem]" />
-          ))}
+      </div>
+
+      <div className="max-w-3xl">
+        {PRIORITIES.map((priority, index) => {
+          const group = active.filter((slot) => slot.priority === priority)
+          if (group.length === 0) return null
+          return (
+            <SlotGroup
+              key={priority}
+              title={PRIORITY_LABELS[priority].title}
+              hint={PRIORITY_LABELS[priority].hint}
+              summary={groupSummary(group)}
+              rows={group.map((slot) => toRow(slot, guide))}
+              first={index === 0}
+            />
+          )
+        })}
+
+        <div className="mt-8 lg:hidden">
+          <ButtonLink href="/blueprint/new" variant="quiet">
+            Add your own
+          </ButtonLink>
         </div>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-ink-3">
-          <path d="m9 5 7 7-7 7" />
-        </svg>
-      </Link>
+
+        {retired.length > 0 ? <Retired slots={retired} guide={guide} /> : null}
+
+        <section aria-labelledby="redraft" className="mt-16">
+          <SectionHead id="redraft" title="Redraft" />
+          <p className="caption mt-1">Claude drafts the blueprint again from your profile and guide as they are now.</p>
+          <div className="mt-5">
+            <DraftForm replaces={replaces} first={false} />
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
 
-/** One sentence for the whole wardrobe: how big, how much of it is yours, what the rest costs. */
+/**
+ * The way into the guide: its best colours as a band across the phone's
+ * screen, two rows of chips in the laptop's left column, named under it.
+ */
+function PaletteRow({ guide }: { guide: StoredGuide }) {
+  const best = guide.palette.best
+  const names = best.map((colour) => colour.name).join(', ')
+  const drafted = guide.generated_at ? `, drafted ${day(guide.generated_at)}` : ''
+  return (
+    <div className="mt-2">
+      <Link
+        href="/blueprint/guide"
+        aria-label={`Style guide: ${names}`}
+        className="bleed pressable flex gap-px lg:mx-0 lg:grid lg:grid-cols-6 lg:overflow-hidden lg:rounded-[var(--radius-tile)]"
+      >
+        {best.map((colour, index) => (
+          <Swatch key={`${index}-${colour.hex}`} colour={colour.hex} className="h-16 min-w-0 flex-1 rounded-none!" />
+        ))}
+      </Link>
+      <div className="mt-2 flex items-center justify-between gap-4">
+        <p className="caption">Style guide{drafted}</p>
+        <Link href="/blueprint/guide" className="text-button -mr-2 shrink-0">
+          Open
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+/** The page's line: how big, how much of it is his, what the rest costs. */
 function Overview({ slots }: { slots: Slot[] }) {
   const owned = slots.filter((slot) => slot.status === 'owned').length
   const toFind = slots.filter((slot) => slot.status === 'wanted' || slot.status === 'candidate')
   const min = toFind.reduce((sum, slot) => sum + (slot.budget_min_cents ?? 0), 0)
   const max = toFind.reduce((sum, slot) => sum + (slot.budget_max_cents ?? 0), 0)
-  const cost = max > 0 ? ` The ${owned ? 'rest comes' : 'whole wardrobe comes'} to about ${money(min)} to ${money(max)}.` : ''
   return (
-    <p className="mt-10 max-w-[34ch] font-display text-[1.375rem] leading-snug text-ink">
-      {slots.length} slots{owned ? `, ${owned} already yours` : ''}.{cost}
-    </p>
+    <div className="mt-10">
+      <h1 className="display text-[2.5rem] tabular-nums sm:text-[3.25rem]">
+        {slots.length} slots{owned ? `, ${owned} already yours` : ''}.
+      </h1>
+      {max > 0 ? (
+        <p className="mt-3 text-[1.0625rem] text-ink-2 tabular-nums">
+          The {owned ? 'rest' : 'whole wardrobe'} comes to about {money(min)} to {money(max)}.
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -193,19 +208,15 @@ function toRow(slot: Slot, guide: StoredGuide | null): SlotRow {
 function Retired({ slots, guide }: { slots: Slot[]; guide: StoredGuide }) {
   return (
     <section aria-labelledby="retired" className="mt-16">
-      <div className="border-b border-line pb-3">
-        <h2 id="retired" className="font-display text-[1.625rem] leading-tight">
-          Retired
-        </h2>
-        <p className="mt-1 text-sm text-ink-3">Out of the blueprint. Refill one and Claude proposes what takes its place.</p>
-      </div>
-      <ul className="divide-y divide-line">
+      <SectionHead id="retired" title="Retired" aside={`${slots.length} ${slots.length === 1 ? 'slot' : 'slots'}`} />
+      <p className="caption mt-1">Out of the blueprint. Refill one and Claude proposes what takes its place.</p>
+      <ul className="mt-3 divide-y divide-line">
         {slots.map((slot) => (
           <li key={slot.id}>
             <SlotLink row={toRow(slot, guide)} muted />
             <div className="pb-4 pl-14">
               {slot.refilled_by ? (
-                <Link href={`/blueprint/${slot.refilled_by}`} className="text-sm text-brass underline decoration-brass/40 underline-offset-4">
+                <Link href={`/blueprint/${slot.refilled_by}`} className="text-button -ml-2">
                   See the refill
                 </Link>
               ) : (

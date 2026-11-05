@@ -3,17 +3,14 @@ import type { ComponentProps } from 'react'
 
 type Props = ComponentProps<typeof Link> & {
   variant?: 'primary' | 'quiet'
+  size?: 'normal' | 'small'
 }
 
-export function ButtonLink({ variant = 'primary', className = '', children, ...rest }: Props) {
-  const look =
-    variant === 'primary'
-      ? 'btn-primary'
-      : 'border border-line text-ink transition-colors duration-150 ease-out'
+export function ButtonLink({ variant = 'primary', size = 'normal', className = '', children, ...rest }: Props) {
   return (
     <Link
       {...rest}
-      className={`pressable inline-flex h-12 items-center justify-center rounded-full px-6 text-base font-medium ${look} ${className}`}
+      className={`btn ${variant === 'primary' ? 'btn-primary' : 'btn-quiet'} ${size === 'small' ? 'btn-small' : ''} ${className}`}
     >
       {children}
     </Link>

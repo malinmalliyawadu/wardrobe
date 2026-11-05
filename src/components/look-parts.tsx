@@ -8,10 +8,12 @@ import { TryOn } from '@/components/try-on'
 import type { Look } from '@/lib/looks'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
+/** The tick a done action shows; the icon under its old name, for the look card. */
+export { TickIcon as Tick } from '@/components/icons'
+
 /*
- * The parts of a look shared by its card on the Looks tab and the outfit of
- * the day on Today: the pieces laid out, "See it on me" for the whole look,
- * and the tick a done action shows.
+ * The parts of a look shared by its card in the wardrobe and the outfit of
+ * the day on Today: the pieces laid out, and "See it on me" for the whole look.
  */
 
 /** "See it on me" for the whole look: him dressed in it, beside the pieces it was made from. */
@@ -28,18 +30,18 @@ export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
         alt: `You wearing ${look.title.toLowerCase()}`,
         aside: (
           <figure>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[var(--radius-tile)]">
               {look.pieces.map((piece) => (
                 <PieceImage
                   key={piece.id}
                   piece={piece}
                   label={GARMENT_LABELS[piece.garment_type]}
                   sizes="(min-width: 1024px) 7rem, 30vw"
-                  className="aspect-[3/4] rounded-lg"
+                  className="aspect-[3/4]"
                 />
               ))}
             </div>
-            <figcaption className="mt-2 text-[0.8125rem] text-ink-3">Your pieces</figcaption>
+            <figcaption className="caption mt-2">Your pieces</figcaption>
           </figure>
         ),
         note: (
@@ -58,31 +60,25 @@ export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
   )
 }
 
-export function Tick() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="m5 12.5 4.5 4.5L19 7.5" />
-    </svg>
-  )
-}
-
 /**
- * The pieces laid out on a six-column grid: the first (outermost) large on
- * the left, the next two stacked beside it, and the rest, usually shoes and
- * what is carried, sharing a shorter row along the bottom.
+ * The pieces laid out on a six-column grid with hairline gaps, like a
+ * contact sheet: the first (outermost) large on the left, the next two
+ * stacked beside it, and the rest, usually shoes and what is carried,
+ * sharing a shorter row along the bottom. Square-cornered, so it can run to
+ * the screen's edge; the caller rounds it where it sits in a card.
  */
-export function FlatLay({ look }: { look: Look }) {
+export function FlatLay({ look, className = '' }: { look: Look; className?: string }) {
   const [first, second, third, ...rest] = look.pieces
-  if (!first) return <div className="cloth aspect-[4/3] rounded-xl" style={{ '--swatch': 'var(--surface)' } as CSSProperties} />
+  if (!first) return <div className={`swatch aspect-[4/5] ${className}`} style={{ '--swatch': 'var(--surface)' } as CSSProperties} />
   return (
-    <div className="grid grid-cols-6 gap-2" aria-label={`The pieces of ${look.title}`} role="group">
-      <PieceImage piece={first} label={GARMENT_LABELS[first.garment_type]} sizes="(min-width: 640px) 13rem, 60vw" className={`${second ? 'col-span-4 row-span-2' : 'col-span-6'} aspect-[3/4] rounded-xl`} />
-      {second ? <PieceImage piece={second} label={GARMENT_LABELS[second.garment_type]} sizes="(min-width: 640px) 7rem, 30vw" className={`col-span-2 ${third ? '' : 'row-span-2'} h-full rounded-xl`} /> : null}
-      {third ? <PieceImage piece={third} label={GARMENT_LABELS[third.garment_type]} sizes="(min-width: 640px) 7rem, 30vw" className="col-span-2 h-full rounded-xl" /> : null}
+    <div className={`grid grid-cols-6 gap-px ${className}`} aria-label={`The pieces of ${look.title}`} role="group">
+      <PieceImage piece={first} label={GARMENT_LABELS[first.garment_type]} sizes="(min-width: 640px) 18rem, 66vw" className={`${second ? 'col-span-4 row-span-2' : 'col-span-6'} aspect-[3/4]`} />
+      {second ? <PieceImage piece={second} label={GARMENT_LABELS[second.garment_type]} sizes="(min-width: 640px) 9rem, 33vw" className={`col-span-2 ${third ? '' : 'row-span-2'} h-full`} /> : null}
+      {third ? <PieceImage piece={third} label={GARMENT_LABELS[third.garment_type]} sizes="(min-width: 640px) 9rem, 33vw" className="col-span-2 h-full" /> : null}
       {rest.length > 0 ? (
-        <div className="col-span-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${rest.length}, minmax(0, 1fr))` }}>
+        <div className="col-span-6 grid gap-px" style={{ gridTemplateColumns: `repeat(${rest.length}, minmax(0, 1fr))` }}>
           {rest.map((piece) => (
-            <PieceImage key={piece.id} piece={piece} label={GARMENT_LABELS[piece.garment_type]} sizes="(min-width: 640px) 9rem, 30vw" className="h-24 rounded-xl sm:h-28" />
+            <PieceImage key={piece.id} piece={piece} label={GARMENT_LABELS[piece.garment_type]} sizes="(min-width: 640px) 9rem, 33vw" className="h-28 sm:h-32" />
           ))}
         </div>
       ) : null}

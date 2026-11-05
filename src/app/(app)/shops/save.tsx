@@ -48,28 +48,18 @@ export function SaveFromShops({
   }
 
   return (
-    <div className="mt-auto pt-2">
+    <div className="mt-auto pt-3">
       <div key={mode} className="tray">
         {mode === 'idle' ? (
-          <button
-            type="button"
-            className="text-button -ml-2"
-            aria-label={`Save ${title}`}
-            onClick={() => setMode('choose')}
-          >
+          <button type="button" className="btn btn-quiet btn-small" aria-label={`Save ${title}`} onClick={() => setMode('choose')}>
             {again ? 'Save it anyway' : 'Save'}
           </button>
         ) : mode === 'choose' ? (
           <div role="group" aria-label={`Save ${title}`}>
-            <label htmlFor={selectId} className="mb-1 block text-[0.8125rem] text-ink-3">
+            <label htmlFor={selectId} className="caption mb-1 block">
               For which slot
             </label>
-            <select
-              id={selectId}
-              value={slot}
-              onChange={(event) => setSlot(event.target.value)}
-              className="field min-h-11"
-            >
+            <select id={selectId} value={slot} onChange={(event) => setSlot(event.target.value)} className="field min-h-11">
               <option value="">Not for a slot</option>
               {sameKind.length > 0 && others.length > 0 ? (
                 <>
@@ -96,8 +86,8 @@ export function SaveFromShops({
                 ))
               )}
             </select>
-            <div className="-ml-2 mt-1 flex items-center gap-1">
-              <button type="button" className="text-button" onClick={save}>
+            <div className="mt-2 flex items-center gap-2">
+              <button type="button" className="btn btn-quiet btn-small" onClick={save}>
                 Save
               </button>
               <button type="button" className="text-button text-ink-3" onClick={() => setMode('idle')}>
@@ -106,12 +96,12 @@ export function SaveFromShops({
             </div>
           </div>
         ) : (
-          <p role="status" className="flex min-h-11 items-center text-[0.9375rem] font-medium text-brass">
+          <p role="status" className="flex min-h-10 items-center text-[0.9375rem] font-medium text-accent">
             Saved
           </p>
         )}
       </div>
-      {failed ? <p className="text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
+      {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
     </div>
   )
 }

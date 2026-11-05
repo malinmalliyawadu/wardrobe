@@ -60,13 +60,13 @@ export function PieceImage({
     <div
       role="img"
       aria-label={piece.name}
-      className={`cloth relative overflow-hidden ${className}`}
+      className={`swatch relative overflow-hidden ${className}`}
       style={{ '--swatch': piece.colour_hex ?? 'var(--surface)' } as CSSProperties}
     >
       {label ? (
         <span
           aria-hidden
-          className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-full bg-ground/80 px-2 py-0.5 text-[0.6875rem] font-medium text-ink-2 backdrop-blur-sm"
+          className="absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-[2px] bg-ground/85 px-1.5 py-0.5 text-[0.6875rem] font-medium text-ink-2"
         >
           {label}
         </span>

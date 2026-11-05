@@ -64,18 +64,31 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
 
 ## Design
 
-Direction: a menswear lookbook, not a dashboard. Tokens live in
-`src/app/globals.css`. Ground is charcoal-navy flannel in the dark and cool
-pattern paper in the light; type is chalk-coloured; brass is the only accent
-and marks the active thing. Newsreader (variable, optical sizes) for display,
-Hanken Grotesk for the interface. No colour gradients. Colour otherwise comes
-from Malin's own palette once a profile exists.
+Redesigned 2026-11-05; the reasoning is in `docs/design.md`, read it before
+touching any page. A lookbook, laptop first (Malin reads it there), the phone
+the same content in one column. Tokens live in `src/app/globals.css`. Ground
+is uncoated stock by day and pine black by night; every product and piece
+photo sits on a white sweep in both. Ink is the type and the one solid button
+on a screen; bottle green is the only accent and marks the active thing. One
+typeface, Instrument Sans (variable weight and width), condensed and heavy
+for the few words that carry a screen, normal for everything read. No
+gradients, no serif, no pills, no tracked caps labels, no hairline rules
+between sections (space and a `.caption` instead), no middle dots. Colour
+otherwise is Malin's own palette as flat swatches: the strip beside the
+wordmark on every page, a slot's colours, a piece's colour.
+
+Tabs, by how often each is opened: Today (the outfit of the day and nothing
+else), Finds (`/finds`: ask the shops, last night's finds, Saved, the way
+into Shops), Wardrobe (`/wardrobe`, with Looks and On me under its name; a
+piece is `/wardrobe/[id]`), Blueprint, You. Old `/looks/*` paths redirect
+from `next.config.ts`.
 
 Motion rules, from the animate skill: transform and opacity only, `--ease-out`
-for entrances, UI transitions under 300 ms, press feedback is `.pressable`
-(scale 0.97 at 160 ms), every animation has a `prefers-reduced-motion` variant.
-The swatch fan on the empty Today screen is the one page-load sequence; do not
-add entrance animations elsewhere.
+for entrances, UI transitions under 300 ms, press feedback is `.pressable` or
+`.btn` (scale 0.97 at 160 ms), every animation has a `prefers-reduced-motion`
+variant. No page-load animation anywhere: the picture is the arrival. Motion
+only answers a tap (a crossfade when content swaps in place, a card leaving
+after an action, the viewer opening).
 
 Mobile baseline is in place: `viewport-fit=cover` with safe-area padding on
 the tab bar and main, `100dvh`, 16px inputs, tap highlight off, hover only
@@ -191,7 +204,7 @@ tabs live in the `(app)` route group so `/login` has no nav. Deploying is the
 README's click-through (Postgres, the data carried across, a named volume at
 `/data`, the finder as a scheduled task with a 3600 s timeout). The container
 health check is `/api/health/live` (database only); `/api/health` adds Claude
-and whether the photos folder is writable. Icons are the Today swatch fan,
+and whether the photos folder is writable. Icons are the palette strip,
 drawn by `scripts/icons.ts` into `public/icons` and `src/app`; no service
 worker. Saved finds are tracked by replaying `price_observations` in his size
 (`src/lib/saved-history.ts`): the newest change from the latest run is news,
@@ -200,7 +213,7 @@ on the row and summed up under Saved. Loading states are skeletons from
 
 M5 wardrobe and looks built 2026-11-04 (migrations 0006, 0007), agreed with
 Malin first; gate pending (he adds what he owns and would wear the looks). A
-Looks tab with two pages, Looks and Pieces (`src/app/(app)/looks/`). Pieces
+Wardrobe tab (`src/app/(app)/wardrobe/`, Looks and Pieces; it was the Looks tab until the 2026-11-05 redesign). Pieces
 (`src/lib/pieces.ts`) hold the rule that a slot is owned exactly when a piece
 fills it: slot-side changes run `syncSlotPieces`, piece-side changes set the
 slot themselves, and "Bought it" makes the find a piece. Clothing photos
@@ -213,7 +226,7 @@ else words). Looks
 only; `tidyLooks` drops any look that is not a whole outfit. A set takes a
 minute or two and US$0.15 to 0.32.
 
-On me (`/looks/on-me`, the Looks tab's third page, `src/lib/on-me.ts`) lists
+On me (`/wardrobe/on-me`, the Wardrobe tab's third page, `src/lib/on-me.ts`) lists
 every try-on still kept, newest first, each with what it was made from, and
 its own page shows the prompt and "Make it again". "Choose pieces" puts any
 mix of his pieces and saved finds on him in one image (migration 0009: a

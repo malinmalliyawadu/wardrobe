@@ -3,39 +3,39 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { HubRow } from '@/components/hub-row'
+import { PageTitle, SectionHead } from '@/components/section'
 import { TextBone } from '@/components/skeleton'
 import { StatusList, StatusSkeleton } from '@/components/status-list'
 import { parseStoredAnalysis } from '@/lib/analysis'
 import { listPhotos } from '@/lib/photos'
 import { getFinderSettings, getSpend, usdText, type FinderSettings, type Spend } from '@/lib/finder/settings'
 import { db } from '@/lib/db'
+import { day } from '@/lib/format'
 import { getProfile, type Profile } from '@/lib/profile'
 import { listRetailers } from '@/lib/retailers'
 import { seasonName } from '@/lib/seasons'
 
 export const metadata: Metadata = { title: 'You' }
 
+const ROWS = ['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget', 'Finder']
+
 export default function YouPage() {
   return (
-    <section>
-      <h1 className="font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
-        You
-      </h1>
-      <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-        A few photos, read by Claude and confirmed by you. Then your sizes, your week, your
-        taste and what you want to spend.
-      </p>
-
-      <Suspense fallback={<HubSkeleton />}>
-        <Hub />
-      </Suspense>
-
-      <h2 className="mt-14 text-sm font-medium text-ink-2">Systems</h2>
-      <div className="mt-2">
-        <Suspense fallback={<StatusSkeleton />}>
-          <StatusList />
+    <section className="lg:grid lg:grid-cols-2 lg:gap-16">
+      <div className="max-w-2xl">
+        <Suspense fallback={<HubSkeleton />}>
+          <Hub />
         </Suspense>
       </div>
+
+      <section aria-labelledby="systems" className="mt-12 max-w-2xl lg:mt-0">
+        <SectionHead id="systems" title="Systems" />
+        <div className="mt-2">
+          <Suspense fallback={<StatusSkeleton />}>
+            <StatusList />
+          </Suspense>
+        </div>
+      </section>
     </section>
   )
 }
@@ -51,48 +51,52 @@ async function Hub() {
   ])
   const analysis = parseStoredAnalysis(profile.analysis)
 
-  const colouring = profile.confirmed_at && profile.season
-    ? { text: `${seasonName(profile.season)}, confirmed`, filled: true }
-    : analysis
-      ? { text: `${seasonName(analysis.colouring.season.value)} proposed, waiting for you`, filled: true }
-      : { text: photos.length ? 'Ready to read' : 'Needs photos first', filled: false }
+  const colouring =
+    profile.confirmed_at && profile.season
+      ? { text: `${seasonName(profile.season)}, confirmed ${day(profile.confirmed_at)}`, filled: true }
+      : analysis
+        ? { text: `${seasonName(analysis.colouring.season.value)} proposed, waiting for you`, filled: true }
+        : { text: photos.length ? 'Ready to read' : 'Needs photos first', filled: false }
 
   return (
-    <ul className="mt-8 divide-y divide-line border-y border-line">
-      <HubRow
-        href="/you/photos"
-        title="Photos"
-        summary={photos.length ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'None yet'}
-        filled={photos.length > 0}
-        aside={
-          photos.length ? (
-            <div className="flex -space-x-2">
-              {photos.slice(0, 3).map((photo) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={photo.id}
-                  src={`/photos/${photo.id}?v=thumb`}
-                  alt=""
-                  width="32"
-                  height="32"
-                  className="size-8 rounded-full border-2 border-ground object-cover"
-                />
-              ))}
-            </div>
-          ) : null
-        }
-      />
-      <HubRow href="/you/colouring" title="Colouring and proportions" summary={colouring.text} filled={colouring.filled} />
-      <HubRow href="/you/sizes" title="Height and sizes" {...sizesSummary(profile)} />
-      <HubRow href="/you/life" title="Your week" {...lifeSummary(profile)} />
-      <HubRow href="/you/taste" title="Taste" {...tasteSummary(profile)} />
-      <HubRow href="/you/budget" title="Budget" {...budgetSummary(profile)} />
-      <HubRow
-        href="/you/finder"
-        title="Finder"
-        {...finderSummary(finder, spend, stores.filter((store) => store.enabled).length, stores.length)}
-      />
-    </ul>
+    <>
+      <PageTitle title="You" line={colouring.filled ? colouring.text : 'No read yet'} />
+      <ul className="mt-10 divide-y divide-line">
+        <HubRow
+          href="/you/photos"
+          title="Photos"
+          summary={photos.length ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'}` : 'None yet'}
+          filled={photos.length > 0}
+          aside={
+            photos.length ? (
+              <div className="flex -space-x-2">
+                {photos.slice(0, 3).map((photo) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={photo.id}
+                    src={`/photos/${photo.id}?v=thumb`}
+                    alt=""
+                    width="32"
+                    height="32"
+                    className="size-8 rounded-full border-2 border-ground object-cover"
+                  />
+                ))}
+              </div>
+            ) : null
+          }
+        />
+        <HubRow href="/you/colouring" title="Colouring and proportions" summary={colouring.text} filled={colouring.filled} />
+        <HubRow href="/you/sizes" title="Height and sizes" {...sizesSummary(profile)} />
+        <HubRow href="/you/life" title="Your week" {...lifeSummary(profile)} />
+        <HubRow href="/you/taste" title="Taste" {...tasteSummary(profile)} />
+        <HubRow href="/you/budget" title="Budget" {...budgetSummary(profile)} />
+        <HubRow
+          href="/you/finder"
+          title="Finder"
+          {...finderSummary(finder, spend, stores.filter((store) => store.enabled).length, stores.length)}
+        />
+      </ul>
+    </>
   )
 }
 
@@ -148,20 +152,30 @@ function finderSummary(
   return { summary: parts.join(', '), filled: true }
 }
 
-/** The rows' titles are known before the data, so they show at once; only the summaries wait. */
+/** The name and the rows' titles are known before the data, so they show at once; only the lines wait. */
 function HubSkeleton() {
   return (
-    <ul className="mt-8 divide-y divide-line border-y border-line" aria-busy aria-label="Loading your profile">
-      {['Photos', 'Colouring and proportions', 'Height and sizes', 'Your week', 'Taste', 'Budget', 'Finder'].map((title, index) => (
-        <li key={title} className="flex min-h-16 items-center py-3">
-          <div className="min-w-0 flex-1">
-            <p className="font-medium">{title}</p>
-            <div className="skeleton">
-              <TextBone className={['w-40', 'w-52', 'w-36', 'w-48', 'w-32', 'w-44', 'w-56'][index]} size="text-sm" />
+    <>
+      <PageTitle
+        title="You"
+        line={
+          <span className="skeleton block" aria-busy aria-label="Loading your profile">
+            <TextBone className="w-56 max-w-full" />
+          </span>
+        }
+      />
+      <ul className="mt-10 divide-y divide-line" aria-busy>
+        {ROWS.map((title, index) => (
+          <li key={title} className="flex min-h-16 items-center py-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{title}</p>
+              <div className="skeleton">
+                <TextBone className={['w-40', 'w-52', 'w-36', 'w-48', 'w-32', 'w-44', 'w-56'][index]} size="text-sm" />
+              </div>
             </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

@@ -62,7 +62,7 @@ export async function tryChosenOn(_state: ActionState, form: FormData): Promise<
   const started = makeAfter(await startOutfitTryOn({ piece_ids: ids('p'), product_ids: ids('f') }))
   if (!started.ok) return { ok: false, message: started.message }
   revalidatePath('/', 'layout')
-  redirect('/looks/on-me')
+  redirect('/wardrobe/on-me')
 }
 
 /** "Make it again" on a picture's own page: the same find, look or pieces. */
