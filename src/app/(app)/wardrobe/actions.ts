@@ -32,8 +32,10 @@ import {
   actOnLook,
   draftLooks,
   gymReadiness,
+  dressable,
   readHistory,
   readiness,
+  readinessAround,
   saveSet,
   wantedSlots,
   wellingtonToday,
@@ -229,6 +231,52 @@ export async function makeLooks(_prev: ActionState, form: FormData): Promise<Act
   } catch (error) {
     if (error instanceof GenerationError) {
       console.warn(JSON.stringify({ event: 'looks.failed', message: error.message, cause: error.cause ?? null }))
+      return { ok: false, message: error.message, values: echo(form) }
+    }
+    throw error
+  }
+  refreshAll()
+  return { ok: true }
+}
+
+/**
+ * A few looks that each wear one piece, from the rest of what he owns, made
+ * on a tap on its page. Opus, about a minute, like a set of looks; the page
+ * waits with a note and shows them under the button.
+ */
+export async function makePieceLooks(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const pieceId = id(form)
+  if (!pieceId) return { ok: false, message: 'Unknown piece.' }
+  const note = text(form, 'note')?.slice(0, 300) ?? null
+  try {
+    const [profile, guide, pieces, wanted, history] = await Promise.all([
+      getProfile(),
+      getGuide(),
+      listPieces(),
+      wantedSlots(),
+      readHistory(),
+    ])
+    if (!guide) return { ok: false, message: 'Draft your style guide first. Looks are put together against it.' }
+    const piece = pieces.find((one) => one.id === pieceId)
+    if (!piece) return { ok: false, message: 'This piece is no longer in your wardrobe.' }
+    if (piece.set_aside_at) return { ok: false, message: 'This piece is set aside. Put it back in the wardrobe first.' }
+    if (dressable([piece]).length === 0) return { ok: false, message: 'Say what kind of piece it is first.', values: echo(form) }
+    const ready = readinessAround(piece, pieces)
+    if (!ready.ready) {
+      const what = ready.missing.join(', ')
+      return { ok: false, message: ready.gym ? `Mark ${what} as gym kit first.` : `Add ${what} first.`, values: echo(form) }
+    }
+    const draft = await draftLooks({ profile, guide, pieces, wanted, history, note, around: piece })
+    if (draft.looks.length === 0) {
+      console.warn(JSON.stringify({ event: 'looks.piece_none_kept', piece: piece.id, proposed: draft.proposed, usd: draft.usd }))
+      return { ok: false, message: 'None of the looks Claude made held together. Try again.', values: echo(form) }
+    }
+    const { date, weather } = wellingtonToday()
+    const active = pieces.filter((one) => !one.set_aside_at).length
+    await saveSet(draft, { note, pieces: active, date, weather, kind: piece.worn_for === 'gym' ? 'gym' : 'week', pieceId: piece.id })
+  } catch (error) {
+    if (error instanceof GenerationError) {
+      console.warn(JSON.stringify({ event: 'looks.piece_failed', piece: pieceId, message: error.message, cause: error.cause ?? null }))
       return { ok: false, message: error.message, values: echo(form) }
     }
     throw error
