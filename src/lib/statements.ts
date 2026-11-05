@@ -3,7 +3,8 @@ import { findCard, runRates, type FindCard, type FindRow, type Run } from './fee
 import type { ProductImage } from './finder/shopify.ts'
 import { QUALITIES, STATEMENT_THRESHOLD, type Quality } from './finder/statements.ts'
 import type { PiecePhoto } from './pieces.ts'
-import { latestTryOns } from './try-on.ts'
+import { outfitKey } from './outfit-key.ts'
+import { latestTryOns, tryOnsByKey, type OnMe } from './try-on.ts'
 import type { GarmentType } from './wardrobe-values.ts'
 
 /*
@@ -20,6 +21,8 @@ export type StatementFind = FindCard & {
   qualities: Quality[]
   /** His pieces it wears with, those still in the wardrobe, in Claude's order. */
   wears_with: WornWith[]
+  /** The kept picture of him in it with those pieces, if one was made. */
+  outfit_on_me: OnMe | null
 }
 
 /** A piece it wears with, as the card draws it: his photo, else the shop's, else its colour. */
@@ -117,10 +120,24 @@ export async function getStatements(
     garment_type: row.garment_type,
     qualities: QUALITIES.filter((quality) => row.qualities.includes(quality)),
     wears_with: row.wears_with,
+    outfit_on_me: null as OnMe | null,
   }))
-  const onMe = await latestTryOns(finds.map((find) => find.product_id), sql)
-  for (const find of finds) find.on_me = onMe.get(find.product_id) ?? null
+  const outfits = finds.map((find) => (find.wears_with.length > 0 ? statementOutfitKey(find) : null))
+  const [onMe, outfitsOnMe] = await Promise.all([
+    latestTryOns(finds.map((find) => find.product_id), sql),
+    tryOnsByKey(outfits.filter((key) => key !== null), sql),
+  ])
+  finds.forEach((find, index) => {
+    find.on_me = onMe.get(find.product_id) ?? null
+    const outfit = outfits[index]
+    find.outfit_on_me = outfit ? (outfitsOnMe.get(outfit) ?? null) : null
+  })
   return { run, finds, total: rows.length, byQuality, waiting: counts?.waiting ?? 0 }
+}
+
+/** The outfit its card puts on him: the find and the pieces it wears with. */
+export function statementOutfitKey(find: Pick<StatementFind, 'product_id' | 'wears_with'>): string {
+  return outfitKey([{ piece_id: null, product_id: find.product_id }, ...find.wears_with.map((piece) => ({ piece_id: piece.id }))])
 }
 
 /** "Colour and texture", "Cut": what makes it a statement, as the card's caption. */

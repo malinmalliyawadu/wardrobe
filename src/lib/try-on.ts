@@ -11,9 +11,10 @@ import { findKey, lookOutfitKey, outfitKey } from './outfit-key.ts'
 import { photosDir } from './photos.ts'
 
 /*
- * Try-on: "See it on me" on a feed find, on a look, or on pieces he chose
+ * Try-on: "See it on me" on a feed find, on a look, on pieces he chose
  * himself on the On me page (an outfit: any mix of his wardrobe pieces and the
- * finds he saved). One of Malin's full-length photos goes to OpenAI's image
+ * finds he saved), or on a statement piece with the pieces of his Claude said
+ * it wears with. One of Malin's full-length photos goes to OpenAI's image
  * editor with the product's own photo (a find), or with the photos of the
  * pieces (a look or an outfit), and it returns him wearing it. Agreed with Malin on 2026-11-04, with the photo rule
  * in docs/plan.md section 1.1: made on request only, one at a time (a unique
@@ -486,8 +487,7 @@ type ProductForTryOn = { id: number; title: string; garment_type: string | null;
 async function productForTryOn(sql: Sql, productId: number): Promise<ProductForTryOn | null> {
   const [row] = await sql<ProductForTryOn[]>`
     select p.id::int as id, p.title, p.garment_type, p.images -> 0 ->> 'src' as image,
-           (select s.colour_option from product_scores s where s.product_id = p.id
-            order by s.scored_at desc limit 1) as colour
+           ${judgedColour(sql)} as colour
     from products p where p.id = ${productId}
   `
   return row ?? null
@@ -671,13 +671,24 @@ export const MAX_OUTFIT_PIECES = 8
 export type OutfitChoice = { piece_ids: number[]; product_ids: number[] }
 
 /**
- * A saved find's colour, for a product aliased `p`: as its latest score read
+ * The colour option a find's latest verdict judged, for a product aliased
+ * `p`: the feed's score, else its score as a statement piece.
+ */
+const judgedColour = (sql: Sql) => sql`
+  coalesce(
+    (select s.colour_option from product_scores s where s.product_id = p.id order by s.scored_at desc limit 1),
+    (select s.colour_option from statement_scores s where s.product_id = p.id order by s.scored_at desc limit 1)
+  )
+`
+
+/**
+ * A find's colour, for a product aliased `p`: as its latest verdict judged
  * it, else the colours its listing names (a pasted link is never scored), as
  * the Saved list on Today shows it.
  */
 export const findColour = (sql: Sql) => sql`
   coalesce(
-    (select s.colour_option from product_scores s where s.product_id = p.id order by s.scored_at desc limit 1),
+    ${judgedColour(sql)},
     (select string_agg(colour, ', ' order by first_id) from (
        select option_colour as colour, min(id) as first_id from product_variants
        where product_id = p.id and option_colour is not null group by option_colour
@@ -687,9 +698,16 @@ export const findColour = (sql: Sql) => sql`
 
 type Choosable = Omit<PieceSent, 'shown'> & { photo_id: number | null; image: string | null }
 
-/** The chosen wardrobe pieces still in the wardrobe, and the chosen finds still saved. */
-async function chosenPieces(sql: Sql, choice: OutfitChoice): Promise<Choosable[]> {
-  const [pieces, finds] = await Promise.all([
+/**
+ * Which finds an outfit may hold: those he saved, as the On me chooser offers
+ * them, or any the shops listed (a statement piece, or a picture made again
+ * after he cleared the find).
+ */
+type FindsTaken = 'saved' | 'any'
+
+/** The chosen wardrobe pieces still in the wardrobe, and the chosen finds still taken. */
+async function chosenPieces(sql: Sql, choice: OutfitChoice, finds: FindsTaken): Promise<Choosable[]> {
+  const [pieces, products] = await Promise.all([
     choice.piece_ids.length === 0
       ? []
       : sql<Choosable[]>`
@@ -711,13 +729,14 @@ async function chosenPieces(sql: Sql, choice: OutfitChoice): Promise<Choosable[]
                  ${findColour(sql)} as colour_name,
                  null::text as colour_hex, null::text as fabric, null::text as fit,
                  null::int as photo_id, p.images -> 0 ->> 'src' as image
-          from latest_action a
-          join products p on p.id = a.product_id
+          from products p
+          left join latest_action a on a.product_id = p.id
           left join blueprint_slots bs on bs.id = a.slot_id
-          where a.action = 'saved'
+          where p.id = any (${choice.product_ids}::bigint[])
+            and ${finds === 'saved' ? sql`a.action = 'saved'` : sql`true`}
         `,
   ])
-  return [...pieces, ...finds]
+  return [...pieces, ...products]
 }
 
 /**
@@ -729,15 +748,54 @@ async function chosenPieces(sql: Sql, choice: OutfitChoice): Promise<Choosable[]
  * still being made.
  */
 export async function startOutfitTryOn(choice: OutfitChoice, sql: Sql = db(), options: StartOptions = {}): Promise<Started> {
+  return startChosen(choice, sql, {
+    ...options,
+    finds: 'saved',
+    gone: 'Something you chose is no longer in your wardrobe or saved. Choose again.',
+  })
+}
+
+/**
+ * Record a request for a statement piece worn with the pieces of his Claude
+ * said it wears with, as its card shows them; or answer with the picture of
+ * that outfit already kept. The find need not be saved. Refuses, besides as
+ * startOutfitTryOn does, when those pieces are not ones a verdict on the find
+ * named.
+ */
+export async function startStatementTryOn(
+  productId: number,
+  pieceIds: number[],
+  sql: Sql = db(),
+  options: StartOptions = {},
+): Promise<Started> {
+  const wanted = [...new Set(pieceIds)]
+  if (wanted.length === 0) return { ok: false, message: 'None of your pieces were named to wear it with.' }
+  const [named] = await sql<{ id: number }[]>`
+    select id::int as id from statement_scores
+    where product_id = ${productId} and wears_with @> ${wanted}::bigint[]
+    limit 1
+  `
+  if (!named) return { ok: false, message: 'That outfit could not be found. Reload the page.' }
+  return startChosen({ piece_ids: wanted, product_ids: [productId] }, sql, {
+    ...options,
+    finds: 'any',
+    gone: 'A piece of this outfit is no longer in your wardrobe. Reload the page.',
+  })
+}
+
+/** The outfit try-ons' shared part: check the choice, find it kept, else record it. */
+async function startChosen(
+  choice: OutfitChoice,
+  sql: Sql,
+  options: StartOptions & { finds: FindsTaken; gone: string },
+): Promise<Started> {
   const wanted = { piece_ids: [...new Set(choice.piece_ids)], product_ids: [...new Set(choice.product_ids)] }
   const count = wanted.piece_ids.length + wanted.product_ids.length
   if (count === 0) return { ok: false, message: 'Choose at least one piece.' }
   if (count > MAX_OUTFIT_PIECES) return { ok: false, message: `Choose up to ${MAX_OUTFIT_PIECES} pieces.` }
 
-  const found = await chosenPieces(sql, wanted)
-  if (found.length < count) {
-    return { ok: false, message: 'Something you chose is no longer in your wardrobe or saved. Choose again.' }
-  }
+  const found = await chosenPieces(sql, wanted, options.finds)
+  if (found.length < count) return { ok: false, message: options.gone }
   const outfit = outfitKey(found)
   if (!options.again) {
     const kept = await keptTryOn(outfit, sql)
@@ -793,14 +851,15 @@ export async function startAgain(tryOnId: number, sql: Sql = db()): Promise<Star
   const again = { again: true }
   if (row.product_id !== null) return startTryOn(row.product_id, sql, again)
   if (row.look_id !== null) return startLookTryOn(row.look_id, sql, again)
+  // The same pieces and finds, whether or not he still has the finds saved: he is asking for this picture again.
   const pieces = row.pieces ?? []
-  return startOutfitTryOn(
+  return startChosen(
     {
       piece_ids: pieces.flatMap((piece) => (piece.piece_id !== null ? [piece.piece_id] : [])),
       product_ids: pieces.flatMap((piece) => (piece.piece_id === null && piece.product_id ? [piece.product_id] : [])),
     },
     sql,
-    again,
+    { ...again, finds: 'any', gone: 'A piece of it is no longer in your wardrobe, so it cannot be made again.' },
   )
 }
 
@@ -915,20 +974,30 @@ export async function getTryOn(id: number, sql: Sql = db()): Promise<OnMe | null
 }
 
 /**
- * The picture of each of these finds on its own, still kept: one asked for on
- * the find, or one of only that find chosen on the On me page. A ready or
+ * The picture of each of these outfits, by outfitKey, still kept. A ready or
  * in-the-making picture before a failed one, then the newest.
  */
-export async function latestTryOns(productIds: number[], sql: Sql = db()): Promise<Map<number, OnMe>> {
-  if (productIds.length === 0) return new Map()
-  const keys = new Map(productIds.map((id) => [findKey(id), id]))
+export async function tryOnsByKey(keys: string[], sql: Sql = db()): Promise<Map<string, OnMe>> {
+  if (keys.length === 0) return new Map()
   const rows = await sql<(OnMe & { outfit_key: string })[]>`
     select distinct on (t.outfit_key) t.outfit_key, ${ON_ME_COLUMNS(sql)}
     from try_ons t join profile_photos ph on ph.id = t.photo_id
-    where t.outfit_key in ${sql([...keys.keys()])} and t.deleted_at is null and ph.deleted_at is null
+    where t.outfit_key in ${sql([...new Set(keys)])} and t.deleted_at is null and ph.deleted_at is null
     order by t.outfit_key, ${showableTryOn(sql)} desc, t.started_at desc, t.id desc
   `
-  return new Map(rows.map(({ outfit_key, ...onMe }) => [keys.get(outfit_key)!, onMe]))
+  return new Map(rows.map(({ outfit_key, ...onMe }) => [outfit_key, onMe]))
+}
+
+/**
+ * The picture of each of these finds on its own, still kept: one asked for on
+ * the find, or one of only that find chosen on the On me page.
+ */
+export async function latestTryOns(productIds: number[], sql: Sql = db()): Promise<Map<number, OnMe>> {
+  const byKey = await tryOnsByKey(productIds.map(findKey), sql)
+  return new Map(productIds.flatMap((id) => {
+    const onMe = byKey.get(findKey(id))
+    return onMe ? [[id, onMe] as const] : []
+  }))
 }
 
 /**
