@@ -8,7 +8,7 @@ import type { FindPhoto } from '@/lib/find-photos'
 import { GARMENT_GROUPS, GARMENT_LABELS, type GarmentType } from '@/lib/wardrobe-values'
 
 /**
- * Paste a product link from any of the shops and it joins Saved, found or not.
+ * Paste a product link from any of the shops and it joins the wishlist, found or not.
  * The shop is read there and then, so the button says so while it waits. A
  * link from a shop that cannot be read (Lululemon) opens the fields to add it
  * by hand as soon as it is pasted: its photo, what it is, the price, and the
@@ -129,7 +129,7 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
           ))}
         </select>
         <SubmitButton pending={store ? 'Saving' : 'Reading the shop'} variant="quiet" className="sm:shrink-0">
-          Add to saved
+          Add to wishlist
         </SubmitButton>
       </div>
     </form>

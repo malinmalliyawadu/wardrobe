@@ -1,6 +1,6 @@
 import { Bone, Skeleton, TextBone } from '@/components/skeleton'
 
-/** Finds while it streams: the heading, one slot's row of cards, then Saved, in their real proportions. */
+/** Finds while it streams: the heading and one slot's row of cards, in their real proportions. */
 export function FeedSkeleton() {
   return (
     <Skeleton label="Loading your finds">
@@ -36,21 +36,6 @@ export function FeedSkeleton() {
         </div>
       </div>
 
-      <div className="mt-16">
-        <TextBone className="w-16" size="text-[0.8125rem]" />
-        <div className="mt-2 divide-y divide-line">
-          {[0, 1].map((row) => (
-            <div key={row} className="flex gap-4 py-4">
-              <Bone className="aspect-[4/5] w-22 shrink-0" />
-              <div className="min-w-0 flex-1 text-[0.9375rem]">
-                <TextBone className="w-24" size="text-[0.8125rem]" />
-                <TextBone className="w-11/12" />
-                <TextBone className="w-14" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </Skeleton>
   )
 }

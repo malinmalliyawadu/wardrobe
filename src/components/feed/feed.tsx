@@ -4,29 +4,24 @@ import { connection } from 'next/server'
 import { ButtonLink } from '@/components/button-link'
 import { SlotSwatches } from '@/components/cloth'
 import { SectionHead } from '@/components/section'
-import { db } from '@/lib/db'
 import { CARDS_PER_SLOT, getFeed, type FeedGroup, type Run } from '@/lib/feed'
 import { sizeGroup } from '@/lib/finder/classify'
 import { usdText } from '@/lib/finder/settings'
 import { getProfile } from '@/lib/profile'
-import { listRetailers, readable, type Retailer } from '@/lib/retailers'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { PRIORITY_LABELS } from '@/lib/wardrobe-values'
 
-import { AddLink, type ManualStore } from './add-link'
-import { FindCard, SavedRow } from './find-card'
-import { changeLine, newsSummary } from './saved-change'
+import { FindCard } from './find-card'
 
 /**
- * Last night's finds, then what he saved. Streams in after the shell;
- * nothing here animates on arrival, only in answer to a tap.
+ * Last night's finds by slot. Streams in after the shell; nothing here
+ * animates on arrival, only in answer to a tap. What he saves goes to the
+ * wishlist.
  */
 export async function Feed() {
   await connection()
-  const [feed, guide, profile, retailers] = await Promise.all([getFeed(), getGuide(), getProfile(), listRetailers(db())])
+  const [feed, guide, profile] = await Promise.all([getFeed(), getGuide(), getProfile()])
   const name = (hex: string) => colourNameFor(guide, hex)
-  const now = new Date()
-  const news = newsSummary(feed.saved, feed.run?.started_at ?? null, now)
 
   // Until there is a blueprint there is nothing to look for.
   if (Object.keys(feed.slotNames).length === 0) {
@@ -44,36 +39,12 @@ export async function Feed() {
     )
   }
 
-  const saved = (
-    <section aria-labelledby="saved" className="mt-16">
-      <SectionHead id="saved" title="Saved" aside={feed.saved.length > 0 ? `${feed.saved.length} ${feed.saved.length === 1 ? 'find' : 'finds'}` : undefined} />
-      {news ? <p className="mt-2 text-[0.9375rem] font-medium text-accent">{news}</p> : null}
-      {feed.saved.length > 0 ? (
-        <ul className="mt-2 divide-y divide-line lg:grid lg:grid-cols-2 lg:gap-x-12 lg:divide-y-0">
-          {feed.saved.map((find) => (
-            <SavedRow
-              key={find.product_id}
-              find={find}
-              slotName={find.slot_id === null ? null : (feed.slotNames[find.slot_id] ?? null)}
-              change={changeLine(find, now)}
-            />
-          ))}
-        </ul>
-      ) : (
-        <p className="prose mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
-          What you save lands here, and anything else you want from the shops: paste its link. Every night it is
-          checked for a lower price, and for your size coming back in stock.
-        </p>
-      )}
-      <AddLink key={feed.saved.length} slots={feed.openSlots} manualStores={manualStores(retailers)} />
-    </section>
-  )
-
   const everything = (
     <section aria-labelledby="shops" className="mt-16">
       <SectionHead id="shops" title="Everything it read" />
       <p className="prose mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
-        Only what clears the bar for a slot is shown here. The rest, in every shop you have on, is a search away.
+        Only what clears the bar for a slot is shown here. The rest, in every shop you have on, is a search away;
+        what you save there or here goes to your wishlist.
       </p>
       <ButtonLink href="/shops" variant="quiet" size="small" className="mt-4">
         Browse the shops
@@ -83,16 +54,13 @@ export async function Feed() {
 
   if (!feed.run) {
     return (
-      <>
-        <section aria-labelledby="finds" className="mt-10">
-          <SectionHead id="finds" title="No finds yet" />
-          <p className="prose mt-2 max-w-[40ch] text-[0.9375rem] text-ink-2">
-            Every night the finder reads the shops for the slots in your blueprint. Its first finds will be here in
-            the morning.
-          </p>
-        </section>
-        {saved}
-      </>
+      <section aria-labelledby="finds" className="mt-10">
+        <SectionHead id="finds" title="No finds yet" />
+        <p className="prose mt-2 max-w-[40ch] text-[0.9375rem] text-ink-2">
+          Every night the finder reads the shops for the slots in your blueprint. Its first finds will be here in
+          the morning.
+        </p>
+      </section>
     )
   }
 
@@ -134,7 +102,6 @@ export async function Feed() {
         ) : null}
       </section>
 
-      {saved}
       {everything}
     </>
   )
@@ -166,19 +133,6 @@ function SlotFinds({ group, colourName }: { group: FeedGroup; colourName: (hex: 
       </div>
     </section>
   )
-}
-
-/** The shops whose links open the by-hand fields, with the hosts a link from each is on. */
-function manualStores(retailers: Retailer[]): ManualStore[] {
-  return retailers
-    .filter((retailer) => !readable(retailer))
-    .map((retailer) => ({
-      name: retailer.name,
-      currency: retailer.currency,
-      hosts: [retailer.base_url, retailer.feed_url]
-        .filter((origin): origin is string => Boolean(origin))
-        .map((origin) => new URL(origin).host.toLowerCase().replace(/^www\./, '')),
-    }))
 }
 
 /** "Last night's finds" for the nightly run, otherwise the day it ran. */

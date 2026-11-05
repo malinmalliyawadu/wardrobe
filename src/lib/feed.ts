@@ -267,6 +267,24 @@ export async function shownOnToday(sql: Sql, runId: number): Promise<Set<number>
   return new Set(rows.map((row) => row.product_id))
 }
 
+/** The wishlist: what he saved, with its news, and the open slots a new link can be saved for. */
+export type Wishlist = Pick<Feed, 'run' | 'saved' | 'slotNames' | 'openSlots'>
+
+export async function getWishlist(): Promise<Wishlist> {
+  const sql = db()
+  const [run, slots] = await Promise.all([latestRun(sql), listSlots()])
+  const saved = await getSaved(sql, run, runRates(run))
+  await attachTryOns(sql, saved)
+  return {
+    run,
+    saved,
+    slotNames: Object.fromEntries(slots.map((slot) => [slot.id, slot.name])),
+    openSlots: slots
+      .filter((slot) => (OPEN_STATUSES as readonly string[]).includes(slot.status))
+      .map((slot) => ({ id: slot.id, name: slot.name, garment_type: slot.garment_type })),
+  }
+}
+
 export async function getFeed(): Promise<Feed> {
   const sql = db()
   const [run, slots] = await Promise.all([latestRun(sql), listSlots()])

@@ -78,8 +78,9 @@ otherwise is Malin's own palette as flat swatches: the strip beside the
 wordmark on every page, a slot's colours, a piece's colour.
 
 Tabs, by how often each is opened: Today (the outfit of the day and nothing
-else), Finds (`/finds`: ask the shops, last night's finds, Saved, the way
-into Shops), Wardrobe (`/wardrobe`, with Looks and On me under its name; a
+else), Finds (`/finds`: ask the shops, last night's finds, the way into
+Shops), Wishlist (`/wishlist`: what he saved and the links he pasted, with
+what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks and On me under its name; a
 piece is `/wardrobe/[id]`), Blueprint, You. Old `/looks/*` paths redirect
 from `next.config.ts`.
 
