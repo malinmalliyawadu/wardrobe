@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from 'react'
 
+import { CrossIcon, PlusIcon } from '@/components/icons'
+
 /*
  * Repeating rows for the guide editors. Each row's key doubles as the index in
  * its field names (best.3.hex), and keys only ever grow, so a removed row never
@@ -62,7 +64,7 @@ export function MiniField({
 }) {
   return (
     <div className="min-w-0">
-      <label htmlFor={htmlFor} className="mb-1 block text-xs font-medium text-ink-3">
+      <label htmlFor={htmlFor} className="caption mb-1 block">
         {label}
       </label>
       {children}
@@ -75,6 +77,7 @@ export function MiniField({
   )
 }
 
+/** The cross at a row's end: a circular icon button, the one place that shape belongs. */
 export function RemoveRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -83,9 +86,7 @@ export function RemoveRow({ label, onClick }: { label: string; onClick: () => vo
       onClick={onClick}
       className="pressable flex size-11 shrink-0 items-center justify-center rounded-full text-ink-3"
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-        <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
+      <CrossIcon />
     </button>
   )
 }
@@ -93,9 +94,7 @@ export function RemoveRow({ label, onClick }: { label: string; onClick: () => vo
 export function AddRow({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="text-button -ml-2 mt-2">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-        <path d="M12 5v14M5 12h14" />
-      </svg>
+      <PlusIcon />
       {children}
     </button>
   )

@@ -35,13 +35,15 @@ export function BudgetForm({ budget }: { budget: Partial<Budget> }) {
   )
 
   return (
-    <form action={action} className="mt-8">
-      <Field label="A month, all in" name="monthly" error={e.monthly}>
-        <NumberInput name="monthly" defaultValue={v.monthly} unit="NZD" integer error={e.monthly} />
-      </Field>
+    <form action={action} className="mt-8 max-w-2xl">
+      <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
+        <Field label="A month, all in" name="monthly" error={e.monthly}>
+          <NumberInput name="monthly" defaultValue={v.monthly} unit="NZD" integer error={e.monthly} />
+        </Field>
+      </div>
 
-      <h2 className="mt-10 text-sm font-medium text-ink-2">Most you would pay for one</h2>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5">
+      <h2 className="caption mt-10 text-ink-2">Most you would pay for one</h2>
+      <div className="mt-3 grid gap-x-4 gap-y-5 sm:grid-cols-2">
         {categories.map((category) => (
           <Field key={category.name} label={category.label} name={category.name} error={e[category.name]}>
             <NumberInput name={category.name} defaultValue={v[category.name]} unit="NZD" integer error={e[category.name]} />

@@ -4,7 +4,7 @@ import { connection } from 'next/server'
 import { Suspense } from 'react'
 
 import { BackLink } from '@/components/back-link'
-import { FormBones, FormSkeleton, Skeleton, TitleSkeleton } from '@/components/skeleton'
+import { Bone, FormBones, FormSkeleton, Skeleton } from '@/components/skeleton'
 import { RULE_SECTIONS, getGuide, isRuleSection } from '@/lib/style-guide'
 
 import { NoGuide } from '../no-guide'
@@ -24,7 +24,18 @@ export default function SectionPage({ params }: PageProps<'/blueprint/guide/[sec
   return (
     <section>
       <BackLink href="/blueprint/guide" label="Style guide" />
-      <Suspense fallback={<Skeleton label="Loading the section"><TitleSkeleton /><FormBones /></Skeleton>}>
+      <Suspense
+        fallback={
+          <Skeleton label="Loading the section">
+            <div className="mt-3 text-[2rem] sm:text-[2.5rem]">
+              <span className="flex h-[1em] items-center">
+                <Bone className="h-[0.7em] w-2/3 rounded-[2px]" />
+              </span>
+            </div>
+            <FormBones />
+          </Skeleton>
+        }
+      >
         <Header params={params} />
       </Suspense>
     </section>
@@ -37,10 +48,8 @@ async function Header({ params }: Pick<PageProps<'/blueprint/guide/[section]'>, 
   if (!isRuleSection(section)) notFound()
   return (
     <>
-      <h1 className="mt-2 font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">
-        {SECTION_TITLES[section]}
-      </h1>
-      <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">{SECTION_INTROS[section]}</p>
+      <h1 className="headline mt-3 text-[2rem] sm:text-[2.5rem]">{SECTION_TITLES[section]}</h1>
+      <p className="prose mt-3 max-w-[44ch] text-[0.9375rem] leading-normal text-ink-2">{SECTION_INTROS[section]}</p>
       <Suspense fallback={<FormSkeleton />}>
         <Loaded section={section} />
       </Suspense>

@@ -10,7 +10,7 @@ export function SignInForm({ next }: { next: string }) {
   const [state, action] = useActionState(signIn, null)
   const error = state?.errors?.password
   return (
-    <form action={action} className="mt-10 grid gap-4">
+    <form action={action} className="mt-8 grid gap-4">
       <input type="hidden" name="next" value={next} />
       {/* A username field nobody sees, so password managers file the entry under something. */}
       <input type="text" name="username" autoComplete="username" defaultValue="malin" hidden readOnly />

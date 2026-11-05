@@ -1,35 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <defs>
-    <pattern id="weave" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <rect width="3" height="18" fill="rgb(0 0 0 / 0.06)" />
-    </pattern>
-  </defs>
-  <rect width="1024" height="1024" rx="200" fill="#181c23" />
-  <g transform="translate(512 198.37470793189834) scale(1.0171584612088207)">
-    <g transform="rotate(-26 0 649)">
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="#4f4a25" />
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="url(#weave)" />
-      <rect x="-185.5" y="2" width="371" height="546" rx="43" fill="none" stroke="rgb(255 255 255 / 0.22)" stroke-width="4" />
-    </g>
-<g transform="rotate(-13 0 649)">
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="#6b4a2b" />
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="url(#weave)" />
-      <rect x="-185.5" y="2" width="371" height="546" rx="43" fill="none" stroke="rgb(255 255 255 / 0.22)" stroke-width="4" />
-    </g>
-<g transform="rotate(0 0 649)">
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="#8b4a1e" />
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="url(#weave)" />
-      <rect x="-185.5" y="2" width="371" height="546" rx="43" fill="none" stroke="rgb(255 255 255 / 0.22)" stroke-width="4" />
-    </g>
-<g transform="rotate(13 0 649)">
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="#8a6a1f" />
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="url(#weave)" />
-      <rect x="-185.5" y="2" width="371" height="546" rx="43" fill="none" stroke="rgb(255 255 255 / 0.22)" stroke-width="4" />
-    </g>
-<g transform="rotate(26 0 649)">
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="#a8842c" />
-      <rect x="-187.5" y="0" width="375" height="550" rx="45" fill="url(#weave)" />
-      <rect x="-185.5" y="2" width="371" height="546" rx="43" fill="none" stroke="rgb(255 255 255 / 0.22)" stroke-width="4" />
-    </g>
-  </g>
+  <rect width="1024" height="1024" rx="200" fill="#141b18" />
+  <rect x="81.92000000000002" y="333.3248" width="162.432" height="357.3504" rx="12.99456" fill="#4a5a44" />
+  <rect x="256.352" y="333.3248" width="162.432" height="357.3504" rx="12.99456" fill="#5a2a2e" />
+  <rect x="430.784" y="333.3248" width="162.432" height="357.3504" rx="12.99456" fill="#2f4a4e" />
+  <rect x="605.2159999999999" y="333.3248" width="162.432" height="357.3504" rx="12.99456" fill="#2a3d52" />
+  <rect x="779.6479999999999" y="333.3248" width="162.432" height="357.3504" rx="12.99456" fill="#6e3a24" />
 </svg>

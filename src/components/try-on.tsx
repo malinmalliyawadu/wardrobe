@@ -116,7 +116,7 @@ export function TryOn({
       ) : ready ? (
         <button
           type="button"
-          className="pressable ml-2 flex items-center gap-3 rounded-lg py-1.5 text-left"
+          className="pressable ml-2 flex items-center gap-3 py-1.5 text-left"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
         >
@@ -128,10 +128,10 @@ export function TryOn({
             width={ready.width ?? 3}
             height={ready.height ?? 4}
             style={{ aspectRatio: `${ready.width ?? 3} / ${ready.height ?? 4}` }}
-            className="h-auto w-20 shrink-0 rounded-lg bg-surface object-cover"
+            className="h-auto w-16 shrink-0 rounded-[var(--radius-tile)] bg-surface object-cover"
           />
           <span className="min-w-0">
-            <span className="block text-[0.9375rem] font-medium text-brass">See it on me</span>
+            <span className="block text-[0.9375rem] font-medium text-accent">See it on me</span>
             <span className="mt-0.5 block text-[0.8125rem] text-ink-3">Made {madeOn(ready, 'short')}</span>
           </span>
         </button>
@@ -184,13 +184,13 @@ function Viewer({
         // A click on the backdrop lands on the dialog itself.
         if (event.target === event.currentTarget) onClose()
       }}
-      className="viewer m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto overscroll-contain bg-ground p-0 text-ink lg:m-auto lg:h-auto lg:max-h-[92dvh] lg:w-[min(64rem,calc(100vw-4rem))] lg:rounded-2xl"
+      className="viewer m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto overscroll-contain bg-ground p-0 text-ink lg:m-auto lg:h-auto lg:max-h-[92dvh] lg:w-[min(64rem,calc(100vw-4rem))] lg:rounded-[var(--radius-control)]"
     >
       <div className="flex min-h-full flex-col px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:p-8">
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[0.8125rem] text-ink-3">{content.eyebrow}</p>
-            <h2 id={titleId} className="mt-0.5 font-display text-[1.375rem] leading-tight tracking-[-0.005em] lg:text-[1.625rem]">
+            <p className="caption">{content.eyebrow}</p>
+            <h2 id={titleId} className="headline mt-1 text-[1.5rem] lg:text-[1.75rem]">
               {content.title}
             </h2>
           </div>
@@ -214,9 +214,9 @@ function Viewer({
               width={width}
               height={height}
               style={{ aspectRatio: `${width} / ${height}`, '--try-on-ratio': width / height } as CSSProperties}
-              className="mx-auto h-auto w-full rounded-xl bg-surface lg:w-[min(100%,calc((92dvh-12rem)*var(--try-on-ratio)))]"
+              className="mx-auto h-auto w-full rounded-[var(--radius-tile)] bg-surface lg:w-[min(100%,calc((92dvh-12rem)*var(--try-on-ratio)))]"
             />
-            <figcaption className="mt-2 text-[0.8125rem] text-ink-3">On you, made {madeOn(onMe)}</figcaption>
+            <figcaption className="caption mt-2">On you, made {madeOn(onMe)}</figcaption>
           </figure>
 
           <div className="min-w-0">

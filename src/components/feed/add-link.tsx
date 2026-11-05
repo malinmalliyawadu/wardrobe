@@ -65,7 +65,7 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
   const linkError = errors.link
 
   return (
-    <form key={round} action={action} className="mt-5">
+    <form key={round} action={action} className="mt-6">
       <label htmlFor="saved-link" className="mb-1.5 block text-sm font-medium text-ink-2">
         Add a product you want
       </label>
@@ -164,7 +164,7 @@ function ByHand({
 }) {
   const photoError = photoMessage ?? (photo ? undefined : errors.photo_id)
   return (
-    <div className="mt-4 rounded-xl border border-line p-4">
+    <div className="mt-4 border-l-2 border-line pl-4">
       <p className="max-w-[44ch] text-[0.9375rem] leading-relaxed text-ink-2">
         {store.name}’s site cannot be read automatically, so add this one by hand. Its price is what you enter here,
         and it is not checked each night.
@@ -172,7 +172,7 @@ function ByHand({
 
       <div className="mt-4 flex items-start gap-4">
         <label
-          className={`photo pressable relative flex aspect-[4/5] w-24 shrink-0 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-lg text-center text-[0.8125rem] text-ink-2 ${photo && !photoPending ? '' : 'border border-dashed border-line'} ${photoPending ? 'cursor-progress' : ''}`}
+          className={`photo pressable relative flex aspect-[4/5] w-24 shrink-0 cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-[var(--radius-tile)] text-center text-[0.8125rem] text-ink-2 ${photo && !photoPending ? '' : 'border border-dashed border-line'} ${photoPending ? 'cursor-progress' : ''}`}
         >
           {/* No name: the photo goes up on its own, and the form carries its id. */}
           <input

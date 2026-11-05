@@ -13,7 +13,7 @@ export function TasteForm({ taste }: { taste: Partial<Taste> }) {
   const v = withEcho({ references: taste.references, no_gos: taste.no_gos, owned: taste.owned }, state?.values)
 
   return (
-    <form action={action} className="mt-8 space-y-6">
+    <form action={action} className="mt-8 max-w-2xl space-y-6">
       <Field
         label="What you keep coming back to"
         name="references"

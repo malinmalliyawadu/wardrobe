@@ -1,58 +1,68 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens. The interface is "flannel and chalk": a charcoal-navy ground
- * in the dark, cool pattern paper in the light, chalk-coloured type, and one
- * accent, brass, used only for the active thing. Colour otherwise belongs to
- * Malin's own palette once a profile exists.
+ * Design tokens. See docs/design.md.
+ *
+ * The interface is a lookbook: uncoated stock by day, pine black by night,
+ * and every photo on a white sweep in both, because the garment's colour is
+ * what he is judging. Ink is the type and the one solid button. Bottle green
+ * is the only accent and marks the active thing, a link, a saved mark.
+ * Colour otherwise is Malin's own palette, shown as flat swatches.
  */
 :root {
   color-scheme: light dark;
 
-  --ground: #e8e6e1;
-  --surface: #f2f0eb;
-  --raised: #fbfaf7;
-  --line: #cfcbc2;
-  --ink: #1c1f26;
-  --ink-2: #555963;
-  --ink-3: #6b6f78;
-  --brass: #8a6e2f;
-  --brass-soft: rgb(138 110 47 / 0.14);
-  --on-brass: #fbfaf7;
-  --alert: #b4443c;
-  /* The edge of a fabric swatch, so a dark colour still reads on the ground. */
-  --swatch-edge: rgb(0 0 0 / 0.14);
-  /*
-   * The card a product photo sits on. Close to a shop's own photo sweep in
-   * both schemes, and the photo multiplies onto it, so a white background
-   * becomes this card instead of a glaring rectangle. It stays light in the
-   * dark on purpose: a darker card would shift the garment's colour, and the
-   * colour is what he is judging.
-   */
-  --photo: #f1f0ec;
+  /* The page's side margin; .bleed and .scroller run out through it. */
+  --gutter: 1.25rem;
+
+  --ground: #f1f0ec;
+  --surface: #e7e6e1;
+  --raised: #ffffff;
+  --line: #d4d3cd;
+  --ink: #15181a;
+  --ink-2: #4b5054;
+  --ink-3: #737980;
+  --accent: #1f5b45;
+  --accent-soft: rgb(31 91 69 / 0.12);
+  --on-accent: #f3f6f3;
+  --on-ink: #f1f0ec;
+  --alert: #b0362b;
+  /* The sweep a product or piece photo sits on; the photo multiplies onto it. */
+  --photo: #ffffff;
+  /* The edge of a swatch, so a pale colour still reads on the ground. */
+  --swatch-edge: rgb(0 0 0 / 0.12);
+  --scrim: rgb(21 24 26 / 0.55);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 3rem;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ground: #181c23;
-    --surface: #1f242d;
-    --raised: #272d37;
-    --line: #353c48;
-    --ink: #ece7dd;
-    --ink-2: #b3afa6;
-    --ink-3: #868891;
-    --brass: #c8a96a;
-    --brass-soft: rgb(200 169 106 / 0.16);
-    --on-brass: #1a1612;
-    --alert: #e07a72;
-    --swatch-edge: rgb(255 255 255 / 0.16);
+    --ground: #141b18;
+    --surface: #1b2420;
+    --raised: #212c27;
+    --line: #2d3832;
+    --ink: #ecebe5;
+    --ink-2: #b0b6b0;
+    --ink-3: #828a83;
+    --accent: #8fcaa9;
+    --accent-soft: rgb(143 202 169 / 0.14);
+    --on-accent: #0f1a15;
+    --on-ink: #141b18;
+    --alert: #e8847a;
+    /* Stays light: a dark sweep would shift the garment's colour. */
     --photo: #ebe9e4;
+    --swatch-edge: rgb(255 255 255 / 0.14);
+    --scrim: rgb(0 0 0 / 0.6);
   }
 }
 
 @theme inline {
-  --font-display: var(--font-newsreader), Georgia, 'Times New Roman', serif;
-  --font-sans: var(--font-hanken), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-instrument), system-ui, -apple-system, sans-serif;
 
   --color-ground: var(--ground);
   --color-surface: var(--surface);
@@ -61,10 +71,12 @@
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
-  --color-brass: var(--brass);
-  --color-brass-soft: var(--brass-soft);
-  --color-on-brass: var(--on-brass);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-on-ink: var(--on-ink);
   --color-alert: var(--alert);
+  --color-photo: var(--photo);
 }
 
 @theme {
@@ -72,6 +84,9 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --radius-tile: 0.25rem;
+  --radius-control: 0.375rem;
 }
 
 @layer base {
@@ -88,6 +103,7 @@
     font-family: var(--font-sans);
     font-size: 1rem;
     line-height: 1.5;
+    font-feature-settings: 'kern', 'liga', 'calt';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -99,17 +115,60 @@
     font-size: 1rem;
   }
 
-  .font-display {
-    font-optical-sizing: auto;
-    font-feature-settings: 'kern', 'liga';
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
   }
 
-  :focus-visible {
-    outline: 2px solid var(--brass);
-    outline-offset: 3px;
+  ::selection {
+    background: var(--accent-soft);
   }
 }
 
+/*
+ * Type. One family in two widths: condensed and heavy for the few words that
+ * carry a screen (the cover line under the picture, a page's name), normal
+ * for everything read. Tracking tightens as size grows.
+ */
+@layer components {
+  .display {
+    font-stretch: 75%;
+    font-weight: 650;
+    letter-spacing: -0.022em;
+    line-height: 0.94;
+    text-wrap: balance;
+  }
+
+  .headline {
+    font-stretch: 82%;
+    font-weight: 620;
+    letter-spacing: -0.015em;
+    line-height: 1;
+    text-wrap: balance;
+  }
+
+  .title {
+    font-stretch: 90%;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    line-height: 1.1;
+    text-wrap: pretty;
+  }
+
+  /* A small line that names what follows, in sentence case, never tracked caps. */
+  .caption {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25rem;
+    color: var(--ink-3);
+  }
+
+  .prose {
+    text-wrap: pretty;
+  }
+}
+
+/* Controls */
 @layer components {
   /*
    * Anything pressable: instant feedback that the interface heard the touch,
@@ -128,226 +187,107 @@
     transform: scale(0.97);
   }
 
-  .btn-primary {
-    background: var(--brass);
-    color: var(--on-brass);
+  .btn {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-control);
+    padding: 0 1.25rem;
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: nowrap;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: pointer;
     transition:
       transform 160ms var(--ease-out),
-      filter 150ms ease;
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .btn:disabled:active {
+    transform: none;
+  }
+
+  /* The one solid button on a screen: ink, like a label sewn in. */
+  .btn-primary {
+    background: var(--ink);
+    color: var(--on-ink);
+  }
+
+  .btn-quiet {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .btn-small {
+    min-height: 2.5rem;
+    padding: 0 0.875rem;
+    font-size: 0.9375rem;
   }
 
   @media (hover: hover) and (pointer: fine) {
     .btn-primary:hover {
-      filter: brightness(1.06);
+      background: color-mix(in srgb, var(--ink) 86%, var(--ground));
+    }
+
+    .btn-quiet:hover {
+      border-color: var(--ink-3);
     }
   }
 
-  /*
-   * The swatch fan. Five undyed swatches on the empty Today screen, fanned out
-   * once on load like a tailor's swatch book opening. It is the one orchestrated
-   * moment; the screen is seen only until a profile exists, so the delight
-   * budget is spent here and nowhere else.
-   */
-  .swatch {
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 3.75rem;
-    height: 5.5rem;
-    margin-left: -1.875rem;
-    border-radius: 0.45rem;
-    border: 1px solid var(--swatch-edge);
-    background-color: var(--swatch);
-    /* A faint diagonal weave, so they read as cloth rather than paint chips. */
-    background-image: repeating-linear-gradient(
-      45deg,
-      rgb(0 0 0 / 0.045) 0 1px,
-      transparent 1px 4px
-    );
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
-    transform-origin: 50% 118%;
-    transform: rotate(var(--r));
-    animation: swatch-fan 560ms var(--ease-out) both;
-    animation-delay: var(--d);
-  }
-
-  .swatch::before {
-    content: '';
-    position: absolute;
-    top: 0.5rem;
-    left: 50%;
-    width: 0.5rem;
-    height: 0.5rem;
-    margin-left: -0.25rem;
-    border-radius: 50%;
-    background: var(--ground);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.2);
-  }
-
-  /*
-   * A colour's name, shown while the pointer rests on its swatch: a small tag
-   * above it. Hover only, so a phone never sees it; wherever names matter on
-   * a phone they are written out or in the label.
-   */
-  .swatch-tip {
-    position: absolute;
-    z-index: 10;
-    bottom: calc(100% + 0.5rem);
-    left: 50%;
-    padding: 0.1875rem 0.625rem;
-    border: 1px solid var(--line);
-    border-radius: 9999px;
-    background: var(--raised);
-    color: var(--ink);
-    font-size: 0.8125rem;
+  /* A link that acts: green, no border, sits in a row of actions. */
+  .text-button {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-control);
+    padding: 0 0.5rem;
+    font-size: 0.9375rem;
     font-weight: 500;
-    line-height: 1.25rem;
     white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transform: translate(-50%, 0.25rem);
-    transition:
-      opacity 150ms var(--ease-out),
-      transform 150ms var(--ease-out);
+    color: var(--accent);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
+    transition: transform 160ms var(--ease-out);
   }
 
-  .swatch-tip::first-letter {
-    text-transform: uppercase;
+  .text-button:active {
+    transform: scale(0.97);
   }
 
-  /*
-   * On the fan the tag hangs from the pivot every swatch turns about, turned
-   * back by the swatch's own angle, so each name lands upright in the same
-   * spot under the fan whichever swatch is pointed at.
-   */
-  .swatch > .swatch-tip {
-    top: 118%;
-    bottom: auto;
-    left: 50%;
-    transform-origin: 0 0;
-    transform: rotate(calc(-1 * var(--r))) translate(-50%, -0.25rem);
+  .text-button:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .swatch {
-      transition: translate 160ms var(--ease-out);
-    }
-
-    .swatch:hover {
-      translate: 0 -0.375rem;
-    }
-
-    :hover > .swatch-tip {
-      opacity: 1;
-      transform: translate(-50%, 0);
-    }
-
-    .swatch:hover > .swatch-tip {
-      transform: rotate(calc(-1 * var(--r))) translate(-50%, 0);
-    }
-  }
-
-  @keyframes swatch-fan {
-    from {
-      opacity: 0;
-      transform: rotate(0deg) translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: rotate(var(--r)) translateY(0);
-    }
-  }
-
-  /* The headline and button follow the swatches in the same sequence. */
-  .reveal {
-    animation: reveal 480ms var(--ease-out) both;
-    animation-delay: var(--d, 0ms);
-  }
-
-  @keyframes reveal {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  /*
-   * Loading placeholders (src/components/skeleton.tsx). Held back 300 ms so a
-   * quick load never flashes them, then a short fade, opacity only.
-   */
-  .bone {
-    background: var(--surface);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 45%, transparent);
-  }
-
-  .skeleton {
-    animation: fade 200ms var(--ease-out) 300ms both;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .skeleton {
-      /* Still held back, so nothing flashes; appears without the fade. */
-      animation: fade 1ms linear 300ms both;
-    }
-
-    .pressable,
-    .btn-primary {
-      transition: none;
-    }
-
-    .pressable:active {
-      transform: none;
-    }
-
-    .swatch {
-      animation: fade 300ms ease both;
-      animation-delay: var(--d);
-      transition: none;
-    }
-
-    .swatch:hover {
-      translate: none;
-    }
-
-    .swatch-tip {
-      transition: opacity 150ms ease;
-    }
-
-    :hover > .swatch-tip {
-      transform: translate(-50%, 0.25rem);
-    }
-
-    .swatch:hover > .swatch-tip {
-      transform: rotate(calc(-1 * var(--r))) translate(-50%, -0.25rem);
-    }
-
-    .reveal {
-      animation: fade 300ms ease both;
-    }
-  }
-}
-
-@layer components {
-  /* Form fields. Surface-coloured so they sit in the page rather than on it. */
+  /* Form fields: white sweep by day, a shade up from the ground by night. */
   .field {
     width: 100%;
     min-height: 3rem;
-    border-radius: 0.75rem;
+    border-radius: var(--radius-control);
     border: 1px solid var(--line);
-    background: var(--surface);
+    background: var(--raised);
     padding: 0 0.875rem;
     color: var(--ink);
     font-size: 1rem;
@@ -363,8 +303,8 @@
 
   .field:focus {
     outline: none;
-    border-color: var(--brass);
-    box-shadow: 0 0 0 3px var(--brass-soft);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .field[aria-invalid='true'] {
@@ -379,19 +319,216 @@
   select.field {
     appearance: none;
     padding-right: 2.5rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23868891' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737980' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.875rem center;
   }
 
-  .spinner {
-    animation: spin 700ms linear infinite;
+  input[type='search'].field {
+    appearance: none;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
+  input[type='search'].field::-webkit-search-decoration,
+  input[type='search'].field::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
+  /*
+   * Segmented choice: radios or buttons in a row. The chosen one fills with
+   * ink. Pressed tens of times, so the change is a colour fade and nothing moves.
+   */
+  .segment {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    padding: 0 0.875rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink-2);
+    transition:
+      transform 160ms var(--ease-out),
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .segment[aria-pressed='true'],
+  .segment:has(input:checked) {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--on-ink);
+  }
+
+  .segment:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* One of a short list of reasons: one tap and it is sent. */
+  .chip {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--line);
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .chip:hover {
+      border-color: var(--ink-3);
     }
+  }
+
+  /*
+   * The page's sections as tabs under its name (Pieces, Looks, On me). The
+   * open one is ink with a rule under it; the others are quiet. A plain
+   * navigation, so nothing slides.
+   */
+  .subnav {
+    display: flex;
+    gap: 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .subnav-item {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--ink-3);
+    transition: color 150ms ease;
+  }
+
+  .subnav-item[aria-current='page'] {
+    border-bottom-color: var(--ink);
+    color: var(--ink);
+  }
+
+  /* A palette colour as a toggle in a form. Chosen means an ink ring. */
+  .swatch-toggle {
+    position: relative;
+    display: block;
+    border-radius: var(--radius-tile);
+    transition: transform 160ms var(--ease-out);
+  }
+
+  .swatch-toggle::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: calc(var(--radius-tile) + 3px);
+    border: 2px solid var(--ink);
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .swatch-toggle:has(input:checked)::after {
+    opacity: 1;
+  }
+
+  .swatch-toggle:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 6px;
+  }
+
+  .swatch-toggle:active {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pressable,
+    .btn,
+    .text-button,
+    .segment,
+    .swatch-toggle {
+      transition: none;
+    }
+
+    .pressable:active,
+    .btn:active,
+    .text-button:active,
+    .swatch-toggle:active {
+      transform: none;
+    }
+  }
+}
+
+/* Pictures and colour */
+@layer components {
+  /*
+   * A flat swatch of one colour, any size: a Pantone chip, not a paint
+   * splash. The colour comes in as --swatch so no element needs an inline
+   * background.
+   */
+  .swatch {
+    background-color: var(--swatch);
+    box-shadow: inset 0 0 0 1px var(--swatch-edge);
+  }
+
+  /* A colour to avoid: the swatch with one hairline struck through it. */
+  .swatch-struck {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .swatch-struck::after {
+    content: '';
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    top: 50%;
+    height: 1.5px;
+    background: var(--ink);
+    transform: rotate(-35deg);
+  }
+
+  /* A product photo on its sweep. See --photo. */
+  .photo {
+    background: var(--photo);
+  }
+
+  .photo img {
+    mix-blend-mode: multiply;
+  }
+
+  /* An image or row that runs to the screen's edge on the phone. */
+  .bleed {
+    margin-inline: calc(-1 * var(--gutter));
+  }
+
+  /*
+   * A row of cards: native horizontal scroll with snap, so the browser's own
+   * physics carry the swipe. It bleeds to the screen edge, keeps its own
+   * overscroll, and hides its scrollbar: the next card peeking in is the cue.
+   */
+  .scroller {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-inline: var(--gutter);
+    scroll-padding-inline: var(--gutter);
+  }
+
+  .scroller::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scroller > * {
+    scroll-snap-align: start;
+    flex-shrink: 0;
   }
 
   /* A photo tile arriving after an upload. Transition, not keyframes, so a
@@ -409,9 +546,76 @@
     }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .tile-enter {
+      transition: opacity 200ms ease;
+    }
+  }
+}
+
+/* States and waiting */
+@layer components {
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   /*
-   * Hold to confirm. The brass fill is a progress indicator, so the press is
-   * linear and slow; the release snaps back fast.
+   * Loading placeholders (src/components/skeleton.tsx). Held back 300 ms so a
+   * quick load never flashes them, then a short fade, opacity only. Static:
+   * no shimmer.
+   */
+  .bone {
+    background: var(--surface);
+  }
+
+  .skeleton {
+    animation: fade 200ms var(--ease-out) 300ms both;
+  }
+
+  .spinner {
+    animation: spin 700ms linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Content that swaps in place (a new option, the actions giving way to their reasons): a short crossfade, nothing moves. */
+  .tray {
+    opacity: 1;
+    transition: opacity 150ms ease;
+
+    @starting-style {
+      opacity: 0;
+    }
+  }
+
+  /*
+   * A find he acted on leaves at once, before the server's answer: a quick
+   * fade and a slight settle, then the next render drops it.
+   */
+  .find {
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+  }
+
+  .find[data-gone='true'] {
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+  }
+
+  /*
+   * Hold to confirm. The fill is a progress indicator, so the press is linear
+   * and slow; the release snaps back fast.
    */
   .hold {
     position: relative;
@@ -433,218 +637,21 @@
     transition: clip-path var(--hold-ms, 1200ms) linear;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tile-enter {
-      transition: opacity 200ms ease;
-    }
-  }
-}
-
-@layer components {
   /*
-   * A static fabric swatch: the same cloth as the Today fan, at any size. The
-   * colour comes in as --swatch so the element never needs an inline
-   * background. The weave is a texture in transparent black, not a colour
-   * gradient.
+   * A search's progress: a hairline filled to --share (0 to 1) by transform
+   * alone, so each step it takes is a short slide on the compositor.
    */
-  .cloth {
-    background-color: var(--swatch);
-    background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 4px);
-    border: 1px solid var(--swatch-edge);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22);
-  }
-
-  /* A colour to avoid: the swatch with one hairline struck through it. */
-  .cloth-struck {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .cloth-struck::after {
-    content: '';
-    position: absolute;
-    left: -10%;
-    right: -10%;
-    top: 50%;
-    height: 1.5px;
-    background: var(--ink);
-    transform: rotate(-35deg);
-  }
-
-  /*
-   * Segmented choice: radios or buttons in a row, the chosen one in brass. The
-   * change is a 150ms colour fade; it is pressed tens of times, so nothing moves.
-   */
-  .segment {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9999px;
-    border: 1px solid var(--line);
-    padding: 0 1rem;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    color: var(--ink-2);
-    transition:
-      transform 160ms var(--ease-out),
-      background-color 150ms ease,
-      border-color 150ms ease,
-      color 150ms ease;
-  }
-
-  .segment[aria-pressed='true'],
-  .segment:has(input:checked) {
-    border-color: var(--brass);
-    background: var(--brass-soft);
-    color: var(--brass);
-  }
-
-  .segment:has(input:focus-visible) {
-    outline: 2px solid var(--brass);
-    outline-offset: 3px;
-  }
-
-  /* A palette colour as a toggle in the slot form. Chosen means a brass ring. */
-  .swatch-toggle {
-    position: relative;
-    display: block;
-    border-radius: 0.5rem;
-    transition: transform 160ms var(--ease-out);
-  }
-
-  .swatch-toggle::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 0.75rem;
-    border: 2px solid var(--brass);
-    opacity: 0;
-    transition: opacity 150ms ease;
-  }
-
-  .swatch-toggle:has(input:checked)::after {
-    opacity: 1;
-  }
-
-  .swatch-toggle:has(input:focus-visible) {
-    outline: 2px solid var(--brass);
-    outline-offset: 6px;
-  }
-
-  .swatch-toggle:active {
-    transform: scale(0.97);
-  }
-
-  .text-button {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.375rem;
-    border-radius: 0.5rem;
-    padding: 0 0.5rem;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    white-space: nowrap;
-    color: var(--brass);
-    touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
-    transition: transform 160ms var(--ease-out);
-  }
-
-  .text-button:active {
-    transform: scale(0.97);
+  .progress-line {
+    transform: scaleX(var(--share, 0));
+    transition: transform 250ms var(--ease-out);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .segment,
-    .swatch-toggle,
-    .text-button {
-      transition: none;
+    .skeleton {
+      /* Still held back, so nothing flashes; appears without the fade. */
+      animation: fade 1ms linear 300ms both;
     }
 
-    .segment:active,
-    .swatch-toggle:active,
-    .text-button:active {
-      transform: none;
-    }
-  }
-}
-
-@layer components {
-  /* A product photo on its card. See --photo. */
-  .photo {
-    background: var(--photo);
-  }
-
-  .photo img {
-    mix-blend-mode: multiply;
-  }
-
-  /*
-   * A row of finds: native horizontal scroll with snap, so the browser's own
-   * physics carry the swipe. It bleeds to the screen edge and keeps its own
-   * overscroll, and the scrollbar is hidden because the next card peeking in
-   * is the affordance.
-   */
-  .scroller {
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .scroller::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* A dismiss reason: one tap and the card goes. */
-  .chip {
-    display: inline-flex;
-    min-height: 2.5rem;
-    align-items: center;
-    border-radius: 9999px;
-    border: 1px solid var(--line);
-    padding: 0 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--ink);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .chip:hover {
-      border-color: var(--ink-3);
-    }
-  }
-
-  /*
-   * A find he acted on leaves at once, before the server's answer: a quick
-   * fade and a slight settle, then the next render drops it. Exit is faster
-   * than anything entering would be, and nothing enters.
-   */
-  .find {
-    transition:
-      opacity 180ms var(--ease-out),
-      transform 180ms var(--ease-out);
-  }
-
-  .find[data-gone='true'] {
-    opacity: 0;
-    transform: scale(0.97);
-    pointer-events: none;
-  }
-
-  /* The action row swapping for its reasons or its confirm: a short crossfade, no movement. */
-  .tray {
-    opacity: 1;
-    transition: opacity 150ms ease;
-
-    @starting-style {
-      opacity: 0;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
     .find {
       transition: opacity 150ms ease;
     }
@@ -652,10 +659,56 @@
     .find[data-gone='true'] {
       transform: none;
     }
+
+    .progress-line {
+      transition: none;
+    }
   }
 }
 
+/* The shell */
 @layer components {
+  /*
+   * The tab bar on the phone: a translucent material the page scrolls under,
+   * padded for the home indicator. On the laptop it is a rail down the left.
+   */
+  .tabbar {
+    background: color-mix(in srgb, var(--ground) 86%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .tabbar {
+      background: var(--ground);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  .tab {
+    color: var(--ink-3);
+    transition: color 150ms ease;
+  }
+
+  .tab[aria-current='page'] {
+    color: var(--ink);
+  }
+
+  /* The dot under the open tab's name on the phone. */
+  .tab-mark {
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .tab[aria-current='page'] .tab-mark {
+    opacity: 1;
+  }
+
   /*
    * The try-on viewer, a native modal dialog: full screen on the phone, a
    * sheet on the laptop. It answers a tap, so it fades and settles in under
@@ -683,7 +736,7 @@
   }
 
   .viewer::backdrop {
-    background: rgb(10 12 16 / 0.6);
+    background: var(--scrim);
     opacity: 1;
     transition:
       opacity 220ms var(--ease-out),
@@ -695,14 +748,14 @@
     }
   }
 
-  /* The page under an open viewer stays put. */
-  html:has(.viewer[open]) {
-    overflow: hidden;
-  }
-
   .viewer:not([open])::backdrop {
     opacity: 0;
     transition-duration: 150ms;
+  }
+
+  /* The page under an open viewer stays put. */
+  html:has(.viewer[open]) {
+    overflow: hidden;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -720,35 +773,5 @@
         transform: none;
       }
     }
-  }
-}
-
-@layer components {
-  /*
-   * A search's progress: a brass hairline filled to --share (0 to 1) by
-   * transform alone, so each step it takes is a short slide on the compositor.
-   * With reduced motion it jumps.
-   */
-  .progress-line {
-    transform: scaleX(var(--share, 0));
-    transition: transform 250ms var(--ease-out);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .progress-line {
-      transition: none;
-    }
-  }
-}
-
-/* A search field looks like every other field: no native clear button or rounded inset. */
-@layer components {
-  input[type='search'].field {
-    appearance: none;
-  }
-
-  input[type='search'].field::-webkit-search-decoration,
-  input[type='search'].field::-webkit-search-cancel-button {
-    appearance: none;
   }
 }

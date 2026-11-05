@@ -4,25 +4,19 @@ import localFont from 'next/font/local'
 import './globals.css'
 
 /*
- * Fonts are committed under src/fonts and loaded locally so `next build`
+ * One typeface, committed under src/fonts and loaded locally so `next build`
  * never reaches out to Google; the Docker build runs with the network off and
- * would otherwise fail on the deploy server. Both are variable fonts.
+ * would otherwise fail on the deploy server. Instrument Sans is variable in
+ * weight and width; the width axis is declared so `font-stretch` works, and
+ * docs/design.md says which widths are for what.
  */
-const display = localFont({
+const instrument = localFont({
   src: [
-    { path: '../fonts/newsreader-latin.woff2', weight: '200 800', style: 'normal' },
-    { path: '../fonts/newsreader-latin-italic.woff2', weight: '200 800', style: 'italic' },
+    { path: '../fonts/instrument-sans-latin.woff2', weight: '400 700', style: 'normal' },
+    { path: '../fonts/instrument-sans-latin-italic.woff2', weight: '400 700', style: 'italic' },
   ],
-  variable: '--font-newsreader',
-  display: 'swap',
-})
-
-const sans = localFont({
-  src: [
-    { path: '../fonts/hanken-grotesk-latin.woff2', weight: '100 900', style: 'normal' },
-    { path: '../fonts/hanken-grotesk-latin-italic.woff2', weight: '100 900', style: 'italic' },
-  ],
-  variable: '--font-hanken',
+  declarations: [{ prop: 'font-stretch', value: '75% 100%' }],
+  variable: '--font-instrument',
   display: 'swap',
 })
 
@@ -45,14 +39,14 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#e8e6e1' },
-    { media: '(prefers-color-scheme: dark)', color: '#181c23' },
+    { media: '(prefers-color-scheme: light)', color: '#f1f0ec' },
+    { media: '(prefers-color-scheme: dark)', color: '#141b18' },
   ],
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en-NZ" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en-NZ" className={instrument.variable}>
       <body className="min-h-dvh bg-ground font-sans text-ink">{children}</body>
     </html>
   )

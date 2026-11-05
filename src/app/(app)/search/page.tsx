@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { connection } from 'next/server'
 import { Suspense } from 'react'
 
+import { HubRow } from '@/components/hub-row'
+import { PageTitle, SectionHead } from '@/components/section'
 import { Bone, Skeleton, TextBone } from '@/components/skeleton'
 import { whenSaid } from '@/lib/format'
 import { getFinderSettings, getSpend, usdText } from '@/lib/finder/settings'
@@ -16,10 +18,10 @@ export const metadata: Metadata = { title: 'Search' }
 export default function SearchPage() {
   return (
     <section>
-      <h1 className="font-display text-[2.25rem] leading-[1.05] tracking-[-0.01em] sm:text-[2.75rem]">Search</h1>
-      <p className="mt-4 max-w-[40ch] text-[1.0625rem] leading-relaxed text-ink-2">
-        Something you want now, not only what the blueprint asks for. Say it the way you would to a shop assistant.
-      </p>
+      <PageTitle
+        title="Ask the shops"
+        line="Say what you are after the way you would to a shop assistant, and Claude looks through what the shops had last night."
+      />
       <Suspense fallback={<SearchSkeleton />}>
         <Content />
       </Suspense>
@@ -38,9 +40,9 @@ async function Content() {
 
   if (!guide) {
     return (
-      <p className="mt-10 border-t border-line pt-6 text-ink-2">
+      <p className="mt-8 max-w-[44ch] text-ink-2">
         Search judges what it finds against your style guide.{' '}
-        <Link href="/blueprint" className="text-brass underline decoration-brass/40 underline-offset-4">
+        <Link href="/blueprint" className="text-accent underline decoration-accent/40 underline-offset-4">
           Draft it
         </Link>{' '}
         first.
@@ -51,8 +53,8 @@ async function Content() {
   const budget = searchBudget(settings.max_usd_per_search, settings.max_usd_per_month, spend.thisMonth)
   const hint =
     budget > 0
-      ? `Looks through what the shops had at the last nightly read, in your size, and judges the closest for up to ${usdText(budget)}. About a minute.`
-      : 'Searching is off: its limit is spent or set to nothing on You, Finder.'
+      ? `In your size, the closest judged first, for up to ${usdText(budget)}. About a minute.`
+      : 'Searching is off: its limit is spent or set to nothing under You, Finder.'
   return (
     <>
       <SearchForm hint={hint} />
@@ -61,39 +63,33 @@ async function Content() {
   )
 }
 
+/**
+ * One list on the phone, two columns of rows on the laptop: the list is cut
+ * in half so each column keeps its own hairlines, and on the phone the halves
+ * stack in order with one hairline at the join.
+ */
 function Recent({ searches }: { searches: SearchSummary[] }) {
   const now = new Date()
+  const middle = Math.ceil(searches.length / 2)
+  const halves = [searches.slice(0, middle), searches.slice(middle)].filter((half) => half.length > 0)
   return (
-    <section aria-labelledby="recent" className="mt-16 border-t border-line pt-8">
-      <h2 id="recent" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
-        Recent
-      </h2>
-      <ul className="mt-3 divide-y divide-line">
-        {searches.map((search) => (
-          <li key={search.id}>
-            <Link href={`/search/${search.id}`} className="pressable -mx-2 flex min-h-16 items-center gap-4 rounded-lg px-2 py-3">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{search.summary ?? search.request}</span>
-                <span className="block text-sm text-ink-3">{line(search, now)}</span>
-              </span>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-                className="shrink-0 text-ink-3"
-              >
-                <path d="m9 5 7 7-7 7" />
-              </svg>
-            </Link>
-          </li>
+    <section aria-labelledby="recent" className="mt-12">
+      <SectionHead id="recent" title="Recent" aside={searches.length.toLocaleString('en-NZ')} />
+      <div className="mt-1 lg:grid lg:grid-cols-2 lg:gap-x-16">
+        {halves.map((half, index) => (
+          <ul key={index} className={`divide-y divide-line ${index > 0 ? 'border-t border-line lg:border-t-0' : ''}`}>
+            {half.map((search) => (
+              <HubRow
+                key={search.id}
+                href={`/search/${search.id}`}
+                title={search.summary ?? search.request}
+                summary={line(search, now)}
+                filled
+              />
+            ))}
+          </ul>
         ))}
-      </ul>
+      </div>
     </section>
   )
 }
@@ -107,16 +103,17 @@ function line(search: SearchSummary, now: Date): string {
   return `${said}, ${finds}, ${usdText(Math.round(search.usd * 100) / 100)}`
 }
 
+/** The form: its label, the field and the button, and the hint under them. */
 function SearchSkeleton() {
   return (
     <Skeleton label="Loading search">
-      <div className="mt-8">
+      <div className="mt-8 max-w-2xl">
         <div className="mb-1.5 text-sm">
           <TextBone className="w-32" />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Bone className="h-12 rounded-xl sm:flex-1" />
-          <Bone className="h-12 w-28 rounded-full" />
+          <Bone className="h-12 rounded-[var(--radius-control)] sm:flex-1" />
+          <Bone className="h-12 w-28 rounded-[var(--radius-control)]" />
         </div>
         <div className="mt-2 text-sm">
           <TextBone className="w-72 max-w-full" />

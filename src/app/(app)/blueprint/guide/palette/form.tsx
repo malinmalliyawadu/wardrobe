@@ -34,14 +34,14 @@ export function PaletteForm({ palette }: { palette: Palette }) {
   const remount = state?.values ? JSON.stringify(state.values) : 'saved'
 
   return (
-    <form action={action} className="mt-8 space-y-10" key={remount}>
+    <form action={action} className="mt-8 max-w-2xl space-y-10" key={remount}>
       <Field label="How your palette works" name="summary" error={errors.summary}>
         <TextArea name="summary" defaultValue={v.summary} rows={7} error={errors.summary} />
       </Field>
 
       <ColourList
         title="Best colours"
-        hint="The first five are the swatches on your home screen."
+        hint="The first five are the swatches beside the wordmark."
         prefix="best"
         noteField="use"
         noteLabel="Where it works"
@@ -109,7 +109,7 @@ function ColourList({
     <fieldset>
       <legend className="text-sm font-medium text-ink-2">{title}</legend>
       {hint ? <p className="mt-1 text-sm text-ink-3">{hint}</p> : null}
-      <ul className="mt-3 divide-y divide-line border-y border-line">
+      <ul className="mt-1 divide-y divide-line">
         {rows.map((row, index) => (
           <li key={row.key} className="py-4">
             <ColourEditor
@@ -164,7 +164,7 @@ function ColourEditor({
     <div className="flex gap-3">
       <div className="flex w-14 shrink-0 flex-col items-center gap-2">
         <label
-          className="cloth pressable relative mt-5 block h-[4.5rem] w-14 cursor-pointer overflow-hidden rounded-[0.45rem]"
+          className="swatch pressable relative mt-6 block h-[4.5rem] w-14 cursor-pointer overflow-hidden rounded-[var(--radius-tile)]"
           style={{ '--swatch': valid ?? 'transparent' } as CSSProperties}
         >
           <span className="sr-only">Pick colour {position}</span>

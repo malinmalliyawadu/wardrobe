@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { connection } from 'next/server'
 
+import { ButtonLink } from '@/components/button-link'
 import { SlotSwatches } from '@/components/cloth'
+import { SectionHead } from '@/components/section'
 import { db } from '@/lib/db'
 import { CARDS_PER_SLOT, getFeed, type FeedGroup, type Run } from '@/lib/feed'
 import { sizeGroup } from '@/lib/finder/classify'
@@ -16,9 +18,8 @@ import { FindCard, SavedRow } from './find-card'
 import { changeLine, newsSummary } from './saved-change'
 
 /**
- * Last night's finds on Today, under the hero. Streams in after the shell;
- * nothing here animates on arrival (the swatch fan is the page's one
- * entrance), only in answer to a tap.
+ * Last night's finds, then what he saved. Streams in after the shell;
+ * nothing here animates on arrival, only in answer to a tap.
  */
 export async function Feed() {
   await connection()
@@ -27,17 +28,28 @@ export async function Feed() {
   const now = new Date()
   const news = newsSummary(feed.saved, feed.run?.started_at ?? null, now)
 
-  // Until there is a blueprint there is nothing to look for; the hero says what comes first.
-  if (Object.keys(feed.slotNames).length === 0) return null
+  // Until there is a blueprint there is nothing to look for.
+  if (Object.keys(feed.slotNames).length === 0) {
+    return (
+      <div className="mt-10">
+        <h1 className="display text-[2.5rem] sm:text-[3.25rem]">Nothing to look for yet.</h1>
+        <p className="prose mt-4 max-w-[40ch] text-[1.0625rem] leading-normal text-ink-2">
+          The finder reads the shops every night for the slots in your blueprint. Draft it, and its first finds are
+          here in the morning.
+        </p>
+        <ButtonLink href="/blueprint" className="mt-8">
+          Open the blueprint
+        </ButtonLink>
+      </div>
+    )
+  }
 
   const saved = (
-    <section aria-labelledby="saved" className="mt-16 border-t border-line pt-8">
-      <h2 id="saved" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
-        Saved
-      </h2>
-      {news ? <p className="mt-2 text-[0.9375rem] font-medium text-brass">{news}</p> : null}
+    <section aria-labelledby="saved" className="mt-16">
+      <SectionHead id="saved" title="Saved" aside={feed.saved.length > 0 ? `${feed.saved.length} ${feed.saved.length === 1 ? 'find' : 'finds'}` : undefined} />
+      {news ? <p className="mt-2 text-[0.9375rem] font-medium text-accent">{news}</p> : null}
       {feed.saved.length > 0 ? (
-        <ul className="mt-2 divide-y divide-line">
+        <ul className="mt-2 divide-y divide-line lg:grid lg:grid-cols-2 lg:gap-x-12 lg:divide-y-0">
           {feed.saved.map((find) => (
             <SavedRow
               key={find.product_id}
@@ -48,28 +60,38 @@ export async function Feed() {
           ))}
         </ul>
       ) : (
-        <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
-          What you save from the finds lands here, and anything else you want from the shops: paste its link. Every
-          night it is checked for a lower price, and for your size coming back in stock.
+        <p className="prose mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
+          What you save lands here, and anything else you want from the shops: paste its link. Every night it is
+          checked for a lower price, and for your size coming back in stock.
         </p>
       )}
       <AddLink key={feed.saved.length} slots={feed.openSlots} manualStores={manualStores(retailers)} />
     </section>
   )
 
+  const everything = (
+    <section aria-labelledby="shops" className="mt-16">
+      <SectionHead id="shops" title="Everything it read" />
+      <p className="prose mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
+        Only what clears the bar for a slot is shown here. The rest, in every shop you have on, is a search away.
+      </p>
+      <ButtonLink href="/shops" variant="quiet" size="small" className="mt-4">
+        Browse the shops
+      </ButtonLink>
+    </section>
+  )
+
   if (!feed.run) {
     return (
       <>
-        {saved}
-        <section aria-labelledby="finds" className="mt-16 border-t border-line pt-8">
-          <h2 id="finds" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
-            No finds yet
-          </h2>
-          <p className="mt-3 max-w-[38ch] text-ink-2">
+        <section aria-labelledby="finds" className="mt-10">
+          <SectionHead id="finds" title="No finds yet" />
+          <p className="prose mt-2 max-w-[40ch] text-[0.9375rem] text-ink-2">
             Every night the finder reads the shops for the slots in your blueprint. Its first finds will be here in
             the morning.
           </p>
         </section>
+        {saved}
       </>
     )
   }
@@ -84,25 +106,18 @@ export async function Feed() {
 
   return (
     <>
-      {saved}
-
-      <section aria-labelledby="finds" className="mt-16 border-t border-line pt-8">
-        <h2 id="finds" className="font-display text-[1.75rem] leading-tight tracking-[-0.01em]">
+      <section aria-labelledby="finds" className="mt-10">
+        <h1 id="finds" className="display text-[2.5rem] sm:text-[3.25rem]">
           {heading(feed.run, finds)}
-        </h2>
-        <p className="mt-2 max-w-[44ch] text-[0.9375rem] text-ink-3">
+        </h1>
+        <p className="prose mt-3 max-w-[60ch] text-[0.9375rem] leading-normal text-ink-2">
           {runLine(feed.run, feed.total, feed.groups.length, finds < feed.total)}
         </p>
-        <p className="mt-2 text-[0.9375rem]">
-          <Link href="/shops" className="font-medium text-brass underline-offset-4 hover:underline">
-            Search everything it read
-          </Link>
-        </p>
         {missing.length > 0 ? (
-          <p className="mt-3 max-w-[44ch] text-[0.9375rem] text-ink-2">
+          <p className="prose mt-2 max-w-[44ch] text-[0.9375rem] text-ink-2">
             Your {missing.map((item) => item.size).join(' and ')} {missing.length > 1 ? 'are' : 'is'} not on your
             profile yet, so {missing.map((item) => item.garments).join(' and ')} show every size in stock.{' '}
-            <Link href="/you/sizes" className="font-medium text-brass underline-offset-4 hover:underline">
+            <Link href="/you/sizes" className="font-medium text-accent underline-offset-4 hover:underline">
               Add {missing.length > 1 ? 'them' : 'it'}
             </Link>
           </p>
@@ -113,34 +128,38 @@ export async function Feed() {
         ))}
 
         {finds > 0 && feed.quietSlots > 0 && feed.run.status === 'succeeded' ? (
-          <p className="mt-12 text-[0.9375rem] text-ink-3">
+          <p className="mt-10 text-[0.9375rem] text-ink-3">
             {feed.quietSlots} more {feed.quietSlots === 1 ? 'slot' : 'slots'} had nothing good enough to show.
           </p>
         ) : null}
       </section>
+
+      {saved}
+      {everything}
     </>
   )
 }
 
+/** One slot's finds: the slot as a row that opens it, then its cards to swipe through. */
 function SlotFinds({ group, colourName }: { group: FeedGroup; colourName: (hex: string) => string | null }) {
   const { slot, cards } = group
   const headingId = `slot-${slot.id}`
   return (
     <section aria-labelledby={headingId} className="mt-12">
-      <Link href={`/blueprint/${slot.id}`} className="pressable group flex items-center gap-3 rounded-lg">
-        <SlotSwatches colours={slot.colours} names={slot.colours.map(colourName)} />
+      <Link href={`/blueprint/${slot.id}`} className="pressable group flex items-center gap-3">
+        <SlotSwatches colours={slot.colours} names={slot.colours.map(colourName)} className="h-10 w-10" />
         <span className="min-w-0">
-          <h3 id={headingId} className="font-display text-[1.3125rem] leading-tight tracking-[-0.005em]">
+          <h2 id={headingId} className="title text-[1.125rem]">
             {slot.name}
-          </h3>
-          <span className="text-[0.8125rem] text-ink-3">
+          </h2>
+          <span className="caption block">
             {PRIORITY_LABELS[slot.priority].title}
             {slot.status === 'candidate' ? ', with a saved find' : ''}
           </span>
         </span>
       </Link>
       {/* A swipe row on the phone; on a laptop, where a mouse scrolls sideways badly, a grid. */}
-      <div className="scroller -mx-5 mt-5 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-5 px-5 pb-2 lg:mx-0 lg:grid lg:snap-none lg:grid-cols-3 lg:gap-x-6 lg:gap-y-10 lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="bleed scroller mt-4 gap-3 pb-1 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-x-6 lg:gap-y-10 lg:overflow-visible lg:px-0 lg:pb-0 xl:grid-cols-4">
         {cards.map((find) => (
           <FindCard key={find.product_id} find={find} slotName={slot.name} />
         ))}
@@ -164,7 +183,7 @@ function manualStores(retailers: Retailer[]): ManualStore[] {
 
 /** "Last night's finds" for the nightly run, otherwise the day it ran. */
 function heading(run: Run, finds: number, now = new Date()): string {
-  if (run.status === 'running') return finds > 0 ? 'Finds so far' : 'Still scoring'
+  if (run.status === 'running') return finds > 0 ? 'Finds so far.' : 'Still judging.'
   const finished = run.finished_at ?? run.started_at
   const zone = 'Pacific/Auckland'
   const dayOf = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: zone })
@@ -177,8 +196,9 @@ function heading(run: Run, finds: number, now = new Date()): string {
     : dayOf(finished) === dayOf(now)
       ? 'today'
       : `on ${finished.toLocaleDateString('en-NZ', { weekday: 'long', timeZone: zone })}`
-  if (finds === 0) return run.stats.scoring ? `Nothing cleared the bar ${when}` : `The run ${when} stopped before scoring`
-  return lastNight ? 'Last night’s finds' : when === 'today' ? 'Today’s finds' : `Finds from ${when.slice(3)}`
+  if (finds === 0) return run.stats.scoring ? `Nothing cleared the bar ${when}.` : `The run ${when} stopped before judging.`
+  const count = `${finds} ${finds === 1 ? 'find' : 'finds'}`
+  return lastNight ? `${count} last night.` : when === 'today' ? `${count} today.` : `${count} from ${when.slice(3)}.`
 }
 
 function runLine(run: Run, finds: number, slots: number, capped: boolean): string {
@@ -189,7 +209,7 @@ function runLine(run: Run, finds: number, slots: number, capped: boolean): strin
   if (run.status === 'running') {
     const shown = capped ? `, the best ${CARDS_PER_SLOT} of each shown` : ''
     const found = finds > 0 ? ` ${finds} ${finds === 1 ? 'find' : 'finds'} for ${slots} of your slots so far${shown}.` : ''
-    return `Started on ${weekday} at ${time} and still scoring; more arrive as it goes.${found}`
+    return `Started on ${weekday} at ${time} and still judging; more arrive as it goes.${found}`
   }
   const ingested = run.stats.ingested as { products?: number; retailers?: unknown[] } | undefined
   const read = ingested?.retailers
@@ -211,5 +231,5 @@ function runLine(run: Run, finds: number, slots: number, capped: boolean): strin
         : ''
   if (finds === 0) return `${read} None were close enough to your slots to show.${partial}`
   const order = capped ? `, the best ${CARDS_PER_SLOT} of each shown` : ', best first'
-  return `${read} ${finds} ${finds === 1 ? 'find' : 'finds'} for ${slots} of your slots${order}.${partial}`
+  return `${read} For ${slots} of your slots${order}.${partial}`
 }

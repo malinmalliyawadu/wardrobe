@@ -27,9 +27,9 @@ export function LifeForm({ life }: { life: Partial<Life> }) {
   const countOnly = !life.gym_days?.length && life.gym ? life.gym : null
 
   return (
-    <form action={action} className="mt-8" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
-      <h2 className="text-sm font-medium text-ink-2">Days a week</h2>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-5">
+    <form action={action} className="mt-8 max-w-2xl" key={state?.values ? JSON.stringify(state.values) : 'saved'}>
+      <h2 className="caption text-ink-2">Days a week</h2>
+      <div className="mt-3 grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <Field label="Office or client site" name="office" error={e.office}>
           <NumberInput name="office" defaultValue={v.office} error={e.office} />
         </Field>
@@ -41,10 +41,10 @@ export function LifeForm({ life }: { life: Partial<Life> }) {
         </Field>
       </div>
 
-      <fieldset className="mt-7">
-        <legend className="mb-1 text-sm font-medium text-ink-2">Gym</legend>
+      <fieldset className="mt-10">
+        <legend className="caption text-ink-2">Gym</legend>
         {countOnly ? <input type="hidden" name="gym" value={countOnly} /> : null}
-        <p className="mb-3 text-sm text-ink-3">
+        <p className="mt-1 mb-3 text-sm text-ink-3">
           {countOnly
             ? `You said ${countOnly} ${countOnly === 1 ? 'day' : 'days'} a week. Tap which, and Today adds a gym fit on them.`
             : 'The days you train. On them, Today adds a gym fit to the outfit of the day.'}
@@ -71,7 +71,7 @@ export function LifeForm({ life }: { life: Partial<Life> }) {
         ) : null}
       </fieldset>
 
-      <div className="mt-8 space-y-5">
+      <div className="mt-10 space-y-5">
         <Field label="Travel" name="travel" error={e.travel}>
           <Select
             name="travel"

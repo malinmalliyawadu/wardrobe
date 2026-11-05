@@ -15,7 +15,7 @@ export function SearchForm({ hint }: { hint: string }) {
   const v = withEcho({ request: '' }, state?.values)
   const error = state?.errors?.request
   return (
-    <form action={action} role="search" className="mt-8" key={state?.values ? JSON.stringify(state.values) : 'blank'}>
+    <form action={action} role="search" className="mt-8 max-w-2xl" key={state?.values ? JSON.stringify(state.values) : 'blank'}>
       <label htmlFor="request" className="mb-1.5 block text-sm font-medium text-ink-2">
         What are you after?
       </label>

@@ -20,8 +20,8 @@ export function SeeItOnMe({ find }: { find: Find }) {
         aside: (
           <>
             <figure>
-              <ProductPhoto find={find} sizes="(min-width: 1024px) 24rem, 50vw" className="aspect-[4/5] w-1/2 rounded-xl lg:w-full" />
-              <figcaption className="mt-2 text-[0.8125rem] text-ink-3">The shop’s photo</figcaption>
+              <ProductPhoto find={find} sizes="(min-width: 1024px) 24rem, 50vw" className="aspect-[4/5] w-1/2 rounded-[var(--radius-tile)] lg:w-full" />
+              <figcaption className="caption mt-2">The shop’s photo</figcaption>
             </figure>
             <div className="mt-4">
               <PriceLine find={find} />

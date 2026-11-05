@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTransition, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 
+import { SearchIcon } from '@/components/icons'
 import { SIZE_LABELS, SORT_LABELS, type ShopQuery } from '@/lib/shop-query'
 
 type Option = { value: string; label: string }
@@ -72,25 +73,17 @@ export function ShopBrowser({
 
   return (
     <>
-      <form key={formKey} role="search" onSubmit={search} className="mt-8">
+      <form
+        key={formKey}
+        role="search"
+        onSubmit={search}
+        className="mt-8 lg:grid lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] lg:gap-3"
+      >
         <label htmlFor="shops-q" className="sr-only">
           Search the shops
         </label>
-        <div className="relative">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3"
-          >
-            <circle cx="11" cy="11" r="6.5" />
-            <path d="m20 20-4.2-4.2" />
-          </svg>
+        <div className="relative min-w-0">
+          <SearchIcon width={18} height={18} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
           <input
             id="shops-q"
             name="q"
@@ -104,7 +97,8 @@ export function ShopBrowser({
             className="field pl-10"
           />
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* The four filters: a row of their own under the field on the phone, in the field's row on the laptop. */}
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:contents">
           <Select name="kind" label="Kind of piece" value={query.kind ?? ''} onChange={submitOnChange}>
             <option value="">Every kind</option>
             {kinds.map((kind) => (
@@ -146,7 +140,7 @@ export function ShopBrowser({
         {children}
 
         {pages > 1 ? (
-          <nav aria-label="Pages" className="mt-12 flex items-center justify-between gap-4 border-t border-line pt-4">
+          <nav aria-label="Pages" className="mt-12 flex items-center justify-between gap-4">
             {previousHref ? (
               <Link href={previousHref} onClick={(event) => turn(event, previousHref)} className="text-button -ml-2">
                 Previous
@@ -154,7 +148,7 @@ export function ShopBrowser({
             ) : (
               <span />
             )}
-            <p className="text-[0.875rem] text-ink-3 tabular-nums">
+            <p className="caption tabular-nums">
               Page {page.toLocaleString('en-NZ')} of {pages.toLocaleString('en-NZ')}
             </p>
             {nextHref ? (

@@ -82,7 +82,7 @@ export function NumberInput({
         defaultValue={defaultValue ?? ''}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`field ${unit ? 'pr-12' : ''}`}
+        className={`field tabular-nums ${unit ? 'pr-12' : ''}`}
       />
       {unit ? (
         <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-sm text-ink-3">
@@ -189,22 +189,23 @@ export function SubmitButton({
   children,
   pending: pendingLabel,
   variant = 'primary',
+  size = 'normal',
   className = '',
 }: {
   children: ReactNode
   pending: ReactNode
   /** One primary per screen; everything else is quiet. */
   variant?: 'primary' | 'quiet'
+  size?: 'normal' | 'small'
   className?: string
 }) {
   const { pending } = useFormStatus()
-  const look = variant === 'primary' ? 'btn-primary' : 'border border-line text-ink'
   return (
     <button
       type="submit"
       disabled={pending}
       aria-busy={pending || undefined}
-      className={`${look} pressable inline-grid h-12 items-center justify-items-center rounded-full px-6 text-base font-medium disabled:cursor-progress ${className}`}
+      className={`btn ${variant === 'primary' ? 'btn-primary' : 'btn-quiet'} ${size === 'small' ? 'btn-small' : ''} grid justify-items-center disabled:cursor-progress disabled:opacity-100 ${className}`}
     >
       {/* Both labels share one grid cell, so the button is as wide as the
           longer of the two and the crossfade never changes its size. */}
@@ -250,7 +251,7 @@ export function PendingNote({ children }: { children: ReactNode }) {
 export function FormMessage({ message }: { message: string | undefined }) {
   if (!message) return null
   return (
-    <p role="alert" className="rounded-xl border border-alert/40 bg-alert/10 px-4 py-3 text-sm text-ink">
+    <p role="alert" className="border-l-2 border-alert pl-3 text-sm text-ink">
       {message}
     </p>
   )
