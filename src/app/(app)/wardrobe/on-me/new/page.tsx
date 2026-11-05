@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 import { BackLink } from '@/components/back-link'
 import { ButtonLink } from '@/components/button-link'
 import { Live } from '@/components/sub-page'
-import { outfitChoices } from '@/lib/on-me'
+import { keptOutfits, outfitChoices } from '@/lib/on-me'
 import { shelve } from '@/lib/pieces'
 import { MAX_OUTFIT_PIECES, fullLengthPhoto } from '@/lib/try-on'
 
@@ -33,7 +33,7 @@ export default function ChoosePage() {
 }
 
 async function Content() {
-  const [choices, photo] = await Promise.all([outfitChoices(), fullLengthPhoto()])
+  const [choices, photo, kept] = await Promise.all([outfitChoices(), fullLengthPhoto(), keptOutfits()])
 
   if (!photo) {
     return (
@@ -67,5 +67,5 @@ async function Content() {
       choices: group.pieces,
     })),
   ]
-  return <Chooser groups={groups} max={MAX_OUTFIT_PIECES} />
+  return <Chooser groups={groups} max={MAX_OUTFIT_PIECES} kept={kept} />
 }

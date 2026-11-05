@@ -279,7 +279,7 @@ describe('a set saved, read and acted on', () => {
     assert.equal(history.worn.get(crew), 1)
 
     // The next set: the saved looks move to Saved, the rest of the old set is gone.
-    await saveSet(draft([[shirt, chinos, boots]]), { note: 'cold', pieces: 4, date: '2026-11-05', weather: 'cold' })
+    await saveSet(draft([[shirt, crew, boots]]), { note: 'cold', pieces: 4, date: '2026-11-05', weather: 'cold' })
     page = await readLooks()
     assert.deepEqual(page.saved.map((l) => l.title), ['Look 3', 'Look 1'], 'most recently worn first')
     assert.equal(page.latest?.note, 'cold')
@@ -291,6 +291,22 @@ describe('a set saved, read and acted on', () => {
 
     await actOnLook({ action: 'unwore', look_id: third.id })
     assert.equal((await readLooks()).saved.find((l) => l.title === 'Look 3')?.worn.length, 0)
+  })
+
+  test('a set offers the look already made with the same pieces, not a copy; never one he dismissed', async () => {
+    const [shirt, crew, chinos, boots] = ids as [number, number, number, number]
+    const [cold] = await sql<{ id: number }[]>`
+      select l.id::int as id from looks l join look_sets s on s.id = l.set_id where s.note = 'cold'
+    `
+    const count = async () => (await sql<{ count: number }[]>`select count(*)::int as count from looks`)[0]!.count
+    const before = await count()
+    await saveSet(draft([[boots, crew, shirt], [crew, shirt, chinos, boots], [shirt, chinos]]), { note: 'again', pieces: 4, date: '2026-11-06', weather: 'mild' })
+    const page = await readLooks()
+    assert.equal(page.latest?.note, 'again')
+    assert.equal(page.fresh.length, 3, 'all three in the newest set, in order')
+    assert.equal(page.fresh[0]?.id, cold!.id, 'the look the cold set made, in any order of pieces')
+    assert.equal(page.fresh[0]?.title, 'Look 1', 'with its own words')
+    assert.equal((await count()) - before, 2, 'the dismissed outfit and the new one are new looks')
   })
 
   test('a look says so when one of its pieces is set aside or deleted', async () => {

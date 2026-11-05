@@ -369,18 +369,65 @@ export async function saveSet(
       returning id::int as id
     `
     if (!set) throw new Error('set insert returned nothing')
-    for (const [position, look] of draft.looks.entries()) await insertLook(tx, set.id, position, look)
+    const existing = await matchingLooks(tx)
+    for (const [position, look] of draft.looks.entries()) await offerLook(tx, set.id, position, look, existing)
     return set.id
   })
 }
 
-/** One look of a set and its pieces, in order. Returns the look's id. */
-export async function insertLook(
+type NewLook = Omit<LookDraft, 'better_with'> & { better_with?: LookDraft['better_with'] }
+
+/** What makes two looks the same outfit: the same pieces, and gym or not. */
+export function lookKey(look: { occasion: string; piece_ids: number[] }): string {
+  return `${look.occasion === 'gym' ? 'gym' : 'everyday'}:${signature(look.piece_ids)}`
+}
+
+/**
+ * Every look a new one may turn out to be, by lookKey: saved ones, and ones
+ * offered before (in a set of looks, or on a day) that he has not dismissed
+ * and that no remake replaced.
+ * Where more than one has the same pieces, the one he saved wins, then one
+ * with a picture already drawn, then the newest. A dismissed look is never
+ * reused; tidyLooks and tidyDay keep the recent ones out, and an older one
+ * comes back as a new look.
+ */
+export async function matchingLooks(sql: Sql | postgres.TransactionSql): Promise<Map<string, number>> {
+  const looks = await sql<{ id: number; occasion: string; piece_ids: number[] }[]>`
+    select l.id::int as id, l.occasion, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
+    from looks l
+    where l.status in ('new', 'saved')
+    order by l.status = 'saved' desc,
+             exists (select 1 from look_images i where i.look_id = l.id and i.status = 'ready') desc,
+             l.created_at desc, l.id desc
+  `
+  const byKey = new Map<string, number>()
+  for (const look of looks) {
+    const key = lookKey(look)
+    if (!byKey.has(key)) byKey.set(key, look.id)
+  }
+  return byKey
+}
+
+/**
+ * One look of a set, at its place: the look already made with the same
+ * pieces (matchingLooks), so it keeps its pictures and what he did with it,
+ * else a new one. Returns the look's id.
+ */
+export async function offerLook(
   tx: Sql | postgres.TransactionSql,
   setId: number,
   position: number,
-  look: Omit<LookDraft, 'better_with'> & { better_with?: LookDraft['better_with'] },
+  look: NewLook,
+  existing: Map<string, number>,
 ): Promise<number> {
+  const lookId = existing.get(lookKey(look)) ?? (await insertLook(tx, setId, position, look))
+  existing.set(lookKey(look), lookId)
+  await tx`insert into look_set_looks ${tx({ set_id: setId, position, look_id: lookId })}`
+  return lookId
+}
+
+/** A new look and its pieces, in order. Returns the look's id. */
+export async function insertLook(tx: Sql | postgres.TransactionSql, setId: number, position: number, look: NewLook): Promise<number> {
   const [row] = await tx<{ id: number }[]>`
     insert into looks ${tx({
       set_id: setId,
@@ -498,8 +545,9 @@ export async function getLooks(ids: number[], sql: Sql = db()): Promise<Look[]> 
 }
 
 /**
- * The newest set's looks he has not dismissed, and the looks he saved from
- * earlier sets. The outfit of the day's sets are not sets he made here, so
+ * The newest set's looks he has not dismissed (one an earlier set or day
+ * made, when it offered that again), and the looks he saved from earlier
+ * sets. The outfit of the day's sets are not sets he made here, so
  * the newest is the newest he made; a day's look he saved or wore is with
  * the saved.
  */
@@ -512,18 +560,23 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
   const [total] = await sql<{ sets: number; usd: number }[]>`
     select count(*)::int as sets, coalesce(sum(usd), 0)::float as usd from look_sets where kind = 'set'
   `
-  const latestId = latest?.id ?? 0
+  const offered = latest
+    ? await sql<{ look_id: number; position: number }[]>`
+        select look_id::int as look_id, position from look_set_looks where set_id = ${latest.id}
+      `
+    : []
+  const place = new Map(offered.map((row) => [row.look_id, row.position]))
   const looks = await selectLooks(
     sql,
-    sql`l.status = 'saved' or (l.status = 'new' and l.set_id = ${latestId})`,
-    sql`l.set_id = ${latestId} desc, l.position, l.acted_at desc`,
+    sql`l.status = 'saved' or (l.status = 'new' and l.id in ${sql(offered.length > 0 ? [...place.keys()] : [0])})`,
+    sql`l.acted_at desc nulls last, l.id`,
   )
   // A look saved from the newest set stays where it is, so a tap never moves the card under his finger.
-  const inLatest = (look: Look) => latest !== undefined && look.set_id === latest.id
+  const inLatest = (look: Look) => place.has(look.id)
   return {
     saved: looks.filter((look) => !inLatest(look)).sort((a, b) => (b.worn[0] ?? '').localeCompare(a.worn[0] ?? '')),
     latest: latest ?? null,
-    fresh: looks.filter(inLatest),
+    fresh: looks.filter(inLatest).sort((a, b) => place.get(a.id)! - place.get(b.id)!),
     total: total ?? { sets: 0, usd: 0 },
   }
 }

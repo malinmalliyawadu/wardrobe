@@ -237,6 +237,18 @@ mix of his pieces and saved finds on him in one image (migration 0009: a
 try-on with neither a find nor a look, only `pieces`), in layer order, with
 whatever he did not choose left as it is in his photo.
 
+One outfit is made once, everywhere (migration 0016, Malin's ask
+2026-11-05). A set of looks, the outfit of the day and a remake offer the
+look already made with the same pieces (`matchingLooks`, `offerLook` in
+looks.ts, `sameLook` in look-remake.ts; a set's looks are `look_set_looks`,
+and a remake takes the old look's place there), unless he dismissed it or a
+remake replaced it. Every try-on and flat lay
+carries an `outfit_key` (`src/lib/outfit-key.ts`: "p12" pieces and "f34"
+finds, sorted), and a card, a look or the "Choose pieces" chooser shows the
+kept picture of its outfit whichever look, find or choice it was made for; a
+tap that would make it again gets that one (`reused`). Only "Make it again"
+(`again`) pays for a second.
+
 M5 Reach built 2026-11-04 (migration 0010); gate pending (a week of searches
 whose finds he would buy, at a cost he is happy with). The three store
 adapters were researched (docs/plan.md, M5) and not built, Malin's call:

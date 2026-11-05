@@ -23,7 +23,7 @@ export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
   return (
     <TryOn
       initial={look.on_me}
-      start={() => seeLookOnMe(look.id)}
+      start={(again) => seeLookOnMe(look.id, again)}
       content={{
         eyebrow: occasion,
         title: look.title,

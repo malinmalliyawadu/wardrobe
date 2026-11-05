@@ -3,10 +3,12 @@
 import { useActionState, useState } from 'react'
 
 import { tryChosenOn } from '@/app/try-on-actions'
+import { ButtonLink } from '@/components/button-link'
 import { FormMessage, SubmitButton } from '@/components/form'
 import { TickIcon } from '@/components/icons'
 import { PieceImage } from '@/components/piece-image'
 import type { Choice } from '@/lib/on-me'
+import { choiceKey } from '@/lib/outfit-key'
 import { GARMENT_LABELS } from '@/lib/wardrobe-values'
 
 /*
@@ -14,13 +16,23 @@ import { GARMENT_LABELS } from '@/lib/wardrobe-values'
  * button held above the tab bar so he never scrolls back for it. Each tile is
  * a real checkbox, so the form posts what is ticked and a screen reader reads
  * it as one. The ticks are held in state, so a refusal from the server keeps
- * them.
+ * them. When what is ticked was already put on him (`kept`, by outfitKey),
+ * the button opens that picture instead of making another.
  */
 
-export function Chooser({ groups, max }: { groups: { title: string; choices: Choice[] }[]; max: number }) {
+export function Chooser({
+  groups,
+  max,
+  kept,
+}: {
+  groups: { title: string; choices: Choice[] }[]
+  max: number
+  kept: Record<string, number>
+}) {
   const [state, action] = useActionState(tryChosenOn, null)
   const [chosen, setChosen] = useState<string[]>([])
   const full = chosen.length >= max
+  const made = chosen.length > 0 ? kept[choiceKey(chosen)] : undefined
 
   function toggle(key: string) {
     setChosen((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]))
@@ -58,8 +70,11 @@ export function Chooser({ groups, max }: { groups: { title: string; choices: Cho
         <div className="flex items-center justify-between gap-4">
           <p aria-live="polite" className="text-[0.9375rem] text-ink-2 tabular-nums">
             {chosen.length === 0 ? 'Nothing chosen' : `${chosen.length} of ${max} chosen`}
+            {made !== undefined ? <span className="block text-[0.8125rem] text-ink-3">Already on you</span> : null}
           </p>
-          {chosen.length > 0 ? (
+          {made !== undefined ? (
+            <ButtonLink href={`/wardrobe/on-me/${made}`}>See the picture</ButtonLink>
+          ) : chosen.length > 0 ? (
             <SubmitButton pending="Asking">See them on me</SubmitButton>
           ) : (
             <button type="button" disabled className="btn btn-primary">

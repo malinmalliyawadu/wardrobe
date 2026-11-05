@@ -8,9 +8,11 @@ import { after, before, describe, test } from 'node:test'
 import sharp from 'sharp'
 
 import { connect, db, type Sql } from '../src/lib/db.ts'
-import { getOnMe, listOnMe, outfitTitle } from '../src/lib/on-me.ts'
+import { getOnMe, keptOutfits, listOnMe, outfitTitle } from '../src/lib/on-me.ts'
+import { lookOutfitKey, outfitKey } from '../src/lib/outfit-key.ts'
 import { removeAllPhotos, removePhoto, storePhoto } from '../src/lib/photos.ts'
 import {
+  getTryOn,
   layer,
   latestLookTryOns,
   latestTryOns,
@@ -40,6 +42,11 @@ import {
  */
 
 describe('the pure parts', () => {
+  test('an outfit is keyed by its pieces and finds in any order, sorted as Postgres sorts with collate C', () => {
+    assert.equal(outfitKey([{ piece_id: 10 }, { piece_id: null, product_id: 3 }, { piece_id: 9 }]), 'f3,p10,p9')
+    assert.equal(outfitKey([{ piece_id: 9 }, { piece_id: 10 }, { piece_id: null, product_id: 3 }]), 'f3,p10,p9')
+  })
+
   test('the output keeps his photo’s aspect, in multiples of 16', () => {
     assert.deepEqual(outputSize(1176, 1568), { width: 1152, height: 1536 })
     assert.deepEqual(outputSize(1568, 1176), { width: 1536, height: 1152 })
@@ -219,7 +226,7 @@ describe('the lifecycle', () => {
     assert.ok(!noPhoto.ok && /full-length photo/.test(noPhoto.message))
   })
 
-  test('one is made, filed, priced and found again; a second waits its turn', async () => {
+  test('one is made, filed, priced and found again; a second tap opens it; another waits its turn', async () => {
     // storePhoto writes through the app's own db(), which now points at the scratch database.
     const photo = await storePhoto({ bytes: await jpeg(1500, 2000, { r: 180, g: 140, b: 100 }), mime: 'image/jpeg', kind: 'full_body' })
     photoId = photo.id
@@ -227,7 +234,9 @@ describe('the lifecycle', () => {
     const started = await startTryOn(productId, sql)
     assert.ok(started.ok)
     const second = await startTryOn(productId, sql)
-    assert.ok(!second.ok && /One at a time/.test(second.message), 'one in the making at a time')
+    assert.ok(second.ok && second.reused && second.id === started.id, 'a second tap is the one being made')
+    const another = await startTryOn(productId, sql, { again: true })
+    assert.ok(!another.ok && /One at a time/.test(another.message), 'one in the making at a time')
 
     const calls: Call[] = []
     const generated = await jpeg(1152, 1536, { r: 40, g: 50, b: 80 })
@@ -282,8 +291,8 @@ describe('the lifecycle', () => {
   })
 
   test('a refusal ends as a failed row with words for the card, and frees the queue', async () => {
-    const started = await startTryOn(productId, sql)
-    assert.ok(started.ok)
+    const started = await startTryOn(productId, sql, { again: true })
+    assert.ok(started.ok && !started.reused)
     const status = await makeTryOn(started.id, {
       sql,
       fetch: fakeFetch(
@@ -296,16 +305,17 @@ describe('the lifecycle', () => {
       ),
     })
     assert.equal(status, 'failed')
-    const onMe = (await latestTryOns([productId], sql)).get(productId)
-    assert.equal(onMe?.status, 'failed')
-    assert.equal(onMe?.error, 'OpenAI declined to make this one.')
+    const failed = await getTryOn(started.id, sql)
+    assert.equal(failed?.status, 'failed')
+    assert.equal(failed?.error, 'OpenAI declined to make this one.')
+    assert.equal((await latestTryOns([productId], sql)).get(productId)?.status, 'ready', 'the card keeps the picture it has')
 
-    const next = await startTryOn(productId, sql)
+    const next = await startTryOn(productId, sql, { again: true })
     assert.ok(next.ok, 'a failed one does not hold the queue')
     // A request whose server died is called failed once it is stale.
     await sql`update try_ons set started_at = now() - interval '10 minutes' where id = ${next.id}`
-    assert.equal((await latestTryOns([productId], sql)).get(productId)?.status, 'failed')
-    const swept = await startTryOn(productId, sql)
+    assert.equal((await getTryOn(next.id, sql))?.status, 'failed')
+    const swept = await startTryOn(productId, sql, { again: true })
     assert.ok(swept.ok, 'the stale one was swept')
     await sql`update try_ons set status = 'failed' where id = ${swept.id}`
   })
@@ -316,7 +326,7 @@ describe('the lifecycle', () => {
 
     // A second photo with its own try-on, then that photo alone deleted.
     const other = await storePhoto({ bytes: await jpeg(1200, 1600, { r: 90, g: 70, b: 50 }), mime: 'image/jpeg', kind: 'full_body' })
-    const started = await startTryOn(productId, sql)
+    const started = await startTryOn(productId, sql, { again: true })
     assert.ok(started.ok)
     const image = await jpeg(1152, 1536, { r: 60, g: 60, b: 60 })
     assert.equal(
@@ -398,6 +408,29 @@ describe('the lifecycle', () => {
     assert.deepEqual(row?.pieces.map((piece) => piece.shown.kind), ['product', 'photo', 'words'])
     assert.equal((await latestLookTryOns([look!.id], sql)).get(look!.id)?.status, 'ready')
     assert.equal((await latestTryOns([productId], sql)).size, 0, 'a look’s try-on is not the find’s')
+
+    // The same pieces again, on the look, on another look in another order, or chosen: that picture, never a new one.
+    const [{ key } = { key: '' }] = await sql<{ key: string }[]>`select ${lookOutfitKey(sql)} as key from looks l where l.id = ${look!.id}`
+    assert.equal(key, outfitKey(pieces.map((piece) => ({ piece_id: piece.id }))), 'Postgres keys a look as the app does')
+    const tapped = await startLookTryOn(look!.id, sql)
+    assert.ok(tapped.ok && tapped.reused && tapped.id === started.id)
+    const [twin] = await sql<{ id: number }[]>`
+      insert into looks (set_id, position, title, occasion, weather, why, piece_count)
+      values (${set!.id}, 1, 'Navy and putty again', 'weekend', 'mild', 'Because.', 3) returning id::int as id
+    `
+    await sql`
+      insert into look_pieces ${sql([...pieces].reverse().map((piece, position) => ({ look_id: twin!.id, piece_id: piece.id, position })))}
+    `
+    assert.equal((await latestLookTryOns([twin!.id], sql)).get(twin!.id)?.id, started.id, 'a twin look shows the picture')
+    const twinTapped = await startLookTryOn(twin!.id, sql)
+    assert.ok(twinTapped.ok && twinTapped.reused && twinTapped.id === started.id)
+    const chosen = await startOutfitTryOn({ piece_ids: pieces.map((piece) => piece.id), product_ids: [] }, sql)
+    assert.ok(chosen.ok && chosen.reused && chosen.id === started.id, 'chosen piece by piece, it is the same picture')
+    assert.equal((await keptOutfits(sql))[key], started.id, 'and the chooser knows it')
+    const again = await startLookTryOn(look!.id, sql, { again: true })
+    assert.ok(again.ok && !again.reused && again.id !== started.id, '"Make it again" makes another')
+    await sql`update try_ons set status = 'failed', error = 'Stopped.' where id = ${again.id}`
+    assert.equal((await latestLookTryOns([look!.id], sql)).get(look!.id)?.id, started.id, 'a failed one does not hide the picture')
 
     // A piece gone from the wardrobe: the look is no longer whole, so it is not made.
     await sql`delete from wardrobe_pieces where id = ${pieces[2]!.id}`
@@ -504,6 +537,14 @@ describe('the lifecycle', () => {
     assert.ok(failing.ok)
     await makeTryOn(failing.id, { sql, fetch: fakeFetch(async () => Response.json({ error: { message: 'no' } }, { status: 500 }), []) })
     assert.ok(!(await listOnMe(sql)).some((image) => image.id === failing.id))
+
+    // The jacket alone, made: it is the find's picture too.
+    const alone = await startOutfitTryOn({ piece_ids: [], product_ids: [jacket!.id] }, sql)
+    assert.ok(alone.ok && !alone.reused)
+    assert.equal(await makeTryOn(alone.id, { sql, fetch: openai }), 'ready')
+    assert.equal((await latestTryOns([jacket!.id], sql)).get(jacket!.id)?.id, alone.id)
+    const onFind = await startTryOn(jacket!.id, sql)
+    assert.ok(onFind.ok && onFind.reused && onFind.id === alone.id, 'See it on me on the find opens it')
 
     // And they go with his photos like any other.
     await removePhoto(photo.id, sql)

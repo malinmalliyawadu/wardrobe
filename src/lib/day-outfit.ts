@@ -1,5 +1,4 @@
 import type Anthropic from '@anthropic-ai/sdk'
-import type postgres from 'postgres'
 import { z } from 'zod'
 
 import { MODELS, callUsd } from './claude.ts'
@@ -10,12 +9,12 @@ import {
   GYM_FIT_RULES,
   gymForPrompt,
   gymReadiness,
-  insertLook,
   LookDraftSchema,
+  matchingLooks,
+  offerLook,
   pieceForPrompt,
   readHistory,
   readiness,
-  signature,
   tidyLooks,
   wellingtonToday,
   type History,
@@ -391,13 +390,11 @@ export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: 
     const existing = await matchingLooks(tx)
     const lookIds: number[] = []
     for (const [position, option] of draft.options.entries()) {
-      const lookId = existing.get(lookKey(option)) ?? (await insertLook(tx, set.id, position, option))
+      const lookId = await offerLook(tx, set.id, position, option, existing)
       await tx`insert into day_outfit_options ${tx({ day_id: id, position, look_id: lookId, today: option.today })}`
       lookIds.push(lookId)
     }
-    const gymId = draft.gym
-      ? (existing.get(lookKey(draft.gym)) ?? (await insertLook(tx, set.id, draft.options.length, draft.gym)))
-      : null
+    const gymId = draft.gym ? await offerLook(tx, set.id, draft.options.length, draft.gym, existing) : null
     await tx`
       update day_outfits
       set status = 'ready', set_id = ${set.id}, shown = 0, gym_look_id = ${gymId}, gym_today = ${draft.gym?.today ?? null},
@@ -406,36 +403,6 @@ export async function saveDay(id: number, draft: DayDraft, pieces: number, sql: 
     `
     return lookIds[0]!
   })
-}
-
-/** What makes two looks the same outfit: the same pieces, and gym or not. */
-export function lookKey(look: { occasion: string; piece_ids: number[] }): string {
-  return `${look.occasion === 'gym' ? 'gym' : 'everyday'}:${signature(look.piece_ids)}`
-}
-
-/**
- * Every look an option may turn out to be, by lookKey: saved ones, and ones
- * offered before (on another day, or in a set of looks) that he has not
- * dismissed. Where more than one has the same pieces, the one he saved wins,
- * then one with a picture already drawn, then the newest. A dismissed look is
- * never reused; tidyDay keeps the recent ones out, and an older one comes back
- * as a new look.
- */
-export async function matchingLooks(sql: Sql | postgres.TransactionSql): Promise<Map<string, number>> {
-  const looks = await sql<{ id: number; occasion: string; piece_ids: number[] }[]>`
-    select l.id::int as id, l.occasion, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
-    from looks l
-    where l.status <> 'dismissed'
-    order by l.status = 'saved' desc,
-             exists (select 1 from look_images i where i.look_id = l.id and i.status = 'ready') desc,
-             l.created_at desc, l.id desc
-  `
-  const byKey = new Map<string, number>()
-  for (const look of looks) {
-    const key = lookKey(look)
-    if (!byKey.has(key)) byKey.set(key, look.id)
-  }
-  return byKey
 }
 
 export type DayOutfit = {

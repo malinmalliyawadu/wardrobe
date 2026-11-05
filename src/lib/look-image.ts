@@ -5,6 +5,7 @@ import path from 'node:path'
 import sharp, { type OutputInfo } from 'sharp'
 
 import { db, type Sql } from './db.ts'
+import { lookOutfitKey, outfitKey } from './outfit-key.ts'
 import { photosDir } from './photos.ts'
 import {
   editImage,
@@ -29,9 +30,12 @@ import {
  * which photos may go). His own photo is never sent: "See it on me" stays the
  * only way he is in a picture, and only on his tap.
  *
- * One picture per look, kept while its pieces and their photos stay the same
+ * One picture per outfit, kept while its pieces and their photos stay the same
  * (pieces_key); a change, such as a photo added to a piece, makes a new one
- * the next time the look is on show. Files live on the photos volume under
+ * the next time the look is on show. A picture is of the pieces, not of one
+ * look (outfit_key, migration 0016): a look with the same pieces as one
+ * already drawn, such as one made again after the first was dismissed, shows
+ * that picture and is never drawn again. Files live on the photos volume under
  * looks/ and are served only through /photos/looks/:id.
  */
 
@@ -52,7 +56,7 @@ export type LookImage = {
   usd: number | null
 }
 
-/** What the picture was made from, so a changed piece or photo is told apart. */
+/** What the picture was made from, so a changed piece or photo is told apart. In the look's order. */
 export function piecesKey(pieces: PieceSent[]): string {
   return pieces
     .map((piece) => {
@@ -60,6 +64,12 @@ export function piecesKey(pieces: PieceSent[]): string {
       return `${piece.piece_id}=${shown}|${piece.colour_hex ?? ''}`
     })
     .join(';')
+}
+
+/** Whether two pictures were drawn from the same pieces shown the same way, in whatever order. */
+export function sameDrawing(a: PieceSent[], b: PieceSent[]): boolean {
+  const byPiece = (pieces: PieceSent[]) => [...pieces].sort((x, y) => (x.piece_id ?? 0) - (y.piece_id ?? 0))
+  return piecesKey(byPiece(a)) === piecesKey(byPiece(b))
 }
 
 /**
@@ -99,50 +109,61 @@ export function lookImagePrompt(look: { title: string; styling: string | null; p
     .join('\n')
 }
 
-/** The latest picture of each of these looks, ready or still being made. */
+/** A picture aliased `i` that is worth showing: ready, or still being made. */
+const showable = (sql: Sql) => sql`
+  (i.status = 'ready' or (i.status = 'making' and i.started_at >= now() - make_interval(mins => ${STALE_MINUTES})))
+`
+
+/**
+ * The picture of each of these looks: drawn for it, or for another look with
+ * the same pieces. One ready or being made before a failed one, then the
+ * newest, which is the one of the pieces' photos as they are now.
+ */
 export async function latestLookImages(lookIds: number[], sql: Sql = db()): Promise<Map<number, LookImage>> {
   if (lookIds.length === 0) return new Map()
   const rows = await sql<(LookImage & { look_id: number })[]>`
-    select distinct on (i.look_id) i.look_id::int as look_id, i.id::int as id,
+    select distinct on (l.id) l.id::int as look_id, i.id::int as id,
            case when i.status = 'making' and i.started_at < now() - make_interval(mins => ${STALE_MINUTES})
                 then 'failed' else i.status end as status,
            i.error, i.width, i.height, i.usd::float as usd
-    from look_images i
-    where i.look_id = any (${lookIds}::bigint[])
-    order by i.look_id, i.started_at desc, i.id desc
+    from looks l
+    join look_images i on i.look_id = l.id or i.outfit_key = ${lookOutfitKey(sql)}
+    where l.id in ${sql(lookIds)}
+    order by l.id, ${showable(sql)} desc, i.started_at desc, i.id desc
   `
   return new Map(rows.map(({ look_id, ...image }) => [look_id, image]))
 }
 
 /**
- * Records a picture of a look in the making, unless it has one of its pieces
- * as they are now (ready, or being made), there is no OpenAI key, or a piece
- * has gone from the wardrobe. Returns the id to make, or null for nothing to
- * do. Never throws for a missing key: the card then shows the pieces laid out.
+ * Records a picture of a look in the making, unless there is one of its
+ * pieces as they are now (ready, or being made), drawn for it or for another
+ * look with the same pieces; or there is no OpenAI key, or a piece has gone
+ * from the wardrobe. Returns the id to make, or null for nothing to do. Never
+ * throws for a missing key: the card then shows the pieces laid out.
  */
 export async function startLookImage(lookId: number, sql: Sql = db()): Promise<number | null> {
   if (!process.env.OPENAI_API_KEY) return null
   const look = await lookForTryOn(sql, lookId)
   if (!look || look.pieces.length === 0 || look.pieces.length < look.piece_count) return null
   const pieces = showPieces(look.pieces)
-  const key = piecesKey(pieces)
+  const outfit = outfitKey(pieces)
 
   await sql`
     update look_images set status = 'failed', finished_at = now(), error = 'It took too long.'
-    where look_id = ${lookId} and status = 'making' and started_at < now() - make_interval(mins => ${STALE_MINUTES})
+    where status = 'making' and started_at < now() - make_interval(mins => ${STALE_MINUTES})
   `
-  const [current] = await sql<{ id: number }[]>`
-    select id::int as id from look_images
-    where look_id = ${lookId} and pieces_key = ${key} and status in ('making', 'ready')
-    limit 1
+  const drawn = await sql<{ pieces: PieceSent[] }[]>`
+    select pieces from look_images
+    where (look_id = ${lookId} or outfit_key = ${outfit}) and status in ('making', 'ready')
   `
-  if (current) return null
+  if (drawn.some((image) => sameDrawing(image.pieces, pieces))) return null
   try {
     const [row] = await sql<{ id: number }[]>`
       insert into look_images ${sql({
         look_id: lookId,
+        outfit_key: outfit,
         pieces: sql.json(pieces),
-        pieces_key: key,
+        pieces_key: piecesKey(pieces),
         provider: PROVIDER,
         model: MODEL,
         prompt: lookImagePrompt({ title: look.title, styling: look.styling, pieces }),
