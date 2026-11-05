@@ -7,11 +7,12 @@ import { feedAction } from '@/app/feed-actions'
 import { PieceImage } from '@/components/piece-image'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
 import type { WornWith } from '@/lib/statements'
+import type { OnMe } from '@/lib/try-on'
 
 import { PriceLine, sizeLine } from './product'
 import { ProductPhoto } from './product-photo'
 import type { ChangeLine } from './saved-change'
-import { SeeItOnMe } from './try-on'
+import { SeeItOnMe, SeeOutfitOnMe } from './try-on'
 
 /*
  * One find. The photo and title open the shop's page; the actions sit under
@@ -50,8 +51,9 @@ function useFeedAction() {
 /**
  * slotName is null for a search result or a statement piece, which fill no
  * slot. A statement piece says what makes it one (its colour, texture or cut)
- * in place of a match, and shows the pieces of his it wears with under the
- * why; in a grid it takes its cell's width rather than a swipe row's.
+ * in place of a match, shows the pieces of his it wears with under the why,
+ * and can be put on him with them; in a grid it takes its cell's width rather
+ * than a swipe row's.
  */
 export function FindCard({
   find,
@@ -61,7 +63,7 @@ export function FindCard({
 }: {
   find: Find
   slotName: string | null
-  statement?: { qualities: string; wearsWith: WornWith[] } | null
+  statement?: { qualities: string; wearsWith: WornWith[]; outfitOnMe: OnMe | null } | null
   inGrid?: boolean
 }) {
   const [mode, setMode] = useState<Mode>('actions')
@@ -150,6 +152,9 @@ export function FindCard({
         </div>
         <div className="mt-1">
           <SeeItOnMe find={find} />
+          {statement && statement.wearsWith.length > 0 ? (
+            <SeeOutfitOnMe find={find} pieces={statement.wearsWith} initial={statement.outfitOnMe} />
+          ) : null}
         </div>
         {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
       </div>

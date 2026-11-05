@@ -338,6 +338,8 @@ inside the month's). The scorer's loop is shared as `judgeAll` in score.ts.
 filtered by colour, texture or cut, each card with the pieces it wears with;
 a row of the best five sits under the search line on Finds. Saving, dismissing
 and buying are the feed's own, and a save takes the price and size the run
-found in his size. First real run: 825 picked from 4,070 in his size and
+found in his size. "See the outfit on me" on a card puts the piece on him with
+the pieces it wears with (`startStatementTryOn`, the "Choose pieces" try-on
+without the rule that a find be saved; its outfit key finds a kept picture). First real run: 825 picked from 4,070 in his size and
 budget, 100 judged in 46 s for US$0.53 (about US$0.005 each), 21 over the
 bar; the rest drain at the nightly cap, the best first.

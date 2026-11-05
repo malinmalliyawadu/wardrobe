@@ -54,7 +54,7 @@ async function Content({ searchParams }: Pick<PageProps<'/statements'>, 'searchP
                 key={find.product_id}
                 find={find}
                 slotName={null}
-                statement={{ qualities: qualitiesText(find.qualities), wearsWith: find.wears_with }}
+                statement={{ qualities: qualitiesText(find.qualities), wearsWith: find.wears_with, outfitOnMe: find.outfit_on_me }}
                 inGrid
               />
             ))}
