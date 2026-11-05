@@ -17,6 +17,19 @@ export function day(date: Date): string {
   return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long', timeZone: 'Pacific/Auckland' })
 }
 
+/** "Worn twice, last on 2 November.", from the days a look was worn, newest first, as YYYY-MM-DD. */
+export function wornLine(worn: string[]): string | null {
+  if (worn.length === 0) return null
+  const times = worn.length === 1 ? 'once' : worn.length === 2 ? 'twice' : `${worn.length} times`
+  return `Worn ${times}, last on ${day(new Date(`${worn[0]}T12:00:00+13:00`))}.`
+}
+
+/** "two tops, a pair of trousers and a pair of shoes" */
+export function list(items: string[]): string {
+  if (items.length <= 1) return items.join('')
+  return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
+}
+
 const ZONE = 'Pacific/Auckland'
 
 /**

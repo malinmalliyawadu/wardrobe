@@ -9,8 +9,11 @@ import {
   gymReadiness,
   readHistory,
   readiness,
+  readinessAround,
   readLooks,
+  readPieceLooks,
   saveSet,
+  tidyAround,
   tidyLooks,
   wellingtonToday,
   type LookDraft,
@@ -210,6 +213,62 @@ describe('the pure parts', () => {
   })
 })
 
+describe('looks around a piece', () => {
+  test('the ask names the piece, wants three ways to wear it, and carries his note', () => {
+    const [message] = buildLooksMessages({
+      profile: profileFixture,
+      guide: guideFixture,
+      pieces: [],
+      wanted: [],
+      history: { saved: [], dismissed: [], worn: new Map() },
+      note: 'the office',
+      around: { id: 12, name: 'Rust overshirt', worn_for: 'everyday' },
+    })
+    const content = message!.content as string
+    assert.match(content, /"Rust overshirt" \(id 12\)/)
+    assert.match(content, /Make 3 looks that each wear it/)
+    assert.match(content, /He added: "the office"/)
+    assert.doesNotMatch(content, /gym fit/)
+    assert.doesNotMatch(content, /He asked for this set/)
+  })
+
+  test('gym kit is built on as gym fits', () => {
+    const [message] = buildLooksMessages({
+      profile: profileFixture,
+      guide: guideFixture,
+      pieces: [],
+      wanted: [],
+      history: { saved: [], dismissed: [], worn: new Map() },
+      note: null,
+      around: { id: 21, name: 'Pine tank', worn_for: 'gym' },
+    })
+    assert.match(message!.content as string, /It is gym kit, so they are gym fits/)
+  })
+
+  test('only looks that still wear the piece once tidied are kept, three at most', () => {
+    // The coat is in every look Claude made, but the third repeats the second and the fifth is not whole.
+    const tidied = tidyLooks(
+      [look([1, 3, 4, 6]), look([1, 2, 5, 7]), look([7, 5, 2, 1]), look([2, 3, 4, 6]), look([1, 4, 6]), look([1, 3, 5, 6]), look([1, 2, 4, 7])],
+      shelf,
+      [],
+      noHistory,
+    )
+    const kept = tidyAround(tidied, 1)
+    assert.deepEqual(kept.map((l) => l.piece_ids), [[1, 3, 4, 6], [1, 2, 5, 7], [1, 3, 5, 6]])
+    assert.equal(tidyAround(tidied, null).length, tidied.length, 'a set not around a piece is left alone')
+  })
+
+  test('a piece is ready to build on when a whole outfit of what it is worn for can be made', () => {
+    assert.deepEqual(readinessAround({ worn_for: 'everyday' }, shelf), { ready: true, missing: [], gym: false })
+    assert.deepEqual(readinessAround({ worn_for: 'gym' }, kit), { ready: true, missing: [], gym: true })
+    assert.deepEqual(readinessAround({ worn_for: 'gym' }, shelf), { ready: false, missing: ['a top', 'shorts or joggers', 'trainers'], gym: true })
+    // Worn for both: everyday looks when only those can be made, gym fits too when the kit is ready.
+    assert.equal(readinessAround({ worn_for: 'both' }, shelf).ready, true)
+    assert.equal(readinessAround({ worn_for: 'both' }, kit).gym, true)
+    assert.deepEqual(readinessAround({ worn_for: 'both' }, []).missing, ['two tops', 'a pair of trousers or jeans', 'a pair of shoes'])
+  })
+})
+
 describe('a set saved, read and acted on', () => {
   const scratch = `wardrobe_looks_${process.pid}_${Date.now()}`
   let admin: Sql
@@ -307,6 +366,31 @@ describe('a set saved, read and acted on', () => {
     assert.equal(page.fresh[0]?.id, cold!.id, 'the look the cold set made, in any order of pieces')
     assert.equal(page.fresh[0]?.title, 'Look 1', 'with its own words')
     assert.equal((await count()) - before, 2, 'the dismissed outfit and the new one are new looks')
+  })
+
+  test('looks around a piece are its own: the piece page shows the newest, the Looks tab does not', async () => {
+    const [shirt, crew, chinos, boots] = ids as [number, number, number, number]
+    const latest = (await readLooks()).latest
+    assert.deepEqual(await readPieceLooks(crew), { latest: null, looks: [] })
+
+    await saveSet(draft([[crew, chinos, boots], [crew, shirt, chinos, boots]]), { note: 'office', pieces: 4, date: '2026-11-06', weather: 'mild', pieceId: crew })
+    await saveSet(draft([[crew, shirt, boots], [shirt, crew, chinos, boots]]), { note: null, pieces: 4, date: '2026-11-06', weather: 'mild', pieceId: crew })
+    let around = await readPieceLooks(crew)
+    assert.equal(around.latest?.note, null, 'the newest set around it')
+    assert.equal(around.looks.length, 2)
+    assert.equal(around.looks[1]?.status, 'new', 'the look an earlier set made, offered again')
+    assert.deepEqual(await readPieceLooks(shirt), { latest: null, looks: [] }, 'only the piece it was made on')
+
+    const page = await readLooks()
+    assert.equal(page.latest?.id, latest?.id, 'the Looks tab keeps the newest set made there')
+
+    await actOnLook({ action: 'dismiss', look_id: around.looks[0]!.id, reason: 'colours' })
+    await actOnLook({ action: 'save', look_id: around.looks[1]!.id })
+    around = await readPieceLooks(crew)
+    assert.deepEqual(around.looks.map((l) => l.status), ['saved'], 'what he dismissed goes, what he saved stays')
+    // The same outfit is in the Looks tab's newest set too, so it is saved there, where it was.
+    const looksTab = await readLooks()
+    assert.equal(looksTab.fresh.find((l) => l.id === around.looks[0]!.id)?.status, 'saved', 'one outfit, saved everywhere')
   })
 
   test('a look says so when one of its pieces is set aside or deleted', async () => {
