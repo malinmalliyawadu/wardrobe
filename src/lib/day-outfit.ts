@@ -447,6 +447,8 @@ export type DayOutfit = {
   error: string | null
   shown: number
   usd: number | null
+  /** What changing its looks' pieces cost (look-remake.ts), failed tries included. */
+  remake_usd: number
   started_at: Date
   options: DayLook[]
   /** On a day he trains, what to wear to the gym. */
@@ -465,6 +467,7 @@ export async function readDay(date: string, sql: Sql = db()): Promise<DayOutfit 
   const [row] = await sql<Row[]>`
     select d.id::int as id, to_char(d.for_date, 'YYYY-MM-DD') as for_date, d.status, d.note, d.forecast, d.error, d.shown,
            s.usd::float as usd, d.started_at, d.gym_look_id::int as gym_look_id, d.gym_today,
+           (select coalesce(sum(r.usd), 0)::float from look_remakes r where r.day_id = d.id) as remake_usd,
            (select json_agg(json_build_object('look_id', o.look_id::int, 'today', o.today) order by o.position)
             from day_outfit_options o where o.day_id = d.id) as option_rows
     from day_outfits d left join look_sets s on s.id = d.set_id

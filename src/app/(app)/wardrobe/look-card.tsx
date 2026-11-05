@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useOptimistic, useState, useTransition } from 'react'
 
+import { ChangePieces } from '@/components/change-pieces'
 import { Swatch } from '@/components/cloth'
 import { TickIcon } from '@/components/icons'
 import { FlatLay, LookOnMe } from '@/components/look-parts'
@@ -16,7 +17,9 @@ import { lookAction } from './actions'
  * occasion and weather, the name, why it works and how to wear it. "See it
  * on me" dresses him in the whole look. Save and "Wore it" show at once and
  * are saved behind; Dismiss asks why, then the card fades out and the next
- * render drops it.
+ * render drops it. "Change pieces" turns the list of pieces into the way to
+ * swap or remove some (ChangePieces), and the remade look takes this card's
+ * place.
  */
 
 const REASONS: { value: LookDismissReason; label: string }[] = [
@@ -45,6 +48,7 @@ export function LookCard({
   const [asking, setAsking] = useState(false)
   const [gone, setGone] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [open, setOpen] = useState(false)
   const [shown, setShown] = useOptimistic<Shown>({ saved: look.status === 'saved', woreToday: look.worn[0] === today })
   const [, startTransition] = useTransition()
 
@@ -62,6 +66,7 @@ export function LookCard({
 
   const missing = look.piece_count - look.pieces.length
   const asideCount = look.pieces.filter((piece) => piece.set_aside_at).length
+  const changing = open || look.remaking !== null
 
   return (
     <article data-gone={gone} aria-hidden={gone || undefined} className="find flex flex-col">
@@ -74,22 +79,33 @@ export function LookCard({
       <p className="mt-3 text-[0.9375rem] leading-relaxed text-ink-2">{look.why}</p>
       {look.styling ? <p className="mt-2 text-[0.9375rem] leading-snug text-ink-2 italic">{look.styling}</p> : null}
 
-      <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-0.5 text-[0.8125rem] leading-relaxed text-ink-3">
-        {look.pieces.map((piece, index) => (
-          <li key={piece.id}>
-            <Link href={`/wardrobe/${piece.id}`} className="underline decoration-line underline-offset-[3px] hover:text-ink-2">
-              {piece.name}
-            </Link>
-            {piece.set_aside_at ? ' (set aside)' : ''}
-            {index < look.pieces.length - 1 ? ',' : ''}
-          </li>
-        ))}
-      </ul>
-      {missing > 0 || asideCount > 0 ? (
-        <p className="mt-1 text-[0.8125rem] text-alert">
-          {missing > 0 ? `${missing === 1 ? 'A piece' : `${missing} pieces`} of this look ${missing === 1 ? 'is' : 'are'} no longer in your wardrobe.` : 'Part of this look is set aside.'}
-        </p>
-      ) : null}
+      {changing ? (
+        <ChangePieces look={look} onClose={() => setOpen(false)} />
+      ) : (
+        <div>
+          <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-0.5 text-[0.8125rem] leading-relaxed text-ink-3">
+            {look.pieces.map((piece, index) => (
+              <li key={piece.id}>
+                <Link href={`/wardrobe/${piece.id}`} className="underline decoration-line underline-offset-[3px] hover:text-ink-2">
+                  {piece.name}
+                </Link>
+                {piece.set_aside_at ? ' (set aside)' : ''}
+                {index < look.pieces.length - 1 ? ',' : ''}
+              </li>
+            ))}
+          </ul>
+          {missing > 0 || asideCount > 0 ? (
+            <p className="mt-1 text-[0.8125rem] text-alert">
+              {missing > 0 ? `${missing === 1 ? 'A piece' : `${missing} pieces`} of this look ${missing === 1 ? 'is' : 'are'} no longer in your wardrobe.` : 'Part of this look is set aside.'}
+            </p>
+          ) : null}
+          {missing === 0 ? (
+            <button type="button" className="text-button -ml-2 min-h-9 text-[0.8125rem]" onClick={() => setOpen(true)}>
+              Change pieces
+            </button>
+          ) : null}
+        </div>
+      )}
 
       {look.better ? (
         <Link
@@ -111,7 +127,7 @@ export function LookCard({
 
       {wornLine ? <p className="caption mt-3">{wornLine}</p> : null}
 
-      <div className="mt-auto pt-4">
+      <div className="mt-auto pt-4" hidden={changing}>
         {missing === 0 ? <LookOnMe look={look} occasion={occasion} /> : null}
         <div key={asking ? 'ask' : 'act'} className="tray mt-2">
           {asking ? (

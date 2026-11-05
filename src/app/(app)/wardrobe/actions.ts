@@ -3,10 +3,13 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 
 import { echo, type ActionState } from '@/lib/action-state'
 import { db } from '@/lib/db'
 import { PoliteClient } from '@/lib/finder/http'
+import { makeLookImage, startLookImage } from '@/lib/look-image'
+import { runRemake, startRemake, type RemakeAsk } from '@/lib/look-remake'
 import { readPhoto } from '@/lib/finder/photo-colour'
 import { addProductFromLink, ManualStoreError, ProductLinkError } from '@/lib/finder/product-link'
 import { attachPhoto, PieceReadError, readPiecePhoto, storePiecePhoto, valuesFromRead } from '@/lib/piece-photos'
@@ -242,5 +245,27 @@ export async function lookAction(input: LookAction): Promise<{ ok: boolean }> {
     return { ok: false }
   }
   refreshAll()
+  return { ok: true }
+}
+
+/**
+ * A look with pieces swapped or removed, remade by Opus around the rest (ten
+ * to thirty seconds; the card waits). The remake takes the old look's place;
+ * when it is the day's option on show, its picture is drawn after the response.
+ */
+export async function remakeLook(input: RemakeAsk): Promise<{ ok: true } | { ok: false; message: string }> {
+  const started = await startRemake(input)
+  if (!started.ok) return started
+  const done = await runRemake(started.id)
+  refreshAll()
+  if (!done.ok) return done
+  if (done.onShow) {
+    const imageId = await startLookImage(done.lookId)
+    if (imageId !== null) {
+      after(async () => {
+        await makeLookImage(imageId)
+      })
+    }
+  }
   return { ok: true }
 }

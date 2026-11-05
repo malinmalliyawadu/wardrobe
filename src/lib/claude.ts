@@ -5,8 +5,9 @@ import Anthropic from '@anthropic-ai/sdk'
  * (ANTHROPIC_API_KEY) or an `ant auth login` profile; nothing is hardcoded.
  *
  * Model split, decided in docs/plan.md: the profile analysis, blueprint
- * drafting, looks and the outfit of the day run rarely (the last once a day,
- * at most) and quality matters, so they get Opus; scoring
+ * drafting, looks, the outfit of the day and remaking a look run rarely (the
+ * outfit once a day at most, a remake on his tap) and quality matters, so
+ * they get Opus; scoring
  * runs over hundreds of products a night and a photo of one of his clothes is
  * a quick read, so those get Sonnet.
  */
@@ -19,6 +20,7 @@ export const MODELS = {
   piece: SONNET,
   looks: OPUS,
   day: OPUS,
+  remake: OPUS,
 } as const
 
 /** List prices, USD per million tokens. */

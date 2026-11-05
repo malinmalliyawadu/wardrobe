@@ -5,6 +5,7 @@ import { useOptimistic, useRef, useState, useTransition } from 'react'
 
 import { lookAction } from '@/app/(app)/wardrobe/actions'
 import { drawLook, turnTo } from '@/app/day-actions'
+import { ChangePieces } from '@/components/change-pieces'
 import { TickIcon } from '@/components/icons'
 import { FlatLay, LookOnMe } from '@/components/look-parts'
 import { PieceImage } from '@/components/piece-image'
@@ -18,7 +19,9 @@ import type { Look, LookAction } from '@/lib/looks'
  * why it works on him, how to wear it, and "Wear this". The other options
  * sit under the words as small pictures; a tap turns the spread to one of
  * them at once and tells the server behind, so every device opens on the
- * same one, and it gets its picture drawn.
+ * same one, and it gets its picture drawn. "Change pieces" turns the list of
+ * pieces into the way to swap or remove some (ChangePieces); the remade look
+ * takes the option's place and, on show, gets its picture drawn.
  */
 
 export type DayCardOption = { look: Look; today: string; occasion: string; image: LookImage | null }
@@ -42,10 +45,14 @@ export function DayCard({
   canDraw: boolean
 }) {
   const [index, setIndex] = useOptimistic(shown)
+  /** The look whose pieces are being changed: a remade look comes back closed. */
+  const [changingId, setChangingId] = useState<number | null>(null)
   const [, startTransition] = useTransition()
   const top = useRef<HTMLDivElement>(null)
   const option = options[index % options.length]!
   const others = options.map((other, position) => ({ ...other, position })).filter((other) => other.position !== index)
+  const whole = option.look.pieces.length === option.look.piece_count
+  const changing = changingId === option.look.id || option.look.remaking !== null
 
   function turn(next: number) {
     if (next === index) return
@@ -79,24 +86,41 @@ export function DayCard({
             <p className="prose mt-3 max-w-[46ch] text-[0.9375rem] leading-normal text-ink-2 italic lg:text-[1rem]">{option.look.styling}</p>
           ) : null}
 
-          <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-3">
-            {option.look.pieces.map((piece, position) => (
-              <span key={piece.id}>
-                <Link href={`/wardrobe/${piece.id}`} className="underline decoration-line underline-offset-[3px]">
-                  {piece.name}
-                </Link>
-                {position < option.look.pieces.length - 1 ? ', ' : ''}
-              </span>
-            ))}
-          </p>
-
-          {/* Keyed by the look, so each option keeps its own saved and worn state and its own try-on. */}
-          <Actions key={`actions-${option.look.id}`} look={option.look} today={today} isToday={isToday} />
-          {option.look.pieces.length === option.look.piece_count ? (
-            <div className="mt-2">
-              <LookOnMe key={`on-me-${option.look.id}`} look={option.look} occasion={option.occasion} />
+          {changing ? (
+            <div className="max-w-[30rem]">
+              <ChangePieces look={option.look} onClose={() => setChangingId(null)} />
             </div>
-          ) : null}
+          ) : (
+            <>
+              <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-3">
+                {option.look.pieces.map((piece, position) => (
+                  <span key={piece.id}>
+                    <Link href={`/wardrobe/${piece.id}`} className="underline decoration-line underline-offset-[3px]">
+                      {piece.name}
+                    </Link>
+                    {position < option.look.pieces.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+              </p>
+              {whole ? (
+                <button
+                  type="button"
+                  className="text-button -ml-2 min-h-9 text-[0.8125rem]"
+                  onClick={() => setChangingId(option.look.id)}
+                >
+                  Change pieces
+                </button>
+              ) : null}
+
+              {/* Keyed by the look, so each option keeps its own saved and worn state and its own try-on. */}
+              <Actions key={`actions-${option.look.id}`} look={option.look} today={today} isToday={isToday} />
+              {whole ? (
+                <div className="mt-2">
+                  <LookOnMe key={`on-me-${option.look.id}`} look={option.look} occasion={option.occasion} />
+                </div>
+              ) : null}
+            </>
+          )}
 
           {others.length > 0 ? (
             <div className="mt-10" role="group" aria-label="The other options">
