@@ -40,6 +40,15 @@ export function FindsIcon(props: IconProps) {
   )
 }
 
+/** A bookmark: the wishlist. */
+export function WishlistIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2L5.5 20.5v-16a1 1 0 0 1 1-1Z" />
+    </svg>
+  )
+}
+
 /** A coat hanger: what he owns. */
 export function WardrobeIcon(props: IconProps) {
   return (

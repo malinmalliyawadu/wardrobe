@@ -118,7 +118,7 @@ function Results({ search }: { search: SearchView }) {
         <p className="mt-1 max-w-[44ch] text-sm text-ink-3">
           {read}
           {closest ? ' Nothing cleared the bar; these came nearest.' : ''}
-          {results.length > 0 ? ' What you save goes to Saved on Finds.' : ''}
+          {results.length > 0 ? ' What you save goes to your wishlist.' : ''}
         </p>
         {results.length > 0 ? (
           // The feed's row: a swipe row on the phone, a grid on a laptop.

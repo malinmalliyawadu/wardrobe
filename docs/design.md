@@ -11,12 +11,13 @@ other page.
 
 ## Information architecture
 
-Five tabs, ordered by how often each is opened:
+Six tabs, ordered by how often each is opened:
 
 | Tab | Route | What it is |
 |---|---|---|
 | Today | `/` | The outfit of the day, and nothing else. Three options to swipe between, a gym fit on gym days, "something on today" at the end. Until there is a guide and a wardrobe, it says what to do next. |
-| Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), last night's finds by slot, what he has saved and what changed, and the way into everything the finder read (`/shops`). |
+| Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), last night's finds by slot, and the way into everything the finder read (`/shops`). |
+| Wishlist | `/wishlist` | What he wants: every find he saved and every link he pasted, each with what changed since. He opens it in a shop to decide whether to buy, so it is a tab of its own, with the paste-a-link line first. |
 | Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`) and On me (`/wardrobe/on-me`) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
 | Blueprint | `/blueprint` | What to own, by priority, with the style guide (`/blueprint/guide`) at the top wearing its palette. |
 | You | `/you` | The profile, the finder's spend and shops, the systems. Edited rarely. |
@@ -82,7 +83,8 @@ and the phone is the same content in one column, not the other way round.
     words and actions on the right, the other options as thumbnails under
     them.
   - Finds: the heading line across the top, then each slot's finds as a grid
-    of 4 cards (3 at `lg`, 4 at `xl`), Saved as two columns of rows.
+    of 4 cards (3 at `lg`, 4 at `xl`).
+  - Wishlist: the paste-a-link form (`max-w-2xl`), then the rows in two columns.
   - Wardrobe: pieces 4 across at `lg`, 5 at `xl`; looks 3 across; pictures
     4 across.
   - Blueprint: `lg:grid-cols-[18rem_minmax(0,1fr)]`: the palette band, the
