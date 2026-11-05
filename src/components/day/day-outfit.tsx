@@ -168,6 +168,7 @@ export async function DayOutfit() {
           Open-Meteo
         </a>
         . Put together by Opus{day.usd !== null ? ` for US$${day.usd.toFixed(2)}` : ''}
+        {day.remake_usd > 0 ? `, its pieces changed for US$${day.remake_usd.toFixed(2)}` : ''}
         {shownImageUsd !== null ? `, drawn by OpenAI for US$${shownImageUsd.toFixed(2)}` : ''}.
       </p>
     </section>

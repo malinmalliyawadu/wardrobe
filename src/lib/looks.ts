@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { MODELS, callUsd } from './claude.ts'
 import { db, type Sql } from './db.ts'
+import { BOTTOMS, FOOTWEAR, isWhole, LAYER_ORDER, TOPS } from './look-rules.ts'
 import { inPalette, listPieces, type Piece } from './pieces.ts'
 import type { Profile } from './profile.ts'
 import { generate, type GenerationMeta } from './structured.ts'
@@ -50,18 +51,6 @@ export const LOOKS_PER_SET = 6
 // ---------------------------------------------------------------------------
 // What a look is made of
 // ---------------------------------------------------------------------------
-
-/** Outermost layer first, then down the body, then what is carried. A look's pieces are shown in this order. */
-const LAYER_ORDER: GarmentType[] = [
-  'coat', 'jacket', 'tailoring', 'overshirt', 'knitwear', 'sweatshirt', 'shirt', 'polo', 'tee', 'tank',
-  'activewear', 'trousers', 'jeans', 'shorts', 'belt', 'boots', 'shoes', 'sneakers', 'accessory', 'bag',
-]
-
-const TOPS: GarmentType[] = ['tee', 'tank', 'polo', 'shirt', 'knitwear', 'sweatshirt', 'overshirt']
-const BOTTOMS: GarmentType[] = ['trousers', 'jeans', 'shorts']
-const FOOTWEAR: GarmentType[] = ['boots', 'shoes', 'sneakers']
-const OUTER: GarmentType[] = ['coat', 'jacket']
-const CARRIED: GarmentType[] = ['belt', 'accessory', 'bag']
 
 export type Readiness = { ready: boolean; missing: string[] }
 
@@ -308,18 +297,7 @@ export function tidyLooks<T extends LookDraft>(
   for (const draft of drafts) {
     const wornFor = draft.occasion === 'gym' ? forGym : forEveryday
     const ids = [...new Set(draft.piece_ids)].filter((id) => byId.has(id) && wornFor(byId.get(id)!))
-    const types = ids.map((id) => byId.get(id)!.garment_type)
-    const count = (group: GarmentType[]) => types.filter((type) => group.includes(type)).length
-    const valid =
-      count(TOPS) >= 1 &&
-      count(BOTTOMS) === 1 &&
-      count(FOOTWEAR) === 1 &&
-      count(OUTER) <= 1 &&
-      count(['tailoring']) <= 1 &&
-      count(CARRIED) <= 3 &&
-      ids.length >= 3 &&
-      ids.length <= 8
-    if (!valid) continue
+    if (!isWhole(ids.map((id) => byId.get(id)!.garment_type))) continue
     const key = signature(ids)
     if (seen.has(key)) continue
     seen.add(key)
@@ -434,13 +412,16 @@ export type Look = {
   why: string
   styling: string | null
   better: { slot_id: number; name: string; colours: string[]; why: string | null } | null
-  status: 'new' | 'saved' | 'dismissed'
+  /** Replaced: remade (look-remake.ts), kept for the days he wore it. */
+  status: 'new' | 'saved' | 'dismissed' | 'replaced'
   piece_count: number
   pieces: Piece[]
   /** Days he wore it, newest first, as YYYY-MM-DD in New Zealand. */
   worn: string[]
   /** The latest try-on of the whole look, if he asked for one. */
   on_me: OnMe | null
+  /** The pieces he marked, while a remake of it is being made. */
+  remaking: { swap: number[]; remove: number[] } | null
 }
 
 export type LookSet = {
@@ -476,7 +457,10 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
     select l.id::int as id, l.set_id::int as set_id, l.title, l.occasion, l.weather, l.why, l.styling, l.status, l.piece_count,
            l.better_slot_id::int as better_slot_id, s.name as better_name, s.colours as better_colours, l.better_why,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids,
-           array(select to_char(w.worn_on, 'YYYY-MM-DD') from look_wears w where w.look_id = l.id order by w.worn_on desc) as worn
+           array(select to_char(w.worn_on, 'YYYY-MM-DD') from look_wears w where w.look_id = l.id order by w.worn_on desc) as worn,
+           (select json_build_object('swap', r.swap, 'remove', r.remove) from look_remakes r
+            where r.look_id = l.id and r.status = 'making' and r.started_at > now() - interval '5 minutes'
+            limit 1) as remaking
     from looks l
     left join blueprint_slots s on s.id = l.better_slot_id and s.status in ('wanted', 'candidate')
     where ${where}
@@ -501,6 +485,7 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
     pieces: row.piece_ids.flatMap((id) => (pieces.has(id) ? [pieces.get(id)!] : [])),
     worn: row.worn,
     on_me: onMe.get(row.id) ?? null,
+    remaking: row.remaking,
   }))
 }
 
