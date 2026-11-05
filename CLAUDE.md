@@ -291,6 +291,22 @@ never drawn without a tap. The Looks tab makes a set for his week (a gym fit
 or two in it when he trains) or gym fits only. Pieces shelves gym-only kit
 as Gym kit.
 
+Changing a look's pieces built 2026-11-05 (migration 0015), asked for by
+Malin. "Change pieces" under a look's pieces, on the Looks tab and on
+Today's outfit and gym fit, turns them into rows with Swap (for another of
+his, Opus's pick) and Remove (nothing in its place; off for a piece the
+look cannot stand without, by `wholeWithout` in `src/lib/look-rules.ts`,
+which tidyLooks shares), and an optional note. `src/lib/look-remake.ts`
+records a `look_remakes` row, calls Opus synchronously in the action
+(about 11 s and US$0.05 a remake), and `tidyRemake` holds the answer to
+the ask: every kept piece in, every marked piece out, at most one new piece
+per swap. The remake is a new look in the old one's set and position, saved
+if the old one was, in every current day's outfit that showed it (with a new
+line for the day), and handed today's wear; the old look becomes status
+`replaced`, kept for its wears. A remade option on show gets its picture
+drawn. While a remake is in the making, the card shows it and refreshes;
+Today's footer adds what changes cost.
+
 Lululemon added 2026-11-05 as a store added by hand (platform `manual`,
 migration 0012): its site answers only robots.txt past a Cloudflare challenge,
 which the finder does not pose as a browser to get through. A Lululemon link
