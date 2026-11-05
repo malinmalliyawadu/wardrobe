@@ -36,3 +36,19 @@ export function DressAgain({ when, open = false }: { when: 'today' | 'tomorrow';
     </form>
   )
 }
+
+/**
+ * The same new outfit, offered where a training day's gym fit is missing: a
+ * direct button rather than the folded line, since the gym section names it.
+ */
+export function DressForGym() {
+  const [state, action] = useActionState(dressAgain, null)
+  return (
+    <form action={action} className="mt-5 space-y-3">
+      <SubmitButton pending="Starting" variant="quiet">
+        Dress me again
+      </SubmitButton>
+      <FormMessage message={state?.message} />
+    </form>
+  )
+}
