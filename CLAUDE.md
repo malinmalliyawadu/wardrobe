@@ -258,8 +258,9 @@ days he wears what it suggests). On Today between the hero and the finds
 (from 6pm, tomorrow) starts it through an action, never a render; Opus makes
 three options from his pieces against Open-Meteo's forecast for 7am to 10pm
 (`src/lib/weather.ts`), the season and his week, in `after()`, and the card
-refreshes until it is there. Each option is a look (a saved one when it
-matches piece for piece); day sets are `look_sets.kind = 'day'` and never
+refreshes until it is there. Each option is a look (an existing one, saved
+or offered before and not dismissed, when it matches piece for piece, so its
+flat lay is not drawn again); day sets are `look_sets.kind = 'day'` and never
 the Looks tab's newest set. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,

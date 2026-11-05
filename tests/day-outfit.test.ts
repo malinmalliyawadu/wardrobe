@@ -5,6 +5,7 @@ import { after, before, describe, test } from 'node:test'
 import { connect, db, type Sql } from '../src/lib/db.ts'
 import {
   buildDayMessages,
+  lookKey,
   readDay,
   runDay,
   showNext,
@@ -113,6 +114,12 @@ describe('the pure parts', () => {
     })
     assert.equal(tidyGym(option([8, 4, 7]), shelf, { dismissed: [] }), null, 'everyday trousers are not gym kit')
     assert.equal(tidyGym(gym, shelf, { dismissed: [{ title: 'x', piece_ids: [7, 8, 9], reason: 'colours' }] }), null)
+  })
+
+  test('a look is the same outfit as another with the same pieces in any order, gym or not', () => {
+    assert.equal(lookKey({ occasion: 'office', piece_ids: [6, 4, 2] }), lookKey({ occasion: 'weekend', piece_ids: [2, 4, 6] }))
+    assert.notEqual(lookKey({ occasion: 'office', piece_ids: [7, 8, 9] }), lookKey({ occasion: 'gym', piece_ids: [7, 8, 9] }))
+    assert.notEqual(lookKey({ occasion: 'office', piece_ids: [2, 4, 6] }), lookKey({ occasion: 'office', piece_ids: [2, 4, 6, 1] }))
   })
 
   test('his week says which days he trains', () => {
@@ -341,6 +348,78 @@ describe('a day made, read and turned', () => {
     assert.deepEqual(drawn, [day!.options[0]!.look.id], 'only the outfit on show is drawn')
     // Another turns the day's options only.
     assert.equal(await showNext(id, sql), day!.options[0]!.look.id)
+  })
+
+  test('an option that is a look offered before is that look, picture and all; a dismissed one is not reused', async () => {
+    const [shirt, crew, chinos, boots, tee] = ids as [number, number, number, number, number]
+    const [tank, shorts, trainers] = kit as [number, number, number]
+    const earlier = (await readDay('2026-11-09', sql))!
+    const oxford = earlier.options[0]!.look
+    const gymFit = earlier.gym!.look
+    assert.equal(oxford.status, 'new', 'offered on another day, never saved')
+
+    // A set from the Looks tab: two looks with the same pieces, the older one drawn, and one he dismissed.
+    const look = (title: string, piece_ids: number[]) =>
+      ({ title, occasion: 'weekend', weather: 'mild', piece_ids, why: 'Why.', styling: null, better_with: null }) as const
+    const setId = await saveSet(
+      {
+        looks: [look('Drawn twin', [crew, tee, chinos, boots]), look('Undrawn twin', [crew, tee, chinos, boots]), look('Dismissed one', [crew, chinos, boots])],
+        proposed: 3,
+        meta,
+        usd: 0.2,
+      },
+      { note: null, pieces: 8, date: '2026-11-09', weather: 'mild' },
+      sql,
+    )
+    const inSet = await sql<{ id: number; title: string }[]>`select id::int as id, title from looks where set_id = ${setId}`
+    const idOf = (title: string) => inSet.find((l) => l.title === title)!.id
+    await sql`
+      insert into look_images (look_id, pieces, pieces_key, provider, model, status, prompt)
+      values (${idOf('Drawn twin')}, '[]'::jsonb, 'key', 'openai', 'gpt-image', 'ready', 'Draw it.')
+    `
+    await actOnLook({ action: 'dismiss', look_id: idOf('Dismissed one'), reason: 'not_me' }, sql)
+    const countLooks = async () => (await sql<{ count: number }[]>`select count(*)::int as count from looks`)[0]!.count
+    const looksBefore = await countLooks()
+
+    const id = await making('2026-11-10')
+    drawn.length = 0
+    const info = console.info
+    console.info = () => {}
+    try {
+      await runDay(
+        id,
+        sql,
+        drafted(
+          [
+            option([boots, chinos, shirt], { title: 'Claude called it something else', today: 'Mild again.' }),
+            option([tee, crew, chinos, boots], { occasion: 'weekend', title: 'Tee under the crew', today: 'Cool morning.' }),
+            option([crew, chinos, boots], { title: 'Crew and putty', today: 'Dry all day.' }),
+          ],
+          option([trainers, tank, shorts], { occasion: 'gym', title: 'Same kit', today: 'A still evening.' }),
+        ),
+      )
+    } finally {
+      console.info = info
+    }
+
+    const day = (await readDay('2026-11-10', sql))!
+    assert.equal(day.status, 'ready')
+    assert.deepEqual(
+      day.options.map((o) => [o.look.title, o.today]),
+      [
+        ['Oxford and putty', 'Mild again.'],
+        ['Drawn twin', 'Cool morning.'],
+        ['Crew and putty', 'Dry all day.'],
+      ],
+    )
+    assert.equal(day.options[0]!.look.id, oxford.id, 'the look offered on another day, not a copy')
+    assert.equal(day.options[1]!.look.id, idOf('Drawn twin'), 'of two the same, the one already drawn')
+    assert.equal(day.options[1]!.image?.status, 'ready', 'its picture comes with it')
+    assert.notEqual(day.options[2]!.look.id, idOf('Dismissed one'), 'a dismissed look is never brought back')
+    assert.equal(day.gym?.look.id, gymFit.id, 'the gym fit offered before')
+    assert.equal(day.gym?.today, 'A still evening.', 'with this day’s line')
+    assert.equal((await countLooks()) - looksBefore, 1, 'only the one with no match is a new look')
+    assert.deepEqual(drawn, [oxford.id])
   })
 
   test('another turns to the next option, round to the first', async () => {
