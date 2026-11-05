@@ -5,12 +5,13 @@ import { z } from 'zod'
 import { dollars, type Slot } from '../blueprint.ts'
 import { MODELS, PRICES, claude } from '../claude.ts'
 import type { Sql } from '../db.ts'
+import { productImageAt } from '../product-image.ts'
 import type { Profile } from '../profile.ts'
 import { finalText, plainDashes } from '../structured.ts'
 import { colourNameFor, profileBrief, type Guide } from '../style-guide.ts'
 
 import type { Candidate } from './filter.ts'
-import { imageAt, type ProductImage } from './shopify.ts'
+import type { ProductImage } from './shopify.ts'
 
 /*
  * Stage 3: Claude judges each candidate the filter let through, once per
@@ -149,7 +150,7 @@ export function buildScoreRequest(context: string, product: ProductForScoring) {
   }
   const content: Anthropic.Beta.BetaContentBlockParam[] = []
   const image = product.images[0]
-  if (image) content.push({ type: 'image', source: { type: 'url', url: imageAt(image.src, IMAGE_WIDTH) } })
+  if (image) content.push({ type: 'image', source: { type: 'url', url: productImageAt(image.src, IMAGE_WIDTH) } })
   content.push({
     type: 'text',
     text: [

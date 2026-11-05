@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { classify, sizeKey } from './classify.ts'
+import { colourName } from './colour.ts'
 import { FetchError, type PoliteClient } from './http.ts'
 import { contentHash, type NormalisedProduct, type NormalisedVariant, type ProductImage } from './shopify.ts'
 
@@ -146,15 +147,6 @@ export async function fetchUniqloProduct(client: PoliteClient, baseUrl: string, 
 // ---------------------------------------------------------------------------
 // One colour as a stored product
 // ---------------------------------------------------------------------------
-
-/** "OFF WHITE" -> "Off White", as the Shopify stores write colours, and in NZ spelling. */
-export function colourName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\bgray\b/g, 'grey')
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase())
-}
 
 /** The colour a link stands for: the one it names, or the only one there is. */
 export function chooseColour(product: UniqloProduct, requested: string | null): { colour: string } | { missing: 'unnamed' | 'gone'; choices: string[] } {

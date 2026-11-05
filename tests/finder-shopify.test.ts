@@ -4,7 +4,6 @@ import { test } from 'node:test'
 
 import {
   contentHash,
-  imageAt,
   normaliseProduct,
   ShopifyPageSchema,
   ShopifyProductSchema,
@@ -135,9 +134,4 @@ test('a size option the store did not call "Size" is still found', () => {
   const chino = normaliseProduct(raw, { base_url: 'https://shop.test', catalogue: 'menswear' })
   assert.equal(chino.variants[0]!.option_size, '32')
   assert.equal(chino.variants[0]!.size_key, 'W32')
-})
-
-test('image URLs get the CDN width parameter', () => {
-  assert.equal(imageAt('https://cdn.shopify.com/a.jpg?v=12', 768), 'https://cdn.shopify.com/a.jpg?v=12&width=768')
-  assert.equal(imageAt('//cdn.shopify.com/a.jpg', 160), 'https://cdn.shopify.com/a.jpg?width=160')
 })

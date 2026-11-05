@@ -9,6 +9,7 @@ import { db, type Sql } from './db.ts'
 import { findPhotoFile, findPhotoId } from './find-photos.ts'
 import { findKey, lookOutfitKey, outfitKey } from './outfit-key.ts'
 import { photosDir } from './photos.ts'
+import { productImageAt } from './product-image.ts'
 
 /*
  * Try-on: "See it on me" on a feed find, on a look, on pieces he chose
@@ -408,13 +409,9 @@ export async function editImage(request: EditRequest, fetchImpl: typeof fetch = 
 // Inputs
 // ---------------------------------------------------------------------------
 
-/** Shopify's CDN and Uniqlo's image host resize on a width parameter, and protocol-relative sources are common. */
+/** The shop's photo at the edge OpenAI is sent. */
 export function productImageUrl(src: string, width = PRODUCT_EDGE): string {
-  const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  if (url.hostname.endsWith('cdn.shopify.com') || url.pathname.includes('/cdn/shop/') || url.hostname === 'image.uniqlo.com') {
-    url.searchParams.set('width', String(width))
-  }
-  return url.toString()
+  return productImageAt(src, width)
 }
 
 /**

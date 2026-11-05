@@ -5,6 +5,13 @@ import { readable, type Retailer } from '../retailers.ts'
 
 import { DisallowedError, FetchError, type PoliteClient } from './http.ts'
 import { writePage } from './ingest.ts'
+import {
+  fetchRoddAndGunn,
+  roddAndGunnId,
+  roddAndGunnPageUrl,
+  RoddAndGunnPageError,
+  RoddAndGunnStylePage,
+} from './rodd-and-gunn.ts'
 import { normaliseProduct, ShopifyProductSchema, type NormalisedProduct, type ShopifyProduct } from './shopify.ts'
 import {
   chooseColour,
@@ -22,7 +29,8 @@ import {
  * the nightly walk and stored like any other product, so the nightly run
  * keeps its price and stock current. A Shopify store's product is read from
  * its own /products/<handle>.js (the per-product endpoint every Shopify theme
- * serves, with stock per size); Uniqlo's from its product page (uniqlo.ts).
+ * serves, with stock per size); Uniqlo's and Rodd & Gunn's from their product
+ * pages (uniqlo.ts, rodd-and-gunn.ts).
  */
 
 export class ProductLinkError extends Error {}
@@ -147,6 +155,7 @@ export async function fetchProduct(client: PoliteClient, retailer: Retailer, han
   if (!readable(retailer)) throw new ManualStoreError(retailer)
   try {
     if (retailer.platform === 'uniqlo') return await fetchUniqlo(client, retailer, handle)
+    if (retailer.platform === 'rodd-and-gunn') return await fetchRoddAndGunnColour(client, retailer, handle)
     const origin = retailer.feed_url ?? retailer.base_url
     const raw = fromProductJs(await client.json(`${origin}/products/${handle}.js`))
     return normaliseProduct(raw, { base_url: retailer.base_url, catalogue: storedCatalogue(retailer) })
@@ -155,7 +164,7 @@ export async function fetchProduct(client: PoliteClient, retailer: Retailer, han
     if (error instanceof DisallowedError) {
       throw new ProductLinkError(`${retailer.name} does not allow its product pages to be read automatically.`)
     }
-    if (error instanceof z.ZodError || error instanceof UniqloPageError) {
+    if (error instanceof z.ZodError || error instanceof UniqloPageError || error instanceof RoddAndGunnPageError) {
       throw new ProductLinkError(`${retailer.name} answered with something that is not a product.`)
     }
     throw error
@@ -182,17 +191,42 @@ async function fetchUniqlo(client: PoliteClient, retailer: Retailer, handle: str
   return normaliseUniqlo(product, chosen.colour, retailer)
 }
 
+/**
+ * One colour of a Rodd & Gunn product, by its id. A link to the style itself
+ * names no colour, which is fine when it comes in one; otherwise he chooses.
+ */
+async function fetchRoddAndGunnColour(client: PoliteClient, retailer: Retailer, handle: string): Promise<NormalisedProduct | null> {
+  const url = roddAndGunnPageUrl(retailer.base_url, handle)
+  try {
+    return (await fetchRoddAndGunn(client, retailer, url))?.product ?? null
+  } catch (error) {
+    if (!(error instanceof RoddAndGunnStylePage)) throw error
+    const [only, ...others] = error.colours
+    if (only && others.length === 0) {
+      return (await fetchRoddAndGunn(client, retailer, new URL(only.url, retailer.base_url).toString()))?.product ?? null
+    }
+    throw new ProductLinkError(
+      `${retailer.name} sells it in ${listed(error.colours.map((colour) => colour.name))}. Choose yours on its page, then copy the link again.`,
+    )
+  }
+}
+
 function listed(words: string[]): string {
   const lower = words.map((word) => word.toLowerCase())
   return lower.length <= 1 ? (lower[0] ?? 'several colours') : `${lower.slice(0, -1).join(', ')} and ${lower.at(-1)}`
 }
 
-/** The handle fetchProduct takes for a pasted link: the Shopify handle, or the Uniqlo product and colour. */
+/** The handle fetchProduct takes for a pasted link: the Shopify handle, the Uniqlo product and colour, or the Rodd & Gunn id. */
 function handleForLink(retailer: Retailer, url: URL): string {
   if (retailer.platform === 'uniqlo') {
     const link = parseUniqloLink(url)
     if (!link) throw new ProductLinkError(NOT_A_PRODUCT)
     return uniqloHandle(link)
+  }
+  if (retailer.platform === 'rodd-and-gunn') {
+    const id = roddAndGunnId(url)
+    if (!id) throw new ProductLinkError(NOT_A_PRODUCT)
+    return id
   }
   return parseProductLink(url.toString()).handle
 }

@@ -3,23 +3,15 @@
 import Image, { type ImageLoader } from 'next/image'
 
 import type { FindCard as Find } from '@/lib/feed'
+import { productImageAt } from '@/lib/product-image'
 
 /*
  * The product's photo, shared by the find card, the try-on viewer and Shops.
  * A client module because next/image takes the loader as a function.
  */
 
-/**
- * Shopify's CDN (and Uniqlo's image host) resize on a width parameter, so the
- * image optimiser is not needed. The photo of a find added by hand is ours
- * (/photos/finds/:id), and its route picks the thumb or the master by width.
- */
-export const productLoader: ImageLoader = ({ src, width }) => {
-  if (src.startsWith('/') && !src.startsWith('//')) return `${src}?w=${width}`
-  const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  url.searchParams.set('width', String(width))
-  return url.toString()
-}
+/** The shops' image hosts resize on their own, so the image optimiser is not needed. */
+export const productLoader: ImageLoader = ({ src, width }) => productImageAt(src, width)
 
 export function ProductPhoto({
   find,

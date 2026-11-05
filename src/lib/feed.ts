@@ -10,7 +10,7 @@ import { pieceFromPurchase, syncSlotPieces } from './pieces.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
-import { tryOnAt, type WellingtonStore } from './retailers.ts'
+import { STOCK_PLATFORMS, tryOnAt, type WellingtonStore } from './retailers.ts'
 import { newsSince, savedHistory, type Observation, type SavedEvent } from './saved-history.ts'
 import { latestTryOns, type OnMe } from './try-on.ts'
 import type { GarmentType } from './wardrobe-values.ts'
@@ -308,7 +308,7 @@ export async function getFeed(): Promise<Feed> {
            s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
-           r.platform = 'shopify' as stock_known,
+           r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known
     from finder_candidates c
     join product_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
@@ -388,7 +388,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.images -> 0 as image,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
-           r.platform = 'shopify' as stock_known, r.platform = 'manual' as by_hand,
+           r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known, r.platform = 'manual' as by_hand,
            coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
            coalesce(c.compare_at_cents, v.compare_at_cents) as compare_at_cents,
            coalesce(c.sizes, v.sizes, '{}') as sizes, coalesce(c.size_known, false) as size_known,

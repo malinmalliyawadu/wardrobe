@@ -223,12 +223,6 @@ export async function* shopifyPages(
   throw new Error(`${feedOrigin}${path} still had products after ${MAX_PAGES} pages; stopped`)
 }
 
-/** Shopify image URLs take a width parameter; the CDN resizes. */
-export function imageAt(src: string, width: number): string {
-  const url = new URL(src.startsWith('//') ? `https:${src}` : src)
-  url.searchParams.set('width', String(width))
-  return url.toString()
-}
 
 function tidyTags(tags: ShopifyProduct['tags']): string[] {
   const list = Array.isArray(tags) ? tags : (tags ?? '').split(',')

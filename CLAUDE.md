@@ -154,7 +154,17 @@ Good As Gold, Huffer and END. are read through their men's collections;
 Crane Brothers through its myshopify host. Patagonia NZ (added 2026-11-05,
 its own NZD shop, read through `mens`) is mostly technical kit that the
 rules file as activewear, so its finds are the casual fleece, shirts and
-pants. Filter (`filter.ts`,
+pants. Rodd & Gunn (added 2026-11-05, migration 0019, platform
+`rodd-and-gunn`, `rodd-and-gunn.ts`) is links only, like Uniqlo, Malin's
+call: it is not Shopify and its catalogue is a page per colour (about 2,540),
+most of an hour a night at a page a second, so it is never walked and has no
+switch. A pasted link is read from its NZ page with stock per size, and a
+saved one is re-read each night. A colour's leg lengths are separate pages
+and ids on the site and one product here, under the Regular id.
+`WALKED_PLATFORMS` and `STOCK_PLATFORMS` in `src/lib/retailers.ts` say which
+stores have a switch and which know stock per size; SQL uses them, never a
+platform name. Product photos are sized through `src/lib/product-image.ts`
+(Shopify and Uniqlo take `width`, Rodd & Gunn's image service `sw`). Filter (`filter.ts`,
 `classify.ts`, `colour.ts`, `photo-colour.ts`): rules and SQL only, including
 a colour rule that only ever says no and reads the main photo once (cached as
 hex) when a listing names no colour, as END.'s never do. Score (`score.ts`):

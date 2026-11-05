@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
+import { colourName } from '../src/lib/finder/colour.ts'
 import {
   chooseColour,
-  colourName,
   normaliseUniqlo,
   parseUniqloHandle,
   parseUniqloLink,

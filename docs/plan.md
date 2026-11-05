@@ -140,15 +140,26 @@ Probed on 2026-11-04:
 | END. (UK, ships to NZ) | yes | no |
 | Patagonia NZ (added 2026-11-05) | yes | not readable (locator drawn by script) |
 | Hallensteins | no (406) | yes |
-| Rodd & Gunn | no (410) | yes |
+| Rodd & Gunn (added 2026-11-05) | no (410); links only | yes (46 Willis St) |
 | THE ICONIC | no | no |
 | Uniqlo AU | no | no |
 | Lululemon NZ | no (Cloudflare 403); added by hand | not checked |
 | ASOS | no | no |
 | Mr Porter | no (403) | no |
 
-One generic Shopify adapter covers the first eleven and any other Shopify store
-Malin pastes a URL for. Non-Shopify stores need a per-retailer adapter each;
+One generic Shopify adapter covers the Shopify stores above and any other
+Shopify store Malin pastes a URL for. Non-Shopify stores need a per-retailer
+adapter each. Rodd & Gunn (Salesforce Commerce Cloud) has one since
+2026-11-05, asked for by Malin, for links only (`src/lib/finder/rodd-and-gunn.ts`,
+migration 0019): its product pages are allowed by robots.txt and answer the
+finder's own User-Agent, and each carries the price, the usual price, the
+photos and stock per size. Walking it was built first and dropped: the
+catalogue is a page per colour (about 2,540 in the NZ sitemap) and the
+paginated grids are disallowed, so a whole read takes most of an hour at a
+page a second, and Malin chose pasting links over reading it a slice a
+night. A colour's leg lengths (each its own page) are stored as one product,
+sizes named with their length.
+
 THE ICONIC, Uniqlo and Hallensteins were researched in M5 and are not read
 (THE ICONIC's terms forbid robots, Uniqlo does not sell to NZ, Hallensteins
 by Malin's choice; see M5 below). Lululemon NZ (Salesforce Commerce Cloud)
