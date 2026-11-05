@@ -33,6 +33,10 @@ test('garment types from real titles and product types', () => {
     ['Merino Watch Cap', null, 'accessory', 'beanie'],
     ['Logo Cap', 'Caps', 'accessory', 'cap'],
     ['Leather Belt', null, 'belt'],
+    ["Men's Down Sweater™", 'Medium,Tops', 'jacket'],
+    ["Men's Micro Puff® Hoody", 'Medium,Tops', 'jacket'],
+    ["Men's Better Sweater® 1/4-Zip", 'Fleece', 'sweatshirt'],
+    ["Men's Twill Traveler 5-Pocket Pants - Regular", 'Medium,Bottoms & One Pieces', 'trousers'],
   ]
   for (const [title, type, garment, kind] of cases) {
     const result = garmentOf(title, type)
@@ -49,6 +53,9 @@ test('never a slot: swimwear, socks, jewellery, sunglasses, towels', () => {
     ['Port Tanger Ayreen Sunglasses', null],
     ['Barkers Beach Towel', 'Accessories / General Accessories'],
     ['Ring Spun Tee', 'Rings'],
+    ["Men's R1® Yulex® Regulator® Front-Zip Spring Suit", 'Wetsuits'],
+    ['R3® Yulex® Regulator® Split Toe Wetsuit Booties', null],
+    ["Men's RØ® Top", 'Tops - L/S,L/S Pullovers / Swimwear'],
   ] as const) {
     assert.equal(garmentOf(title, type).garment_type, null, title)
   }
@@ -59,6 +66,10 @@ test('sport kit is activewear, so it never fills a style slot', () => {
   assert.equal(garmentOf('Brooks Adrenaline GTS 4', 'Running Shoes').garment_type, 'activewear')
   assert.equal(garmentOf('Restrained Active Crop Tee - Off White', 'activewear').garment_type, 'activewear')
   assert.equal(garmentOf('Huffer Golf Polo', 'HUFFER GOLF').garment_type, 'activewear')
+  assert.equal(garmentOf("Men's Insulated Snowfarer Bibs", 'Medium,Bottoms & One Pieces').garment_type, 'activewear')
+  assert.equal(garmentOf("Men's Swiftcurrent Wading Pants", null).garment_type, 'activewear')
+  assert.equal(garmentOf("Men's Capilene® Cool Daily Shirt", 'Tops - S/S').garment_type, 'activewear', 'Capilene is a technical fabric')
+  assert.equal(garmentOf('Bib-Front Lansdowne Dinner Shirt - White', 'Shirts').garment_type, 'shirt', 'a bib front is not cycling bibs')
   assert.equal(garmentOf('Axel Arigato Daze Runner', null).garment_type, 'sneakers', 'a lifestyle runner is a sneaker')
 })
 
@@ -106,6 +117,7 @@ test('size keys by garment', () => {
   assert.equal(sizeKey('2 (S)', 'knitwear'), 'S')
   assert.equal(sizeKey('XXXX LARGE', 'tee'), null)
   assert.equal(sizeKey('OSA', 'bag'), 'ONE')
+  assert.equal(sizeKey('ALL', 'accessory'), 'ONE', "Patagonia's hats")
   assert.equal(sizeKey('8', 'sneakers'), null, 'a bare 8 on a shoe could be UK or US')
   assert.equal(sizeKey('Ocean', 'tee'), null)
 })

@@ -137,6 +137,7 @@ Probed on 2026-11-04:
 | Commoners | yes | no (stockists only) |
 | Area 51 | yes | yes (49 Dixon St) |
 | END. (UK, ships to NZ) | yes | no |
+| Patagonia NZ (added 2026-11-05) | yes | not readable (locator drawn by script) |
 | Hallensteins | no (406) | yes |
 | Rodd & Gunn | no (410) | yes |
 | THE ICONIC | no | no |

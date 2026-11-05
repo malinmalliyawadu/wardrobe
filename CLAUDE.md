@@ -148,10 +148,13 @@ what they edit so a return visit shows saved values.
 M3 built 2026-11-04; gate pending (a week of daily feed Malin is happy with,
 at a known cost per night). `npm run find` runs three stages into one
 `finder_runs` row. Ingest (`src/lib/finder/ingest.ts`, `shopify.ts`,
-`http.ts`): eleven stores from `data/retailers.json`, one request a second per
+`http.ts`): twelve Shopify stores from `data/retailers.json`, one request a second per
 host, robots.txt read once per host per run, about 2.5 minutes. Country Road,
 Good As Gold, Huffer and END. are read through their men's collections;
-Crane Brothers through its myshopify host. Filter (`filter.ts`,
+Crane Brothers through its myshopify host. Patagonia NZ (added 2026-11-05,
+its own NZD shop, read through `mens`) is mostly technical kit that the
+rules file as activewear, so its finds are the casual fleece, shirts and
+pants. Filter (`filter.ts`,
 `classify.ts`, `colour.ts`, `photo-colour.ts`): rules and SQL only, including
 a colour rule that only ever says no and reads the main photo once (cached as
 hex) when a listing names no colour, as END.'s never do. Score (`score.ts`):
