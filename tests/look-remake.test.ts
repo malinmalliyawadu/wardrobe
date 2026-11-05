@@ -337,6 +337,33 @@ describe('a look remade in its place', () => {
     assert.equal((await readDay(dressDate(), sql))?.remake_usd, 0.08, 'the failed call is counted too')
   })
 
+  test('a remake into an outfit already made is that look, not a copy', async () => {
+    await saveSet(
+      {
+        looks: [{ title: 'Navy tee day', occasion: 'weekend', weather: 'mild', piece_ids: [ids.tee!, ids.chinos!, ids.sneakers!], why: 'Why.', styling: null, better_with: null }],
+        proposed: 1,
+        meta,
+        usd: 0.2,
+      },
+      { note: 'weekend', pieces: 7, date: '2026-11-05', weather: 'mild' },
+      sql,
+    )
+    const made = (await readLooks(sql)).fresh[0]!
+    const count = async () => (await sql<{ count: number }[]>`select count(*)::int as count from looks`)[0]!.count
+    const before = await count()
+
+    const started = await startRemake({ look_id: lookId, swap: [ids.crew!], remove: [ids.oxford!], note: null }, sql)
+    assert.ok(started.ok)
+    const done = await quietly(() => runRemake(started.id, sql, answer(draft([ids.sneakers!, ids.tee!, ids.chinos!]))))
+    assert.equal(done.ok, true)
+    assert.equal(await count(), before, 'no new look')
+    const [reused] = await getLooks([made.id], sql)
+    assert.equal(reused?.title, 'Navy tee day', 'with its own words')
+    assert.equal(reused?.status, 'saved', 'saved, as the look it replaced was')
+    assert.equal((await readDay(dressDate(), sql))?.options[0]?.look.id, made.id, 'on the day in its place')
+    lookId = made.id
+  })
+
   test('a removal that breaks the outfit is refused before any call', async () => {
     assert.deepEqual(await startRemake({ look_id: lookId, swap: [], remove: [ids.sneakers!], note: null }, sql), {
       ok: false,

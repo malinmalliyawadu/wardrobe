@@ -384,7 +384,8 @@ export function lookKey(look: { occasion: string; piece_ids: number[] }): string
 
 /**
  * Every look a new one may turn out to be, by lookKey: saved ones, and ones
- * offered before (in a set of looks, or on a day) that he has not dismissed.
+ * offered before (in a set of looks, or on a day) that he has not dismissed
+ * and that no remake replaced.
  * Where more than one has the same pieces, the one he saved wins, then one
  * with a picture already drawn, then the newest. A dismissed look is never
  * reused; tidyLooks and tidyDay keep the recent ones out, and an older one
@@ -394,7 +395,7 @@ export async function matchingLooks(sql: Sql | postgres.TransactionSql): Promise
   const looks = await sql<{ id: number; occasion: string; piece_ids: number[] }[]>`
     select l.id::int as id, l.occasion, array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id) as piece_ids
     from looks l
-    where l.status <> 'dismissed'
+    where l.status in ('new', 'saved')
     order by l.status = 'saved' desc,
              exists (select 1 from look_images i where i.look_id = l.id and i.status = 'ready') desc,
              l.created_at desc, l.id desc
@@ -426,7 +427,7 @@ export async function offerLook(
 }
 
 /** A new look and its pieces, in order. Returns the look's id. */
-async function insertLook(tx: Sql | postgres.TransactionSql, setId: number, position: number, look: NewLook): Promise<number> {
+export async function insertLook(tx: Sql | postgres.TransactionSql, setId: number, position: number, look: NewLook): Promise<number> {
   const [row] = await tx<{ id: number }[]>`
     insert into looks ${tx({
       set_id: setId,

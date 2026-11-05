@@ -33,7 +33,7 @@ import {
  * One picture per outfit, kept while its pieces and their photos stay the same
  * (pieces_key); a change, such as a photo added to a piece, makes a new one
  * the next time the look is on show. A picture is of the pieces, not of one
- * look (outfit_key, migration 0015): a look with the same pieces as one
+ * look (outfit_key, migration 0016): a look with the same pieces as one
  * already drawn, such as one made again after the first was dismissed, shows
  * that picture and is never drawn again. Files live on the photos volume under
  * looks/ and are served only through /photos/looks/:id.

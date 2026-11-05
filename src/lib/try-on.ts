@@ -26,7 +26,7 @@ import { photosDir } from './photos.ts'
  * card asks for the status until it is ready. A request whose server died
  * mid-way is called failed after STALE_MINUTES.
  *
- * A picture is of an outfit, whatever asked for it (migration 0015): a find
+ * A picture is of an outfit, whatever asked for it (migration 0016): a find
  * alone, or a set of pieces and finds, keyed by outfitKey. Once there is a
  * picture of an outfit, ready or being made, every card and the chooser show
  * that one, and a tap that would make it again opens it instead. Only "Make

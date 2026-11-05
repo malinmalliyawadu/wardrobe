@@ -2,7 +2,7 @@ import type { Sql } from './db.ts'
 
 /*
  * What makes two pictures, or a picture and a look, the same outfit: the same
- * wardrobe pieces and finds, in any order (migration 0015). "p12" is wardrobe
+ * wardrobe pieces and finds, in any order (migration 0016). "p12" is wardrobe
  * piece 12 and "f34" find 34, as the On me chooser already names them; the
  * key is those sorted byte-wise and joined with commas. Postgres builds the
  * same key for a look with `collate "C"`, which sorts as JavaScript does.

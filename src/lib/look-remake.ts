@@ -1,4 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk'
+import type { TransactionSql } from 'postgres'
 import { z } from 'zod'
 
 import { MODELS, callUsd } from './claude.ts'
@@ -10,6 +11,8 @@ import {
   GYM_FIT_RULES,
   insertLook,
   LookDraftSchema,
+  lookKey,
+  matchingLooks,
   pieceForPrompt,
   readHistory,
   tidyLooks,
@@ -336,8 +339,29 @@ async function record(sql: Sql, id: number, made: RemakeResult): Promise<void> {
 }
 
 /**
- * The remade look in the old one's place, in one transaction: a new look in
- * the same set and position (saved if the old one was), today's wear handed
+ * The look already made with the remade pieces (matchingLooks), so the remake
+ * is that look, its pictures and all, rather than a copy; unless it is
+ * already beside the old one in a set or a day, where it would show twice.
+ */
+async function sameLook(tx: Sql | TransactionSql, oldId: number, look: { occasion: string; piece_ids: number[] }): Promise<number | null> {
+  const existing = (await matchingLooks(tx)).get(lookKey(look))
+  if (existing === undefined || existing === oldId) return null
+  const beside = await tx`
+    select 1 from look_set_looks a join look_set_looks b on b.set_id = a.set_id
+    where a.look_id = ${oldId} and b.look_id = ${existing}
+    union all
+    select 1 from day_outfit_options a join day_outfit_options b on b.day_id = a.day_id
+    where a.look_id = ${oldId} and b.look_id = ${existing}
+    limit 1
+  `
+  return beside.length > 0 ? null : existing
+}
+
+/**
+ * The remade look in the old one's place, in one transaction: the look
+ * already made with those pieces (sameLook), else a new look in the same set
+ * and position; saved if the old one was, and in the old one's place in every
+ * set that offered it (look_set_looks); today's wear handed
  * over, every current day's outfit that showed the old look showing the new
  * one with its line for the day, and the old look marked replaced.
  */
@@ -357,15 +381,17 @@ export async function finishRemake(
     if (!old) throw new GenerationError('It stopped part way. Try again.')
     if (old.status !== 'new' && old.status !== 'saved') throw new GenerationError('This look changed while it was being remade.')
 
-    const lookId = await insertLook(tx, old.set_id, old.position, look)
+    const lookId = (await sameLook(tx, old.id, look)) ?? (await insertLook(tx, old.set_id, old.position, look))
     if (old.status === 'saved') await tx`update looks set status = 'saved', acted_at = now() where id = ${lookId}`
     await tx`update looks set status = 'replaced', acted_at = now() where id = ${old.id}`
+    await tx`update look_set_looks set look_id = ${lookId} where look_id = ${old.id}`
     await tx`
       with moved as (
         delete from look_wears where look_id = ${old.id} and worn_on = (now() at time zone 'Pacific/Auckland')::date
         returning worn_on
       )
       insert into look_wears (look_id, worn_on) select ${lookId}, worn_on from moved
+      on conflict do nothing
     `
     await tx`
       update day_outfit_options o set look_id = ${lookId}, today = coalesce(${look.today}, o.today)
