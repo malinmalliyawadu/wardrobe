@@ -14,7 +14,7 @@ import { getGuide } from '@/lib/style-guide'
 import { dateLabel, dressDate, forecastLine, nzDate, nzSeason } from '@/lib/weather'
 
 import { DayCard } from './day-card'
-import { DressAgain } from './dress-again'
+import { DressAgain, DressForGym } from './dress-again'
 import { Starter } from './starter'
 
 /*
@@ -225,7 +225,7 @@ function Gym({ dayId, gym, today, isToday, canDraw }: { dayId: number; gym: DayL
 
 /**
  * A day he trains whose outfit came without a gym fit: his kit is not marked
- * yet (or it could not make one). Says what to mark.
+ * yet (or it could not make one). Says what to mark, or offers a new outfit.
  */
 function GymNotReady({ missing, when }: { missing: string[]; when: string }) {
   return (
@@ -234,13 +234,15 @@ function GymNotReady({ missing, when }: { missing: string[]; when: string }) {
       <p className="prose mt-3 max-w-[44ch] text-[0.9375rem] text-ink-2">
         {missing.length > 0
           ? `You train ${when}. Mark ${list(missing)} as gym kit in your wardrobe and the next outfit comes with a gym fit.`
-          : `You train ${when}, but this outfit was put together without a gym fit. Dress again for one.`}
+          : `You train ${when}, but this outfit was put together without a gym fit. Dress again and the new outfit comes with one.`}
       </p>
       {missing.length > 0 ? (
         <ButtonLink href="/wardrobe" variant="quiet" size="small" className="mt-4">
           Your pieces
         </ButtonLink>
-      ) : null}
+      ) : (
+        <DressForGym />
+      )}
     </section>
   )
 }
