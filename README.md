@@ -116,8 +116,9 @@ On the application: **Scheduled tasks → + Add**.
 | Timeout | `3600` |
 
 Coolify's default timeout is 300 seconds, and the run takes longer than that:
-about 2.5 minutes to read the stores, then scoring. The spend is capped on
-/you/finder (US$1 a night by default). **Execute now** once and check
+about 2.5 minutes to read the stores, then scoring and statement pieces. The
+spend is capped on /you/finder (US$1 a night for finds and US$0.50 for
+statement pieces by default). **Execute now** once and check
 **Recent executions** ends with a `find.complete` line.
 
 **Run now** on /you/finder starts this same command inside the app's own

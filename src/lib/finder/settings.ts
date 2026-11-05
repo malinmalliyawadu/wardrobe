@@ -9,7 +9,8 @@ import { SHOW_THRESHOLD } from './score.ts'
  * The finder's settings, edited on /you/finder: what it may spend on Claude (a
  * nightly cap and an optional monthly one, in US dollars, which is what
  * Anthropic bills) and which stores it reads. The caps are the one-row
- * finder_settings table; the stores are retailers.enabled, which the ingest,
+ * finder_settings table (judging statement pieces has a nightly cap of its
+ * own, inside the same month); the stores are retailers.enabled, which the ingest,
  * the filter and the feed all respect, so a store switched off goes from the
  * feed at once and is not read again.
  */
@@ -19,12 +20,19 @@ export type FinderSettings = {
   max_usd_per_month: number | null
   /** What one search on the Search tab may spend; it counts toward the month too. */
   max_usd_per_search: number
+  /** What judging statement pieces may spend a night, on top of the slots; the month counts both. */
+  max_usd_statements: number
 }
 
 /** The form's values: the caps, and the slugs of the stores left on. */
 export type FinderForm = FinderSettings & { stores: string[] }
 
-export const DEFAULT_SETTINGS: FinderSettings = { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0.5 }
+export const DEFAULT_SETTINGS: FinderSettings = {
+  max_usd_per_run: 1,
+  max_usd_per_month: null,
+  max_usd_per_search: 0.5,
+  max_usd_statements: 0.5,
+}
 
 const usd = z.number().min(0).max(1000)
 
@@ -32,13 +40,14 @@ export const FinderFormSchema = z.object({
   max_usd_per_run: usd,
   max_usd_per_month: usd.nullable(),
   max_usd_per_search: usd,
+  max_usd_statements: usd,
   stores: z.array(z.string().regex(/^[a-z0-9-]+$/)),
 })
 
 export async function getFinderSettings(sql: Sql = db()): Promise<FinderSettings> {
   const [row] = await sql<FinderSettings[]>`
     select max_usd_per_run::float as max_usd_per_run, max_usd_per_month::float as max_usd_per_month,
-           max_usd_per_search::float as max_usd_per_search
+           max_usd_per_search::float as max_usd_per_search, max_usd_statements::float as max_usd_statements
     from finder_settings where id = 1
   `
   return row ?? DEFAULT_SETTINGS
@@ -48,11 +57,13 @@ export async function getFinderSettings(sql: Sql = db()): Promise<FinderSettings
 export async function saveFinderSettings(values: FinderForm, sql: Sql = db()): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`
-      insert into finder_settings (id, max_usd_per_run, max_usd_per_month, max_usd_per_search)
-      values (1, ${values.max_usd_per_run}, ${values.max_usd_per_month}, ${values.max_usd_per_search})
+      insert into finder_settings (id, max_usd_per_run, max_usd_per_month, max_usd_per_search, max_usd_statements)
+      values (
+        1, ${values.max_usd_per_run}, ${values.max_usd_per_month}, ${values.max_usd_per_search}, ${values.max_usd_statements}
+      )
       on conflict (id) do update
       set max_usd_per_run = excluded.max_usd_per_run, max_usd_per_month = excluded.max_usd_per_month,
-          max_usd_per_search = excluded.max_usd_per_search
+          max_usd_per_search = excluded.max_usd_per_search, max_usd_statements = excluded.max_usd_statements
     `
     await tx`update retailers set enabled = (slug = any (${values.stores}::text[]))`
   })
@@ -63,12 +74,17 @@ export function parseFinderSettingsForm(form: FormData): ParseResult<FinderForm>
   if (perRun === null) return { ok: false, errors: { max_usd_per_run: 'Give a nightly limit; 0 turns judging off' } }
   const perSearch = number(form, 'max_usd_per_search')
   if (perSearch === null) return { ok: false, errors: { max_usd_per_search: 'Give a limit; 0 turns search off' } }
+  const statements = number(form, 'max_usd_statements')
+  if (statements === null) {
+    return { ok: false, errors: { max_usd_statements: 'Give a nightly limit; 0 turns statement pieces off' } }
+  }
   const stores = [...new Set(form.getAll('stores').filter((value): value is string => typeof value === 'string'))]
   if (stores.length === 0) return { ok: false, errors: { stores: 'Keep at least one shop on' } }
   const parsed = finish(FinderFormSchema, {
     max_usd_per_run: perRun,
     max_usd_per_month: number(form, 'max_usd_per_month'),
     max_usd_per_search: perSearch,
+    max_usd_statements: statements,
     stores,
   })
   if (!parsed.ok) return parsed
@@ -78,9 +94,12 @@ export function parseFinderSettingsForm(form: FormData): ParseResult<FinderForm>
     max_usd_per_month:
       parsed.data.max_usd_per_month === null ? null : Math.round(parsed.data.max_usd_per_month * 100) / 100,
     max_usd_per_search: Math.round(parsed.data.max_usd_per_search * 100) / 100,
+    max_usd_statements: Math.round(parsed.data.max_usd_statements * 100) / 100,
   }
-  if (rounded.max_usd_per_month !== null && rounded.max_usd_per_month < rounded.max_usd_per_run) {
-    return { ok: false, errors: { max_usd_per_month: 'At least the nightly limit' } }
+  // A month that cannot cover one night of both is not a month's limit.
+  const night = Math.round((rounded.max_usd_per_run + rounded.max_usd_statements) * 100) / 100
+  if (rounded.max_usd_per_month !== null && rounded.max_usd_per_month < night) {
+    return { ok: false, errors: { max_usd_per_month: `At least the two nightly limits together, ${usdText(night)}` } }
   }
   return { ok: true, data: rounded }
 }
@@ -106,12 +125,17 @@ export async function getSpend(sql: Sql = db()): Promise<Spend> {
     `,
     sql<{ usd: number; scored: number; finished_at: Date | null; started_at: Date }[]>`
       select coalesce((stats ->> 'usd')::numeric, 0)::float as usd,
-             coalesce((stats ->> 'scored')::int, 0) as scored, finished_at, started_at
+             (coalesce((stats ->> 'scored')::int, 0) + coalesce((stats -> 'statements' ->> 'scored')::int, 0)) as scored,
+             finished_at, started_at
       from finder_runs where status <> 'running' and stats ? 'scoring' and stats -> 'scoring' <> 'null'::jsonb
       order by started_at desc limit 1
     `,
     sql<{ usd: number | null }[]>`
-      select avg(usd)::float as usd from product_scores where scored_at > now() - interval '30 days'
+      select avg(usd)::float as usd from (
+        select usd from product_scores where scored_at > now() - interval '30 days'
+        union all
+        select usd from statement_scores where scored_at > now() - interval '30 days'
+      ) judged
     `,
   ])
   return { thisMonth: month?.usd ?? 0, lastRun: last ?? null, perScore: average?.usd ?? null }
@@ -144,6 +168,15 @@ export function runBudget(settings: FinderSettings, spentThisMonth: number, flag
   if (settings.max_usd_per_month === null) return base
   const left = Math.max(0, settings.max_usd_per_month - spentThisMonth)
   return left < perRun ? { ...base, max_usd: Math.round(left * 10000) / 10000, limited_by: 'month' } : base
+}
+
+/**
+ * What judging statement pieces may spend this run: their nightly cap (or the
+ * --statements-usd flag), held under what the month has left once the slots
+ * were judged.
+ */
+export function statementsBudget(settings: FinderSettings, spentThisMonth: number, flag: number | null): RunBudget {
+  return runBudget({ ...settings, max_usd_per_run: settings.max_usd_statements }, spentThisMonth, flag)
 }
 
 /** "US$1", "US$0.50", "US$7.78". */

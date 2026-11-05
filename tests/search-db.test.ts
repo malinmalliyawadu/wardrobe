@@ -211,7 +211,7 @@ test('a search reads the request, filters in his size, judges the closest, and r
 test('a search stops at its limit, closest to his words first', async () => {
   const retailers = await listRetailers(sql)
   await saveFinderSettings(
-    { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0.03, stores: retailers.map((store) => store.slug) },
+    { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0.03, max_usd_statements: 0.5, stores: retailers.map((store) => store.slug) },
     sql,
   )
   // A new product that matches, so there are two to judge again.
@@ -252,7 +252,7 @@ test('a request that is not clothing fails with the read’s own words, and cost
 test('searching is refused when its limit is nothing', async () => {
   const retailers = await listRetailers(sql)
   await saveFinderSettings(
-    { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0, stores: retailers.map((store) => store.slug) },
+    { max_usd_per_run: 1, max_usd_per_month: null, max_usd_per_search: 0, max_usd_statements: 0.5, stores: retailers.map((store) => store.slug) },
     sql,
   )
   const refused = await startSearch('a navy overshirt', sql)

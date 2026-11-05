@@ -37,7 +37,7 @@ async function Loaded() {
       <SpendSummary spend={spend} />
       <RunNow run={run} />
       <FinderForm
-        key={[settings.max_usd_per_run, settings.max_usd_per_month, settings.max_usd_per_search, ...stores.filter((store) => store.enabled).map((store) => store.slug)].join('|')}
+        key={[settings.max_usd_per_run, settings.max_usd_per_month, settings.max_usd_per_search, settings.max_usd_statements, ...stores.filter((store) => store.enabled).map((store) => store.slug)].join('|')}
         settings={settings}
         stores={stores}
         perScore={spend.perScore}

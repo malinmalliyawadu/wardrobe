@@ -78,8 +78,8 @@ otherwise is Malin's own palette as flat swatches: the strip beside the
 wordmark on every page, a slot's colours, a piece's colour.
 
 Tabs, by how often each is opened: Today (the outfit of the day and nothing
-else), Finds (`/finds`: ask the shops, last night's finds, the way into
-Shops), Wishlist (`/wishlist`: what he saved and the links he pasted, with
+else), Finds (`/finds`: ask the shops, the way into Statement pieces, last
+night's finds, the way into Shops), Wishlist (`/wishlist`: what he saved and the links he pasted, with
 what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks and On me under its name; a
 piece is `/wardrobe/[id]`), Blueprint, You. Old `/looks/*` paths redirect
 from `next.config.ts`.
@@ -319,3 +319,25 @@ writes it through `writePage` as a product with one variant, one per page
 and colour, so adding the same link again updates it. `readable()` keeps
 these stores out of every read, the nightly refresh included; the image
 loader and `fetchProductImage` take the local photo.
+
+Statement pieces built 2026-11-05 (migration 0017), asked for by Malin, who
+chose what a statement is (a bold colour of his, a texture, or a cut or
+detail; patterns are not it) and a Claude-picked shelf over a free filter;
+gate pending (a week of statement pieces he would buy, at a known cost a
+night). The nightly run's fourth stage (`src/lib/finder/statements.ts`):
+free rules over everything read, in his size and under the most he would pay
+for one of its kind (the profile's budget, else the blueprint's top band),
+pick pieces whose listing names one of his best colours that is not a
+neutral, a texture word (title and tags), or a cut word (title only, since
+stores tag whole categories "Wide Leg"); quilted, herringbone, seersucker,
+pleats and a wide leg are left out on purpose. Sonnet judges each once per
+version (`statement_scores`) against his profile, guide and everyday pieces,
+two signals first, under its own nightly cap (`max_usd_statements`, US$0.50,
+inside the month's). The scorer's loop is shared as `judgeAll` in score.ts.
+`/statements` (Finds stays lit) shows the latest run's shortlist over 70,
+filtered by colour, texture or cut, each card with the pieces it wears with;
+a row of the best five sits under the search line on Finds. Saving, dismissing
+and buying are the feed's own, and a save takes the price and size the run
+found in his size. First real run: 825 picked from 4,070 in his size and
+budget, 100 judged in 46 s for US$0.53 (about US$0.005 each), 21 over the
+bar; the rest drain at the nightly cap, the best first.

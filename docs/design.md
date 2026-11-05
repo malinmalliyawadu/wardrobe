@@ -16,7 +16,7 @@ Six tabs, ordered by how often each is opened:
 | Tab | Route | What it is |
 |---|---|---|
 | Today | `/` | The outfit of the day, and nothing else. Three options to swipe between, a gym fit on gym days, "something on today" at the end. Until there is a guide and a wardrobe, it says what to do next. |
-| Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), last night's finds by slot, and the way into everything the finder read (`/shops`). |
+| Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), a row of the best statement pieces leading to `/statements`, last night's finds by slot, and the way into everything the finder read (`/shops`). |
 | Wishlist | `/wishlist` | What he wants: every find he saved and every link he pasted, each with what changed since. He opens it in a shop to decide whether to buy, so it is a tab of its own, with the paste-a-link line first. |
 | Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`) and On me (`/wardrobe/on-me`) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
 | Blueprint | `/blueprint` | What to own, by priority, with the style guide (`/blueprint/guide`) at the top wearing its palette. |
@@ -95,6 +95,11 @@ and the phone is the same content in one column, not the other way round.
     that. Paired fields sit side by side (`sm:grid-cols-2`).
   - Shops: the search and its filters in one row, the grid 4 across at `lg`,
     5 at `xl`.
+  - Statement pieces: the title and its line, colour, texture and cut as a
+    sub-nav with counts, then the find cards in a grid, 1 across on the
+    phone, 2 at `sm`, 3 at `lg`, 4 at `xl`. A card says what makes it a
+    statement where a find says its match, and shows the pieces of his it
+    wears with as small pictures, each a tap to the piece.
 - The phone column is the screen: one column, the same order.
 - A page opens with its first real thing. A page's name is small (`.caption`
   or a `.headline`) unless the name is the content (Blueprint's "34 slots").
