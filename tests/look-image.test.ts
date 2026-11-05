@@ -188,6 +188,23 @@ describe('a picture made and filed', () => {
     assert.equal(await startLookImage(lookId, sql), null, 'a look with a picture of its pieces as they are keeps it')
   })
 
+  test('another look of the same pieces, in any order, shows that picture and is never drawn', async () => {
+    const [twin] = await sql<{ id: number }[]>`
+      insert into looks (set_id, position, title, occasion, weather, why, piece_count)
+      select set_id, 1, 'Pine over putty again', 'weekend', 'mild', 'Why.', piece_count from looks where id = ${lookId}
+      returning id::int as id
+    `
+    await sql`
+      insert into look_pieces (look_id, piece_id, position)
+      select ${twin!.id}, piece_id, 2 - position from look_pieces where look_id = ${lookId}
+    `
+    assert.equal(await startLookImage(twin!.id, sql), null)
+    const images = await latestLookImages([lookId, twin!.id], sql)
+    assert.equal(images.get(twin!.id)?.id, images.get(lookId)?.id)
+    assert.equal(images.get(twin!.id)?.status, 'ready')
+    await sql`delete from looks where id = ${twin!.id}`
+  })
+
   test('a look whose pieces changed is drawn again; with no photo at all it is generated from words', async () => {
     await sql`update wardrobe_pieces set product_id = null where id = ${productPieceId}`
     const id = await startLookImage(lookId, sql)
@@ -214,7 +231,9 @@ describe('a picture made and filed', () => {
       console.error = error
       console.warn = warn
     }
-    assert.equal((await latestLookImages([lookId], sql)).get(lookId)?.error, 'OpenAI declined to make this one.')
+    const [failed] = await sql<{ error: string }[]>`select error from look_images where id = ${id}`
+    assert.equal(failed?.error, 'OpenAI declined to make this one.')
+    assert.equal((await latestLookImages([lookId], sql)).get(lookId)?.status, 'ready', 'the card keeps the picture it has')
     assert.ok(await startLookImage(lookId, sql))
   })
 })

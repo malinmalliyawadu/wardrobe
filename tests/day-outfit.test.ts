@@ -5,7 +5,6 @@ import { after, before, describe, test } from 'node:test'
 import { connect, db, type Sql } from '../src/lib/db.ts'
 import {
   buildDayMessages,
-  lookKey,
   readDay,
   runDay,
   showNext,
@@ -17,7 +16,7 @@ import {
   type DayInput,
   type DayOption,
 } from '../src/lib/day-outfit.ts'
-import { actOnLook, readLooks, saveSet } from '../src/lib/looks.ts'
+import { actOnLook, lookKey, readLooks, saveSet } from '../src/lib/looks.ts'
 import { createPiece, type Piece } from '../src/lib/pieces.ts'
 import { saveGuide } from '../src/lib/style-guide.ts'
 import type { Forecast } from '../src/lib/weather.ts'
@@ -358,13 +357,13 @@ describe('a day made, read and turned', () => {
     const gymFit = earlier.gym!.look
     assert.equal(oxford.status, 'new', 'offered on another day, never saved')
 
-    // A set from the Looks tab: two looks with the same pieces, the older one drawn, and one he dismissed.
+    // A set from the Looks tab: a look that is drawn, and one he dismissed.
     const look = (title: string, piece_ids: number[]) =>
       ({ title, occasion: 'weekend', weather: 'mild', piece_ids, why: 'Why.', styling: null, better_with: null }) as const
     const setId = await saveSet(
       {
-        looks: [look('Drawn twin', [crew, tee, chinos, boots]), look('Undrawn twin', [crew, tee, chinos, boots]), look('Dismissed one', [crew, chinos, boots])],
-        proposed: 3,
+        looks: [look('Drawn twin', [crew, tee, chinos, boots]), look('Dismissed one', [crew, chinos, boots])],
+        proposed: 2,
         meta,
         usd: 0.2,
       },
@@ -374,9 +373,15 @@ describe('a day made, read and turned', () => {
     const inSet = await sql<{ id: number; title: string }[]>`select id::int as id, title from looks where set_id = ${setId}`
     const idOf = (title: string) => inSet.find((l) => l.title === title)!.id
     await sql`
-      insert into look_images (look_id, pieces, pieces_key, provider, model, status, prompt)
-      values (${idOf('Drawn twin')}, '[]'::jsonb, 'key', 'openai', 'gpt-image', 'ready', 'Draw it.')
+      insert into look_images (look_id, outfit_key, pieces, pieces_key, provider, model, status, prompt)
+      values (${idOf('Drawn twin')}, '', '[]'::jsonb, 'key', 'openai', 'gpt-image', 'ready', 'Draw it.')
     `
+    // A newer copy with the same pieces, as sets made before they reused looks could leave.
+    const [twin] = await sql<{ id: number }[]>`
+      insert into looks (set_id, position, title, occasion, weather, why, piece_count)
+      values (${setId}, 9, 'Undrawn twin', 'weekend', 'mild', 'Why.', 4) returning id::int as id
+    `
+    await sql`insert into look_pieces ${sql([crew, tee, chinos, boots].map((piece_id, position) => ({ look_id: twin!.id, piece_id, position })))}`
     await actOnLook({ action: 'dismiss', look_id: idOf('Dismissed one'), reason: 'not_me' }, sql)
     const countLooks = async () => (await sql<{ count: number }[]>`select count(*)::int as count from looks`)[0]!.count
     const looksBefore = await countLooks()

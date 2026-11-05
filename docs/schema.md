@@ -20,16 +20,17 @@ Three layers, each derived from the one above, then the finder's tables.
 | `product_scores` | one per product version | Claude's verdict: best slot, score, verdicts, the one-line why, and tokens spent |
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
-| `try_ons` | one per "See it on me" | A picture of him in a find: product, source photo, provider, cost, the file on the photos volume |
+| `try_ons` | one per outfit he asks to see on him, more on "Make it again" | A picture of him in a find, a look or pieces he chose: what was sent, its `outfit_key` (the pieces and finds in any order), source photo, provider, cost, the file on the photos volume. A kept picture of an outfit is what every card and the chooser show for it |
 | `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, what it is worn for (`everyday`, `gym` or `both`), the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
 | `find_photos` | one per find added by hand | Index of the photos of finds from a store that cannot be read (Lululemon), on disk under `finds/`; `products.find_photo_id` keeps one from being cleared |
 | `look_sets` | one per "Make new looks", and one per outfit of the day | His note, the weather it was dressed for, tokens and cost; `kind` is `set` (Looks tab) or `day` |
-| `looks`, `look_pieces` | six a set | An outfit from his pieces: occasion (`gym` for a gym fit), weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason |
+| `looks`, `look_pieces` | six a set, fewer as outfits come round again | An outfit from his pieces: occasion (`gym` for a gym fit), weather, why, styling, a wanted slot that would lift it, saved or dismissed with a reason. One look per outfit: a set or a day that puts the same pieces together again offers the look already made, unless he dismissed it |
+| `look_set_looks` | six a set, three or four a day | The looks a set offered, in order, new or already made; `looks.set_id` is only the set that first made a look |
 | `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
 | `day_outfits` | one a day, more when he asks again | The outfit of the day: the date it dresses him for, his note, the forecast it was dressed for, which option is on show, and on a day he trains the gym fit and its line for the day |
 | `day_outfit_options` | three a day | The day's options, best first, each a look (an existing one, saved or offered before and not dismissed, when it matches piece for piece) with a sentence for that day |
-| `look_images` | one per look on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, cost, the file on the photos volume |
+| `look_images` | one per outfit on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, its `outfit_key`, cost, the file on the photos volume. A look shows the picture of its pieces whichever look it was drawn for |
 | `searches` | one per search on the Search tab | What he typed, what it was read as, its limit, what it spent |
 | `search_results` | up to 150 a search | The products a search offered Claude, in order, each with its verdict and a re-checked price |
 

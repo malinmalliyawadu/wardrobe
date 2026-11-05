@@ -7,6 +7,7 @@ import { z } from 'zod'
 
 import { db, type Sql } from './db.ts'
 import { findPhotoFile, findPhotoId } from './find-photos.ts'
+import { findKey, lookOutfitKey, outfitKey } from './outfit-key.ts'
 import { photosDir } from './photos.ts'
 
 /*
@@ -24,6 +25,12 @@ import { photosDir } from './photos.ts'
  * request; the image is made after the response (next/server `after`), and the
  * card asks for the status until it is ready. A request whose server died
  * mid-way is called failed after STALE_MINUTES.
+ *
+ * A picture is of an outfit, whatever asked for it (migration 0015): a find
+ * alone, or a set of pieces and finds, keyed by outfitKey. Once there is a
+ * picture of an outfit, ready or being made, every card and the chooser show
+ * that one, and a tap that would make it again opens it instead. Only "Make
+ * it again" makes a second.
  */
 
 export const PROVIDER = 'openai'
@@ -498,13 +505,39 @@ async function sweepStale(sql: Sql): Promise<void> {
   `
 }
 
-export type Started = { ok: true; id: number } | { ok: false; message: string }
+/** `reused` when the picture was already there, so nothing new was made. */
+export type Started = { ok: true; id: number; reused?: boolean } | { ok: false; message: string }
+
+/** Ask for a new picture even when one of the same outfit is kept: "Make it again". */
+export type StartOptions = { again?: boolean }
+
+/** A try-on aliased `t` that is kept and worth showing: ready, or still being made. */
+export const showableTryOn = (sql: Sql) => sql`
+  (t.status = 'ready' or (t.status = 'making' and t.started_at >= now() - make_interval(mins => ${STALE_MINUTES})))
+`
+
+/** The newest kept picture of this outfit, ready before one in the making, from a photo he still has. */
+export async function keptTryOn(key: string, sql: Sql = db()): Promise<number | null> {
+  const [row] = await sql<{ id: number }[]>`
+    select t.id::int as id
+    from try_ons t join profile_photos ph on ph.id = t.photo_id and ph.deleted_at is null
+    where t.outfit_key = ${key} and t.deleted_at is null and ${showableTryOn(sql)}
+    order by t.status = 'ready' desc, t.started_at desc, t.id desc
+    limit 1
+  `
+  return row?.id ?? null
+}
 
 /**
- * Record a request for one try-on. Refuses when there is no key, no
- * full-length photo, no product photo, or another try-on is still being made.
+ * Record a request for one try-on, or answer with the picture of it already
+ * kept. Refuses when there is no key, no full-length photo, no product photo,
+ * or another try-on is still being made.
  */
-export async function startTryOn(productId: number, sql: Sql = db()): Promise<Started> {
+export async function startTryOn(productId: number, sql: Sql = db(), options: StartOptions = {}): Promise<Started> {
+  if (!options.again) {
+    const kept = await keptTryOn(findKey(productId), sql)
+    if (kept !== null) return { ok: true, id: kept, reused: true }
+  }
   if (!process.env.OPENAI_API_KEY) {
     return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
   }
@@ -518,6 +551,7 @@ export async function startTryOn(productId: number, sql: Sql = db()): Promise<St
     const [row] = await sql<{ id: number }[]>`
       insert into try_ons ${sql({
         product_id: productId,
+        outfit_key: findKey(productId),
         photo_id: photo.id,
         product_image: product.image,
         provider: PROVIDER,
@@ -583,20 +617,27 @@ export function showPieces(pieces: (Omit<PieceSent, 'shown'> & { photo_id: numbe
 }
 
 /**
- * Record a request for a try-on of a whole look. Refuses when there is no
- * key, no full-length photo, a piece of the look has gone from the wardrobe,
- * or another try-on is still being made.
+ * Record a request for a try-on of a whole look, or answer with the picture
+ * of the same pieces already kept, whichever look or choice it was made for.
+ * Refuses when there is no key, no full-length photo, a piece of the look has
+ * gone from the wardrobe, or another try-on is still being made.
  */
-export async function startLookTryOn(lookId: number, sql: Sql = db()): Promise<Started> {
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
-  }
-  const [photo, look] = await Promise.all([fullLengthPhoto(sql), lookForTryOn(sql, lookId)])
-  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
+export async function startLookTryOn(lookId: number, sql: Sql = db(), options: StartOptions = {}): Promise<Started> {
+  const look = await lookForTryOn(sql, lookId)
   if (!look) return { ok: false, message: 'That look could not be found.' }
   if (look.pieces.length === 0 || look.pieces.length < look.piece_count) {
     return { ok: false, message: 'A piece of this look is no longer in your wardrobe.' }
   }
+  const key = outfitKey(look.pieces)
+  if (!options.again) {
+    const kept = await keptTryOn(key, sql)
+    if (kept !== null) return { ok: true, id: kept, reused: true }
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
+  }
+  const photo = await fullLengthPhoto(sql)
+  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
 
   await sweepStale(sql)
   const size = outputSize(photo.width, photo.height)
@@ -605,6 +646,7 @@ export async function startLookTryOn(lookId: number, sql: Sql = db()): Promise<S
     const [row] = await sql<{ id: number }[]>`
       insert into try_ons ${sql({
         look_id: lookId,
+        outfit_key: key,
         photo_id: photo.id,
         pieces: sql.json(pieces),
         provider: PROVIDER,
@@ -680,24 +722,32 @@ async function chosenPieces(sql: Sql, choice: OutfitChoice): Promise<Choosable[]
 
 /**
  * Record a request for a try-on of pieces he chose: wardrobe pieces and saved
- * finds, put on in layer order. Refuses when there is no key, no full-length
- * photo, nothing or too much chosen, something chosen has since left the
- * wardrobe or his saved finds, or another try-on is still being made.
+ * finds, put on in layer order; or answer with the picture of exactly those
+ * already kept (of a look, a find, or an earlier choice). Refuses when there
+ * is no key, no full-length photo, nothing or too much chosen, something
+ * chosen has since left the wardrobe or his saved finds, or another try-on is
+ * still being made.
  */
-export async function startOutfitTryOn(choice: OutfitChoice, sql: Sql = db()): Promise<Started> {
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
-  }
+export async function startOutfitTryOn(choice: OutfitChoice, sql: Sql = db(), options: StartOptions = {}): Promise<Started> {
   const wanted = { piece_ids: [...new Set(choice.piece_ids)], product_ids: [...new Set(choice.product_ids)] }
   const count = wanted.piece_ids.length + wanted.product_ids.length
   if (count === 0) return { ok: false, message: 'Choose at least one piece.' }
   if (count > MAX_OUTFIT_PIECES) return { ok: false, message: `Choose up to ${MAX_OUTFIT_PIECES} pieces.` }
 
-  const [photo, found] = await Promise.all([fullLengthPhoto(sql), chosenPieces(sql, wanted)])
-  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
+  const found = await chosenPieces(sql, wanted)
   if (found.length < count) {
     return { ok: false, message: 'Something you chose is no longer in your wardrobe or saved. Choose again.' }
   }
+  const outfit = outfitKey(found)
+  if (!options.again) {
+    const kept = await keptTryOn(outfit, sql)
+    if (kept !== null) return { ok: true, id: kept, reused: true }
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' }
+  }
+  const photo = await fullLengthPhoto(sql)
+  if (!photo) return { ok: false, message: 'Add a full-length photo under You, Photos first.' }
 
   // Outermost first, as a look is; the order chosen breaks a tie.
   const order = [...wanted.piece_ids.map((id) => `p${id}`), ...wanted.product_ids.map((id) => `f${id}`)]
@@ -712,6 +762,7 @@ export async function startOutfitTryOn(choice: OutfitChoice, sql: Sql = db()): P
   try {
     const [row] = await sql<{ id: number }[]>`
       insert into try_ons ${sql({
+        outfit_key: outfit,
         photo_id: photo.id,
         pieces: sql.json(pieces),
         provider: PROVIDER,
@@ -739,8 +790,9 @@ export async function startAgain(tryOnId: number, sql: Sql = db()): Promise<Star
     select product_id::int as product_id, look_id::int as look_id, pieces from try_ons where id = ${tryOnId}
   `
   if (!row) return { ok: false, message: 'That picture could not be found.' }
-  if (row.product_id !== null) return startTryOn(row.product_id, sql)
-  if (row.look_id !== null) return startLookTryOn(row.look_id, sql)
+  const again = { again: true }
+  if (row.product_id !== null) return startTryOn(row.product_id, sql, again)
+  if (row.look_id !== null) return startLookTryOn(row.look_id, sql, again)
   const pieces = row.pieces ?? []
   return startOutfitTryOn(
     {
@@ -748,6 +800,7 @@ export async function startAgain(tryOnId: number, sql: Sql = db()): Promise<Star
       product_ids: pieces.flatMap((piece) => (piece.piece_id === null && piece.product_id ? [piece.product_id] : [])),
     },
     sql,
+    again,
   )
 }
 
@@ -861,26 +914,37 @@ export async function getTryOn(id: number, sql: Sql = db()): Promise<OnMe | null
   return row ?? null
 }
 
-/** The latest try-on of each of these products that is still kept. */
+/**
+ * The picture of each of these finds on its own, still kept: one asked for on
+ * the find, or one of only that find chosen on the On me page. A ready or
+ * in-the-making picture before a failed one, then the newest.
+ */
 export async function latestTryOns(productIds: number[], sql: Sql = db()): Promise<Map<number, OnMe>> {
   if (productIds.length === 0) return new Map()
-  const rows = await sql<(OnMe & { product_id: number })[]>`
-    select distinct on (t.product_id) t.product_id::int as product_id, ${ON_ME_COLUMNS(sql)}
+  const keys = new Map(productIds.map((id) => [findKey(id), id]))
+  const rows = await sql<(OnMe & { outfit_key: string })[]>`
+    select distinct on (t.outfit_key) t.outfit_key, ${ON_ME_COLUMNS(sql)}
     from try_ons t join profile_photos ph on ph.id = t.photo_id
-    where t.product_id = any (${productIds}::bigint[]) and t.deleted_at is null and ph.deleted_at is null
-    order by t.product_id, t.started_at desc, t.id desc
+    where t.outfit_key in ${sql([...keys.keys()])} and t.deleted_at is null and ph.deleted_at is null
+    order by t.outfit_key, ${showableTryOn(sql)} desc, t.started_at desc, t.id desc
   `
-  return new Map(rows.map(({ product_id, ...onMe }) => [product_id, onMe]))
+  return new Map(rows.map(({ outfit_key, ...onMe }) => [keys.get(outfit_key)!, onMe]))
 }
 
-/** The latest try-on of each of these looks that is still kept. */
+/**
+ * The picture of each of these looks, still kept: one asked for on the look,
+ * or of the same pieces asked for on another look or chosen on the On me
+ * page. A ready or in-the-making picture before a failed one, then the newest.
+ */
 export async function latestLookTryOns(lookIds: number[], sql: Sql = db()): Promise<Map<number, OnMe>> {
   if (lookIds.length === 0) return new Map()
   const rows = await sql<(OnMe & { look_id: number })[]>`
-    select distinct on (t.look_id) t.look_id::int as look_id, ${ON_ME_COLUMNS(sql)}
-    from try_ons t join profile_photos ph on ph.id = t.photo_id
-    where t.look_id = any (${lookIds}::bigint[]) and t.deleted_at is null and ph.deleted_at is null
-    order by t.look_id, t.started_at desc, t.id desc
+    select distinct on (l.id) l.id::int as look_id, ${ON_ME_COLUMNS(sql)}
+    from looks l
+    join try_ons t on t.look_id = l.id or t.outfit_key = ${lookOutfitKey(sql)}
+    join profile_photos ph on ph.id = t.photo_id
+    where l.id in ${sql(lookIds)} and t.deleted_at is null and ph.deleted_at is null
+    order by l.id, ${showableTryOn(sql)} desc, t.started_at desc, t.id desc
   `
   return new Map(rows.map(({ look_id, ...onMe }) => [look_id, onMe]))
 }

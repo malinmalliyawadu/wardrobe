@@ -23,12 +23,16 @@ import {
  * ready. On a card nothing is revalidated: the card holds the state, and the
  * next render reads it from the row. From the On me page the new picture is
  * a row on that page, so it is revalidated and shown there, in the making.
+ *
+ * A picture of the same outfit already kept is the answer to a first tap
+ * (startTryOn and the rest say `reused`): nothing is made, the card shows it,
+ * and the chooser opens it. Only "Make it again" (`again`) makes another.
  */
 
 const Id = z.number().int().positive()
 
 function makeAfter(started: Started): Started {
-  if (started.ok) {
+  if (started.ok && !started.reused) {
     after(async () => {
       await makeTryOn(started.id)
     })
@@ -36,16 +40,16 @@ function makeAfter(started: Started): Started {
   return started
 }
 
-export async function seeItOnMe(productId: number): Promise<Started> {
+export async function seeItOnMe(productId: number, again: boolean = false): Promise<Started> {
   const id = Id.safeParse(productId)
   if (!id.success) return { ok: false, message: 'That find could not be read.' }
-  return makeAfter(await startTryOn(id.data))
+  return makeAfter(await startTryOn(id.data, undefined, { again: again === true }))
 }
 
-export async function seeLookOnMe(lookId: number): Promise<Started> {
+export async function seeLookOnMe(lookId: number, again: boolean = false): Promise<Started> {
   const id = Id.safeParse(lookId)
   if (!id.success) return { ok: false, message: 'That look could not be read.' }
-  return makeAfter(await startLookTryOn(id.data))
+  return makeAfter(await startLookTryOn(id.data, undefined, { again: again === true }))
 }
 
 /** "p12" is wardrobe piece 12, "f34" saved find 34. */
@@ -61,6 +65,8 @@ export async function tryChosenOn(_state: ActionState, form: FormData): Promise<
 
   const started = makeAfter(await startOutfitTryOn({ piece_ids: ids('p'), product_ids: ids('f') }))
   if (!started.ok) return { ok: false, message: started.message }
+  // Those pieces were already put on him: open that picture rather than make another.
+  if (started.reused) redirect(`/wardrobe/on-me/${started.id}`)
   revalidatePath('/', 'layout')
   redirect('/wardrobe/on-me')
 }

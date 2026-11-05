@@ -12,6 +12,10 @@ import type { OnMe, Started } from '@/lib/try-on'
  * leaves and comes back. Once ready, the button carries the whole image as a
  * preview and opens the viewer: him in it, beside what it was made from, so the
  * colour can be judged against the clothes themselves.
+ *
+ * `initial` is the picture of the same outfit already kept, whichever look,
+ * find or choice it was made for, so a card never offers to make one that is
+ * there. "Make it again" in the viewer is the one way to ask for another.
  */
 
 const POLL_MS = 3000
@@ -51,7 +55,8 @@ export function TryOn({
   content,
 }: {
   initial: OnMe | null
-  start: () => Promise<Started>
+  /** `again` asks for a new picture even when one of the same outfit is kept. */
+  start: (again: boolean) => Promise<Started>
   content: TryOnViewerContent
 }) {
   const [state, setState] = useState<Local | null>(initial)
@@ -80,13 +85,25 @@ export function TryOn({
     }
   }, [makingId])
 
-  function start() {
+  function start(again: boolean) {
     setOpen(false)
     startTransition(async () => {
-      const result = await request()
+      const result = await request(again)
       if (!result.ok) {
         setState({ status: 'refused', error: result.message })
         return
+      }
+      // A kept picture of the same outfit: ask for its state once, and show it as it is.
+      if (result.reused) {
+        try {
+          const response = await fetch(`/photos/try-ons/${result.id}/status`, { cache: 'no-store' })
+          if (response.ok) {
+            setState(revive((await response.json()) as OnMe))
+            return
+          }
+        } catch {
+          // Offline for a moment; fall through and let the polling find it.
+        }
       }
       setState({
         id: result.id,
@@ -137,13 +154,13 @@ export function TryOn({
         </button>
       ) : (
         <div aria-live="polite">
-          <button type="button" className="text-button text-ink" onClick={start}>
+          <button type="button" className="text-button text-ink" onClick={() => start(false)}>
             {state ? 'Try it on again' : 'See it on me'}
           </button>
           {state?.error ? <p className="px-2 text-[0.8125rem] leading-snug text-alert">{state.error}</p> : null}
         </div>
       )}
-      {ready ? <Viewer onMe={ready} content={content} open={open} onClose={() => setOpen(false)} onAgain={start} /> : null}
+      {ready ? <Viewer onMe={ready} content={content} open={open} onClose={() => setOpen(false)} onAgain={() => start(true)} /> : null}
     </div>
   )
 }

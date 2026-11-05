@@ -2,7 +2,7 @@ import { db, type Sql } from './db.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import { OCCASION_LABELS, type Occasion } from './looks.ts'
 import { listPieces, type PiecePhoto } from './pieces.ts'
-import { STALE_MINUTES, findColour, type PieceSent } from './try-on.ts'
+import { STALE_MINUTES, findColour, showableTryOn, type PieceSent } from './try-on.ts'
 import { GARMENT_TYPES, type GarmentType, type WornFor } from './wardrobe-values.ts'
 
 /*
@@ -221,6 +221,21 @@ export type Choice = {
 }
 
 export type Choices = { pieces: Choice[]; finds: Choice[] }
+
+/**
+ * Each outfit already put on him, by outfitKey, and the picture to open for
+ * it (ready before one in the making, then the newest): the chooser offers
+ * that picture, not a new one, when what he ticked is one of these.
+ */
+export async function keptOutfits(sql: Sql = db()): Promise<Record<string, number>> {
+  const rows = await sql<{ outfit_key: string; id: number }[]>`
+    select distinct on (t.outfit_key) t.outfit_key, t.id::int as id
+    from try_ons t join profile_photos ph on ph.id = t.photo_id and ph.deleted_at is null
+    where t.deleted_at is null and ${showableTryOn(sql)}
+    order by t.outfit_key, t.status = 'ready' desc, t.started_at desc, t.id desc
+  `
+  return Object.fromEntries(rows.map((row) => [row.outfit_key, row.id]))
+}
 
 /** His pieces still in the wardrobe, in shelf order, and his saved finds, newest first. */
 export async function outfitChoices(sql: Sql = db()): Promise<Choices> {

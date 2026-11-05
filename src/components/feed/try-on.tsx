@@ -12,7 +12,7 @@ export function SeeItOnMe({ find }: { find: Find }) {
   return (
     <TryOn
       initial={find.on_me}
-      start={() => seeItOnMe(find.product_id)}
+      start={(again) => seeItOnMe(find.product_id, again)}
       content={{
         eyebrow: find.retailer,
         title: find.title,

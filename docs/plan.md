@@ -480,6 +480,13 @@ what he owns:
 - The option on show gets a picture: a flat lay drawn by OpenAI from photos
   of his clothes (photo rule above), with the pieces themselves in a row under
   it to judge the colours against. "See it on me" puts him in it, on his tap.
+- One outfit, one look, its pictures made once (Malin's ask, 2026-11-05,
+  migration 0015). A set on the Looks tab offers the look already made with
+  the same pieces too. A flat lay or a picture of him belongs to the pieces,
+  not to the look or tap that asked for it: a look with the same pieces as
+  another, pieces chosen on the On me page that make up a look, or a find
+  chosen alone, show the kept picture, and the chooser opens it instead of
+  making one. "Make it again" is the only way to pay for a second.
 
 First real run, 2026-11-05, on a copy of his data with ten pieces (two linked
 to shop products): the outfit in 23 s for US$0.09 (11.3k tokens in, 2.1k
