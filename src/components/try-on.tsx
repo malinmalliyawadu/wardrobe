@@ -53,8 +53,11 @@ export function TryOn({
   initial,
   start: request,
   content,
+  label = 'See it on me',
 }: {
   initial: OnMe | null
+  /** What the tap is called, before and once it is made: "See it on me". */
+  label?: string
   /** `again` asks for a new picture even when one of the same outfit is kept. */
   start: (again: boolean) => Promise<Started>
   content: TryOnViewerContent
@@ -148,14 +151,14 @@ export function TryOn({
             className="h-auto w-16 shrink-0 rounded-[var(--radius-tile)] bg-surface object-cover"
           />
           <span className="min-w-0">
-            <span className="block text-[0.9375rem] font-medium text-accent">See it on me</span>
+            <span className="block text-[0.9375rem] font-medium text-accent">{label}</span>
             <span className="mt-0.5 block text-[0.8125rem] text-ink-3">Made {madeOn(ready, 'short')}</span>
           </span>
         </button>
       ) : (
         <div aria-live="polite">
           <button type="button" className="text-button text-ink" onClick={() => start(false)}>
-            {state ? 'Try it on again' : 'See it on me'}
+            {state ? 'Try it on again' : label}
           </button>
           {state?.error ? <p className="px-2 text-[0.8125rem] leading-snug text-alert">{state.error}</p> : null}
         </div>

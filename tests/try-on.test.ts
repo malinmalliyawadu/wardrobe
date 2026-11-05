@@ -11,6 +11,7 @@ import { connect, db, type Sql } from '../src/lib/db.ts'
 import { getOnMe, keptOutfits, listOnMe, outfitTitle } from '../src/lib/on-me.ts'
 import { lookOutfitKey, outfitKey } from '../src/lib/outfit-key.ts'
 import { removeAllPhotos, removePhoto, storePhoto } from '../src/lib/photos.ts'
+import { statementOutfitKey } from '../src/lib/statements.ts'
 import {
   getTryOn,
   layer,
@@ -28,11 +29,13 @@ import {
   startAgain,
   startLookTryOn,
   startOutfitTryOn,
+  startStatementTryOn,
   startTryOn,
   tryOnCost,
   tryOnFile,
   tryOnPrompt,
   tryOnSpend,
+  tryOnsByKey,
 } from '../src/lib/try-on.ts'
 
 /*
@@ -549,5 +552,77 @@ describe('the lifecycle', () => {
     // And they go with his photos like any other.
     await removePhoto(photo.id, sql)
     assert.equal((await listOnMe(sql)).length, 0)
+  })
+  test('a statement piece goes on with the pieces it wears with, saved or not, and is found again', async () => {
+    const photo = await storePhoto({ bytes: await jpeg(1200, 1600, { r: 140, g: 110, b: 85 }), mime: 'image/jpeg', kind: 'full_body' })
+    const [retailer] = await sql<{ id: number }[]>`select id::int as id from retailers limit 1`
+    const [cardigan] = await sql<{ id: number }[]>`
+      insert into products (retailer_id, external_id, title, url, images, content_hash, garment_type)
+      values (${retailer!.id}, '10', 'Rust Mohair Cardigan', 'https://shop.test/p/10',
+              ${sql.json([{ src: '//cdn.shopify.com/s/files/1/cardigan.jpg' }])}, 'h10', 'knitwear')
+      returning id::int as id
+    `
+    const [chinos, tee, other] = await sql<{ id: number }[]>`
+      insert into wardrobe_pieces ${sql([
+        { name: 'Stone chinos', garment_type: 'trousers', source: 'typed', photo_id: null, colour_name: 'stone' },
+        { name: 'White tee', garment_type: 'tee', source: 'typed', photo_id: null, colour_name: 'white' },
+        { name: 'Navy blazer', garment_type: 'tailoring', source: 'typed', photo_id: null, colour_name: 'navy' },
+      ])}
+      returning id::int as id
+    `
+    await sql`
+      insert into statement_scores (product_id, content_hash, score, qualities, colour_option, why, wears_with, model)
+      values (${cardigan!.id}, 'h10', 88, '{colour,texture}', 'Rust', 'Because.', ${[tee!.id, chinos!.id]}::bigint[], 'sonnet')
+    `
+
+    const stranger = await startStatementTryOn(cardigan!.id, [tee!.id, other!.id], sql)
+    assert.ok(!stranger.ok && /could not be found/.test(stranger.message), 'only pieces a verdict named')
+    const none = await startStatementTryOn(cardigan!.id, [], sql)
+    assert.ok(!none.ok)
+
+    // Not saved, and still it goes on: outermost first, the colour as judged.
+    const started = await startStatementTryOn(cardigan!.id, [tee!.id, chinos!.id], sql)
+    assert.ok(started.ok && !started.reused)
+    const [row] = await sql<{ outfit_key: string; pieces: { piece_id: number | null; product_id?: number; colour_name: string | null }[]; prompt: string }[]>`
+      select outfit_key, pieces, prompt from try_ons where id = ${started.id}
+    `
+    const key = statementOutfitKey({ product_id: cardigan!.id, wears_with: [{ id: tee!.id }, { id: chinos!.id }] as never })
+    assert.equal(row?.outfit_key, key)
+    assert.deepEqual(row?.pieces.map((piece) => [piece.piece_id, piece.product_id ?? null]), [
+      [null, cardigan!.id],
+      [tee!.id, null],
+      [chinos!.id, null],
+    ])
+    assert.equal(row?.pieces[0]?.colour_name, 'Rust')
+    assert.match(row!.prompt, /"Rust Mohair Cardigan", the .*, Rust\./)
+
+    const openai = fakeFetch(async () => Response.json({ data: [{ b64_json: (await jpeg(1152, 1536, { r: 90, g: 40, b: 20 })).toString('base64') }] }), [])
+    assert.equal(await makeTryOn(started.id, { sql, fetch: openai }), 'ready')
+    assert.equal((await tryOnsByKey([key], sql)).get(key)?.id, started.id, 'the card finds it by its outfit')
+    const second = await startStatementTryOn(cardigan!.id, [chinos!.id, tee!.id], sql)
+    assert.ok(second.ok && second.reused && second.id === started.id, 'a second tap opens it')
+
+    // On the On me page it is a find, not a saved one.
+    const listed = (await listOnMe(sql)).find((image) => image.id === started.id)
+    assert.deepEqual(listed?.sources.map((source) => [source.name, source.kind]), [
+      ['Rust Mohair Cardigan', 'find'],
+      ['White tee', 'piece'],
+      ['Stone chinos', 'piece'],
+    ])
+    await sql`insert into feed_actions (product_id, action) values (${cardigan!.id}, 'saved')`
+    assert.equal((await listOnMe(sql)).find((image) => image.id === started.id)?.sources[0]?.kind, 'saved')
+
+    // Made again, though the find was cleared since.
+    await sql`insert into feed_actions (product_id, action) values (${cardigan!.id}, 'cleared')`
+    const again = await startAgain(started.id, sql)
+    assert.ok(again.ok && again.id !== started.id)
+    assert.equal(await makeTryOn(again.id, { sql, fetch: openai }), 'ready')
+
+    // A piece set aside since: the card no longer offers it, and the old ask is refused.
+    await sql`update wardrobe_pieces set set_aside_at = now() where id = ${chinos!.id}`
+    const gone = await startStatementTryOn(cardigan!.id, [tee!.id, chinos!.id], sql)
+    assert.ok(!gone.ok && /no longer in your wardrobe/.test(gone.message))
+
+    await removePhoto(photo.id, sql)
   })
 })

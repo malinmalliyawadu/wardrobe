@@ -122,7 +122,7 @@ export function outfitTitle(names: string[]): string {
 /**
  * The rows with their sources looked up as they are now: which pieces are
  * still in the wardrobe, which of his piece photos are still kept, and where
- * a saved find lives, in three queries for the whole page.
+ * a find lives and whether it is still saved, in three queries for the whole page.
  */
 async function resolve(sql: Sql, rows: Row[]): Promise<OnMeDetail[]> {
   const sent = rows.flatMap((row) => row.pieces ?? [])
@@ -137,11 +137,17 @@ async function resolve(sql: Sql, rows: Row[]): Promise<OnMeDetail[]> {
       : sql<PiecePhoto[]>`select id::int as id, width, height from wardrobe_photos where id = any (${photoIds}::bigint[])`,
     productIds.length === 0
       ? []
-      : sql<{ id: number; url: string }[]>`select id::int as id, url from products where id = any (${productIds}::bigint[])`,
+      : sql<{ id: number; url: string; saved: boolean }[]>`
+          select p.id::int as id, p.url,
+                 coalesce((select a.action = 'saved' from feed_actions a where a.product_id = p.id
+                           order by a.created_at desc, a.id desc limit 1), false) as saved
+          from products p where p.id = any (${productIds}::bigint[])
+        `,
   ])
   const kept = new Set(pieces.map((piece) => piece.id))
   const photoById = new Map(photos.map((photo) => [photo.id, photo]))
   const urlById = new Map(products.map((product) => [product.id, product.url]))
+  const saved = new Set(products.flatMap((product) => (product.saved ? [product.id] : [])))
 
   return rows.map((row) => {
     const base = {
@@ -187,7 +193,8 @@ async function resolve(sql: Sql, rows: Row[]): Promise<OnMeDetail[]> {
         photo: piece.shown.kind === 'photo' ? (photoById.get(piece.shown.photo_id) ?? null) : null,
         image: piece.shown.kind === 'product' ? { src: piece.shown.src, width: null, height: null, alt: null } : null,
         shown: piece.shown.kind,
-        kind: owned ? 'piece' : 'saved',
+        // A statement piece goes on without being saved, and a saved find may have been cleared since.
+        kind: owned ? 'piece' : piece.product_id && saved.has(piece.product_id) ? 'saved' : 'find',
         href,
       }
     })

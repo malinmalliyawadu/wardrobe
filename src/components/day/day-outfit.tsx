@@ -5,6 +5,7 @@ import { Refresh } from '@/components/refresh'
 import { SectionHead } from '@/components/section'
 import { Bone } from '@/components/skeleton'
 import { listSlots } from '@/lib/blueprint'
+import { list } from '@/lib/format'
 import { readDay, trainsOn, type DayLook, type DayOutfit as Day } from '@/lib/day-outfit'
 import { gymReadiness, OCCASION_LABELS, readiness } from '@/lib/looks'
 import { listPieces } from '@/lib/pieces'
@@ -265,10 +266,4 @@ function Making({ when, note }: { when: string; note?: string | null }) {
       <p className="mt-1 text-[0.9375rem] text-ink-3">About a minute. You can leave and come back.</p>
     </div>
   )
-}
-
-/** "two tops, a pair of trousers and a pair of shoes" */
-function list(items: string[]): string {
-  if (items.length <= 1) return items.join('')
-  return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
 }

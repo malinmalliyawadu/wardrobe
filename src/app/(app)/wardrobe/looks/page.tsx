@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
 import { SectionHead } from '@/components/section'
-import { day } from '@/lib/format'
+import { day, list, wornLine } from '@/lib/format'
 import { gymReadiness, OCCASION_LABELS, readiness, readLooks, todayNz, type Look, type LookKind } from '@/lib/looks'
 import { listPieces } from '@/lib/pieces'
 import { getGuide } from '@/lib/style-guide'
@@ -159,17 +159,4 @@ function Section({
       </div>
     </section>
   )
-}
-
-/** "Worn twice, last on 2 November." */
-function wornLine(worn: string[]): string | null {
-  if (worn.length === 0) return null
-  const times = worn.length === 1 ? 'once' : worn.length === 2 ? 'twice' : `${worn.length} times`
-  return `Worn ${times}, last on ${day(new Date(`${worn[0]}T12:00:00+13:00`))}.`
-}
-
-/** "two tops, a pair of trousers and a pair of shoes" */
-function list(items: string[]): string {
-  if (items.length <= 1) return items.join('')
-  return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`
 }

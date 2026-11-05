@@ -22,6 +22,10 @@ import { forEveryday, forGym, type GarmentType, type SlotStatus } from './wardro
  *
  * Gym fits (migration 0014) are looks of the gym occasion, made only from
  * pieces worn for the gym or both; every other look leaves gym-only kit out.
+ *
+ * Looks around a piece (migration 0018) are a set of their own kind, made on
+ * a tap on that piece's page: a few looks that each wear it, from the rest of
+ * what he owns. Code keeps only the ones that do.
  */
 
 export const OCCASIONS = ['office', 'weekend', 'evening', 'travel', 'gym'] as const
@@ -47,6 +51,9 @@ export const LOOK_REASON_LABELS: Record<LookDismissReason, string> = {
 }
 
 export const LOOKS_PER_SET = 6
+
+/** How many looks a tap on a piece's page asks for: a few ways to wear it. */
+export const LOOKS_AROUND_A_PIECE = 3
 
 // ---------------------------------------------------------------------------
 // What a look is made of
@@ -81,6 +88,19 @@ export function gymReadiness(pieces: Shelved[]): Readiness {
   if (!has(BOTTOMS)) missing.push('shorts or joggers')
   if (!has(FOOTWEAR)) missing.push('trainers')
   return { ready: missing.length === 0, missing }
+}
+
+/**
+ * Enough to build looks on one piece: whole outfits of what it is worn for,
+ * the piece among them. Gym-only kit needs a gym fit's worth; a piece worn
+ * for both is ready when either is.
+ */
+export function readinessAround(piece: Pick<Piece, 'worn_for'>, pieces: Shelved[]): Readiness & { gym: boolean } {
+  const everyday = readiness(pieces)
+  const gym = gymReadiness(pieces)
+  if (piece.worn_for === 'gym') return { ...gym, gym: true }
+  if (piece.worn_for === 'both' && gym.ready) return { ...gym, gym: true }
+  return { ...everyday, gym: false }
 }
 
 /** The pieces Claude may dress him in: in the wardrobe and named for what they are. */
@@ -119,6 +139,12 @@ export const LookDraftSchema = z.object({
 
 export const LooksSchema = z.object({
   looks: z.array(LookDraftSchema).describe(`${LOOKS_PER_SET} looks, each a different outfit.`),
+})
+
+export const PieceLooksSchema = z.object({
+  looks: z
+    .array(LookDraftSchema)
+    .describe(`${LOOKS_AROUND_A_PIECE} looks, each wearing the piece he chose, each a different outfit around it.`),
 })
 
 export type LookDraft = z.infer<typeof LookDraftSchema>
@@ -205,6 +231,8 @@ export function buildLooksMessages(input: {
   note: string | null
   /** A set for his week, or gym fits only. */
   kind?: LookKind
+  /** The piece he chose on its page: every look wears it. */
+  around?: Pick<Piece, 'id' | 'name' | 'worn_for'>
   now?: Date
 }): Anthropic.Beta.BetaMessageParam[] {
   const { date, weather } = wellingtonToday(input.now)
@@ -229,8 +257,31 @@ export function buildLooksMessages(input: {
     input.kind === 'gym'
       ? `up to ${LOOKS_PER_SET} gym fits from his gym kit, fewer if it cannot make that many that differ`
       : `${LOOKS_PER_SET} looks`
-  const ask = input.note ? `He asked for this set: "${input.note}". Make ${what} with that in mind.` : `Make ${what}.`
+  const ask = input.around
+    ? aroundAsk(input.around, input.note)
+    : input.note
+      ? `He asked for this set: "${input.note}". Make ${what} with that in mind.`
+      : `Make ${what}.`
   return [{ role: 'user', content: `${JSON.stringify(body, null, 2)}\n\n${ask}` }]
+}
+
+/** The ask for looks around one piece: a few different ways to wear it, each a whole outfit. */
+function aroundAsk(piece: Pick<Piece, 'id' | 'name' | 'worn_for'>, note: string | null): string {
+  const n = LOOKS_AROUND_A_PIECE
+  const kind =
+    piece.worn_for === 'gym'
+      ? ' It is gym kit, so they are gym fits.'
+      : piece.worn_for === 'both'
+        ? ' He wears it to the gym and every day, so one may be a gym fit if his kit is ready.'
+        : ''
+  return [
+    `He chose one of his pieces to build on: "${piece.name}" (id ${piece.id}).`,
+    `Make ${n} looks that each wear it: ${n} different ways to wear it, for the occasions and days it suits best, each a whole outfit around it.`,
+    `Apart from it, no two of the looks share more than one piece. Make fewer if the rest of his wardrobe cannot make ${n} that differ.${kind}`,
+    note ? `He added: "${note}". Make them with that in mind.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 export const LOOK_KINDS = ['week', 'gym'] as const
@@ -250,9 +301,9 @@ export function gymForPrompt(profile: Pick<Profile, 'life'>, pieces: Shelved[]) 
 export type LookSetDraft = { looks: (LookDraft & { piece_ids: number[] })[]; proposed: number; meta: GenerationMeta; usd: number }
 
 export async function draftLooks(input: Parameters<typeof buildLooksMessages>[0]): Promise<LookSetDraft> {
-  const gymOnly = input.kind === 'gym'
+  const gymOnly = input.around ? input.around.worn_for === 'gym' : input.kind === 'gym'
   const { data, meta } = await generate({
-    schema: LooksSchema,
+    schema: input.around ? PieceLooksSchema : LooksSchema,
     system: LOOKS_SYSTEM_PROMPT,
     messages: buildLooksMessages(input),
     maxTokens: 32000,
@@ -260,12 +311,19 @@ export async function draftLooks(input: Parameters<typeof buildLooksMessages>[0]
     model: MODELS.looks,
   })
   const usd = callUsd(MODELS.looks, { input_tokens: meta.input_tokens, output_tokens: meta.output_tokens })
+  const drafts = gymOnly ? data.looks.map((look) => ({ ...look, occasion: 'gym' as const })) : data.looks
   return {
-    looks: tidyLooks(gymOnly ? data.looks.map((look) => ({ ...look, occasion: 'gym' as const })) : data.looks, input.pieces, input.wanted, input.history),
+    looks: tidyAround(tidyLooks(drafts, input.pieces, input.wanted, input.history), input.around?.id ?? null),
     proposed: data.looks.length,
     meta,
     usd,
   }
+}
+
+/** Looks around a piece keep only the ones that still wear it once tidied, at most the few asked for. */
+export function tidyAround<T extends Pick<LookDraft, 'piece_ids'>>(looks: T[], pieceId: number | null): T[] {
+  if (pieceId === null) return looks
+  return looks.filter((look) => look.piece_ids.includes(pieceId)).slice(0, LOOKS_AROUND_A_PIECE)
 }
 
 /** The pieces as a sorted id list, to tell two looks apart. */
@@ -351,12 +409,22 @@ export async function wantedSlots(sql: Sql = db()): Promise<WantedSlot[]> {
 
 export async function saveSet(
   draft: LookSetDraft,
-  context: { note: string | null; pieces: number; date: string; weather: string; kind?: LookKind },
+  context: {
+    note: string | null
+    pieces: number
+    date: string
+    weather: string
+    kind?: LookKind
+    /** The piece a set of looks around a piece was made on. */
+    pieceId?: number
+  },
   sql: Sql = db(),
 ): Promise<number> {
   return sql.begin(async (tx) => {
     const [set] = await tx<{ id: number }[]>`
       insert into look_sets ${tx({
+        kind: context.pieceId ? 'piece' : 'set',
+        piece_id: context.pieceId ?? null,
         note: context.note,
         context: tx.json({ date: context.date, weather: context.weather, pieces: context.pieces, for: context.kind ?? 'week' }),
         model: draft.meta.model,
@@ -579,6 +647,33 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
     fresh: looks.filter(inLatest).sort((a, b) => place.get(a.id)! - place.get(b.id)!),
     total: total ?? { sets: 0, usd: 0 },
   }
+}
+
+export type PieceLooks = {
+  /** The newest set made around the piece, if any. */
+  latest: LookSet | null
+  /** Its looks he has not dismissed, in the order they were made. */
+  looks: Look[]
+}
+
+/**
+ * The newest looks made around one piece, less what he dismissed and what a
+ * remake replaced (the remake is in its place). One saved stays, marked saved.
+ */
+export async function readPieceLooks(pieceId: number, sql: Sql = db()): Promise<PieceLooks> {
+  const [latest] = await sql<LookSet[]>`
+    select id::int as id, note, coalesce(context ->> 'for', 'week') as kind, usd::float as usd, proposed,
+           coalesce((context ->> 'pieces')::int, 0) as pieces, created_at
+    from look_sets where kind = 'piece' and piece_id = ${pieceId} order by created_at desc, id desc limit 1
+  `
+  if (!latest) return { latest: null, looks: [] }
+  const offered = await sql<{ look_id: number; position: number }[]>`
+    select look_id::int as look_id, position from look_set_looks where set_id = ${latest.id}
+  `
+  if (offered.length === 0) return { latest, looks: [] }
+  const place = new Map(offered.map((row) => [row.look_id, row.position]))
+  const looks = await selectLooks(sql, sql`l.id in ${sql([...place.keys()])} and l.status in ('new', 'saved')`, sql`l.id`)
+  return { latest, looks: looks.sort((a, b) => place.get(a.id)! - place.get(b.id)!) }
 }
 
 export const LookActionSchema = z.discriminatedUnion('action', [

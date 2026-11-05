@@ -348,6 +348,19 @@ inside the month's). The scorer's loop is shared as `judgeAll` in score.ts.
 filtered by colour, texture or cut, each card with the pieces it wears with;
 a row of the best five sits under the search line on Finds. Saving, dismissing
 and buying are the feed's own, and a save takes the price and size the run
-found in his size. First real run: 825 picked from 4,070 in his size and
+found in his size. "See the outfit on me" on a card puts the piece on him with
+the pieces it wears with (`startStatementTryOn`, the "Choose pieces" try-on
+without the rule that a find be saved; its outfit key finds a kept picture). First real run: 825 picked from 4,070 in his size and
 budget, 100 judged in 46 s for US$0.53 (about US$0.005 each), 21 over the
 bar; the rest drain at the nightly cap, the best first.
+
+Looks around a piece built 2026-11-05 (migration 0018), asked for by Malin:
+"Ways to wear it" on a piece's page (`/wardrobe/[id]`) makes three looks
+that each wear that piece, from the rest of his wardrobe, with an optional
+note. It is `draftLooks` with `around` (the looks prompt and rules, a piece
+ask, `tidyAround` keeps only looks that still wear it), synchronous in
+`makePieceLooks` like a set of looks, and saved as a `look_sets` row of kind
+`piece` with its `piece_id`, so the Looks tab's newest set stays its own.
+`readPieceLooks` shows the newest such set under the page's top spread,
+three across on the laptop. Gym-only kit gets gym fits. First run: three
+looks in 25 s for US$0.09.

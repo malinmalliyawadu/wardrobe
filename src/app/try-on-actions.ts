@@ -12,15 +12,17 @@ import {
   startAgain,
   startLookTryOn,
   startOutfitTryOn,
+  startStatementTryOn,
   startTryOn,
   type Started,
 } from '@/lib/try-on'
 
 /*
- * "See it on me", on a find, on a look, and on pieces he chose on the On me
- * page. Each records the request and answers at once; the image is made after the response, because it takes up
- * to two minutes, and the card asks /photos/try-ons/:id/status until it is
- * ready. On a card nothing is revalidated: the card holds the state, and the
+ * "See it on me", on a find, on a look, on a statement piece with the pieces
+ * it wears with, and on pieces he chose on the On me page. Each records the
+ * request and answers at once; the image is made after the response, because
+ * it takes up to two minutes, and the card asks /photos/try-ons/:id/status
+ * until it is ready. On a card nothing is revalidated: the card holds the state, and the
  * next render reads it from the row. From the On me page the new picture is
  * a row on that page, so it is revalidated and shown there, in the making.
  *
@@ -50,6 +52,14 @@ export async function seeLookOnMe(lookId: number, again: boolean = false): Promi
   const id = Id.safeParse(lookId)
   if (!id.success) return { ok: false, message: 'That look could not be read.' }
   return makeAfter(await startLookTryOn(id.data, undefined, { again: again === true }))
+}
+
+/** A statement piece worn with the pieces of his its card names. */
+export async function seeStatementOutfitOnMe(productId: number, pieceIds: number[], again: boolean = false): Promise<Started> {
+  const id = Id.safeParse(productId)
+  const pieces = z.array(Id).min(1).max(MAX_OUTFIT_PIECES - 1).safeParse(pieceIds)
+  if (!id.success || !pieces.success) return { ok: false, message: 'That outfit could not be read.' }
+  return makeAfter(await startStatementTryOn(id.data, pieces.data, undefined, { again: again === true }))
 }
 
 /** "p12" is wardrobe piece 12, "f34" saved find 34. */
