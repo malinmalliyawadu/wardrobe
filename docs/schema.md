@@ -33,6 +33,8 @@ Three layers, each derived from the one above, then the finder's tables.
 | `look_images` | one per outfit on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, its `outfit_key`, cost, the file on the photos volume. A look shows the picture of its pieces whichever look it was drawn for |
 | `searches` | one per search on the Search tab | What he typed, what it was read as, its limit, what it spent |
 | `search_results` | up to 150 a search | The products a search offered Claude, in order, each with its verdict and a re-checked price |
+| `statement_candidates` | hundreds a run | What the statement rules picked in a run, with the signals that picked it and the price and sizes in his size |
+| `statement_scores` | one per product version | Claude's verdict on a product as a statement piece for him: score, what makes it one, the colour, the why, the pieces it wears with, tokens and cost |
 
 ## Decisions
 
@@ -216,6 +218,20 @@ after 15 minutes is read as failed. `finder_settings.max_usd_per_search` is
 the per-search limit; the month's spend counts `searches.usd` with the runs'.
 A saved search result is an ordinary `feed_actions` row with no slot, saved at
 the price and size the search found.
+
+**Statement pieces (migration 0017)** keep their own verdicts, apart from
+`product_scores`: a slot verdict asks whether a product fills a slot, a
+statement verdict whether it carries an outfit, and the same product can be a
+poor match for every slot and a fine statement. Both are keyed by
+`(product_id, content_hash)`, so a version is judged once each way. A run's
+statement shortlist is `statement_candidates`, like `finder_candidates`, and
+the shelf reads the newest run that has one. `wears_with` is an array of
+wardrobe piece ids with no foreign key, as it was when judged; a piece
+deleted or set aside since is dropped when the shelf reads it. A save from
+the shelf is an ordinary `feed_actions` row with no slot, at the price and
+size the run found in his size. `finder_settings.max_usd_statements` is the
+nightly cap, and a run's `stats.usd` is both stages together, so the month
+counts it.
 
 ## Expected growth
 

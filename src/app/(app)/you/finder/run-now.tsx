@@ -72,7 +72,7 @@ export function RunNow({ run: initial }: { run: LiveRun | null }) {
     <form action={action} className="mt-8 max-w-2xl">
       <div className="flex items-center justify-between gap-4">
         <p className="max-w-[32ch] text-sm text-ink-2">
-          Runs on its own each night. A run now may spend up to the nightly limit again.
+          Runs on its own each night. A run now may spend up to the nightly limits again.
         </p>
         <SubmitButton variant="quiet" size="small" pending="Starting" className="shrink-0">
           Run now

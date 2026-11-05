@@ -4,13 +4,14 @@ import { Suspense } from 'react'
 
 import { Feed } from '@/components/feed/feed'
 import { FeedSkeleton } from '@/components/feed/feed-skeleton'
+import { StatementShelf, StatementShelfSkeleton } from '@/components/feed/statement-shelf'
 import { SearchIcon } from '@/components/icons'
 
 export const metadata: Metadata = { title: 'Finds' }
 
 /**
  * The shopping tab: a line to ask the shops for something (which opens
- * Search), last night's finds by slot, what he saved and what changed since,
+ * Search), the way into the statement pieces, last night's finds by slot,
  * and the way into everything the finder read.
  */
 export default function FindsPage() {
@@ -20,6 +21,9 @@ export default function FindsPage() {
         <SearchIcon className="size-5 shrink-0" />
         <span>Ask the shops for something</span>
       </Link>
+      <Suspense fallback={<StatementShelfSkeleton />}>
+        <StatementShelf />
+      </Suspense>
       <Suspense fallback={<FeedSkeleton />}>
         <Feed />
       </Suspense>

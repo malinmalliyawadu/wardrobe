@@ -10,20 +10,26 @@
  * One run at a time: a run that finds another going logs `find.busy` and
  * exits 0 without starting (see src/lib/finder/runs.ts).
  *
- * Three stages, each recorded in one finder_runs row:
+ * Four stages, each recorded in one finder_runs row:
  *   1. ingest   every enabled store's Shopify feed, politely (free)
  *   2. filter   menswear, the slot's garment, in his size, in the slot's band, not
  *               dismissed, not plainly the wrong colour (free; reads a photo once
  *               when the listing names no colour)
  *   3. score    new or changed candidates, with Sonnet (costs tokens)
+ *   4. statements  free rules pick likely statement pieces from everything read,
+ *               and Sonnet judges new or changed ones within their own nightly
+ *               cap (src/lib/finder/statements.ts)
  *
  * Options:
  *   --only=a,b        ingest only these retailer slugs (the filter still reads everything)
  *   --skip-ingest     filter and score what is already stored
  *   --reclassify      re-apply the classification rules to stored products (implies --skip-ingest)
- *   --no-score        stop after the filter
+ *   --no-score        do not judge the slots' candidates
+ *   --no-statements   do not look for statement pieces
  *   --max-usd=N       spend up to N US dollars on scoring this run, instead of the
  *                     nightly limit set on /you/finder (the monthly limit still applies)
+ *   --statements-usd=N  spend up to N US dollars judging statement pieces, instead
+ *                     of their nightly limit (the monthly limit still applies)
  *   --concurrency=N   scores in flight at once (default 6)
  *
  * Output is one JSON object per line. Exits non-zero if the run failed.
@@ -42,7 +48,15 @@ import { closeInterrupted, holdFinderLock } from '../src/lib/finder/runs.ts'
 import { imageAt } from '../src/lib/finder/shopify.ts'
 import { ingestRetailer, reclassify, type RetailerIngest } from '../src/lib/finder/ingest.ts'
 import { contextBlock, scoreAll, SHOW_THRESHOLD, unscored, type ScoreStats } from '../src/lib/finder/score.ts'
-import { getFinderSettings, getSpend, runBudget } from '../src/lib/finder/settings.ts'
+import { getFinderSettings, getSpend, runBudget, statementsBudget } from '../src/lib/finder/settings.ts'
+import {
+  findStatementCandidates,
+  judgeStatements,
+  recordStatementCandidates,
+  STATEMENT_THRESHOLD,
+  unjudgedStatements,
+} from '../src/lib/finder/statements.ts'
+import { listPieces } from '../src/lib/pieces.ts'
 import { getProfile } from '../src/lib/profile.ts'
 import { listRetailers, seedRetailers, walkedNightly } from '../src/lib/retailers.ts'
 import { colourNameFor, getGuide } from '../src/lib/style-guide.ts'
@@ -55,7 +69,9 @@ const { values: args } = parseArgs({
     'skip-ingest': { type: 'boolean', default: false },
     reclassify: { type: 'boolean', default: false },
     'no-score': { type: 'boolean', default: false },
+    'no-statements': { type: 'boolean', default: false },
     'max-usd': { type: 'string' },
+    'statements-usd': { type: 'string' },
     concurrency: { type: 'string', default: '6' },
   },
 })
@@ -66,10 +82,15 @@ const options = {
   skipIngest: args['skip-ingest'] || args.reclassify,
   reclassify: args.reclassify,
   score: !args['no-score'],
+  statements: !args['no-statements'],
   maxUsd: args['max-usd'] === undefined ? null : Number(args['max-usd']),
+  statementsUsd: args['statements-usd'] === undefined ? null : Number(args['statements-usd']),
   concurrency: Math.max(1, Math.min(16, Number(args.concurrency) || 6)),
 }
 if (options.maxUsd !== null && !(options.maxUsd >= 0)) throw new Error('--max-usd must be a number of dollars')
+if (options.statementsUsd !== null && !(options.statementsUsd >= 0)) {
+  throw new Error('--statements-usd must be a number of dollars')
+}
 
 function log(fields: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify({ at: new Date().toISOString(), ...fields }) + '\n')
@@ -196,15 +217,54 @@ try {
   stats.usd = scoring?.usd ?? 0
   stats.shown = await shownCount(run.id)
 
+  // 4. Statement pieces: the rules over everything read, then Sonnet on what
+  // it has not judged, within its own cap and what the month has left.
+  let statements: ScoreStats | null = null
+  if (options.statements && guide) {
+    const { candidates: picked, stats: rules } = await findStatementCandidates(sql, {
+      sizes: profile.sizes,
+      budget: profile.budget,
+      slots,
+      guide,
+      rates: fx.rates,
+    })
+    await recordStatementCandidates(sql, run.id, picked)
+    stats.statement_rules = rules
+    log({ event: 'statements.rules', ...rules })
+    const products = await unjudgedStatements(sql, picked)
+    const allowed = statementsBudget(settings, spend.thisMonth + (scoring?.usd ?? 0), options.statementsUsd)
+    stats.statements_budget = allowed
+    log({ event: 'statements.start', needed: products.length, ...allowed })
+    const [pieces, dismissals] = await Promise.all([listPieces(sql), recentDismissals()])
+    statements = await judgeStatements(sql, run.id, { profile, guide, pieces, dismissals }, products, {
+      maxUsd: allowed.max_usd,
+      concurrency: options.concurrency,
+      log,
+    })
+    log({ event: 'statements.done', ...statements })
+    stats.statements = statements
+    stats.statements_shown = await statementsShown(run.id)
+    // The run's spend, which the month's cap counts, is both stages together.
+    stats.usd = Number(((scoring?.usd ?? 0) + statements.usd).toFixed(4))
+  }
+
   // A run whose scoring was stopped (no credit, an outage) still succeeded:
   // what it found and scored is good, and the rest is scored next run. It
   // says why in the error column and exits non-zero, so the task is flagged.
-  const stopped = scoring?.stopped ?? null
+  const stopped = scoring?.stopped ?? statements?.stopped ?? null
   await sql`
     update finder_runs set status = 'succeeded', finished_at = now(), stats = ${sql.json(stats as never)}, error = ${stopped}
     where id = ${run.id}
   `
-  log({ event: 'find.complete', run: run.id, candidates: stats.candidates, scored: stats.scored, shown: stats.shown, usd: stats.usd })
+  log({
+    event: 'find.complete',
+    run: run.id,
+    candidates: stats.candidates,
+    scored: stats.scored,
+    shown: stats.shown,
+    statements: stats.statements_shown ?? null,
+    usd: stats.usd,
+  })
   if (stopped) {
     exitCode = 1
     log({ event: 'find.incomplete', run: run.id, reason: stopped })
@@ -248,6 +308,21 @@ async function recentDismissals() {
     where a.action = 'dismissed'
     order by a.created_at desc limit 40
   `
+}
+
+/** The statement pieces this run's shortlist has over the bar, nothing done with them yet. */
+async function statementsShown(runId: number): Promise<number> {
+  const [row] = await sql<{ count: number }[]>`
+    select count(*)::int as count
+    from statement_candidates c
+    join statement_scores s on s.product_id = c.product_id and s.content_hash = c.content_hash
+    where c.run_id = ${runId} and s.score >= ${STATEMENT_THRESHOLD}
+      and coalesce((
+        select a.action from feed_actions a where a.product_id = c.product_id
+        order by a.created_at desc, a.id desc limit 1
+      ), 'cleared') = 'cleared'
+  `
+  return row?.count ?? 0
 }
 
 /**

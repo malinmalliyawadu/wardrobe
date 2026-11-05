@@ -516,14 +516,18 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
           select price_cents, sizes from finder_candidates where run_id = ${run.id} and product_id = ${action.product_id}
         `
       : []
-    // Not on the shortlist: a search result is saved at the price and size the
-    // search found in his size; a pasted link at the lowest price in stock.
+    // Not on the shortlist: a search result or a statement piece is saved at
+    // the price and size found in his size; a pasted link at the lowest price
+    // in stock.
     const [searched] = candidate
       ? []
       : await tx<{ price_cents: number; sizes: string[] }[]>`
-          select r.price_cents, r.sizes from search_results r join searches s on s.id = r.search_id
-          where r.product_id = ${action.product_id} and r.in_stock
-          order by s.started_at desc limit 1
+          (select r.price_cents, r.sizes, s.started_at from search_results r join searches s on s.id = r.search_id
+            where r.product_id = ${action.product_id} and r.in_stock)
+          union all
+          (select c.price_cents, c.sizes, f.started_at from statement_candidates c join finder_runs f on f.id = c.run_id
+            where c.product_id = ${action.product_id})
+          order by started_at desc limit 1
         `
     const [variant] = candidate || searched
       ? []

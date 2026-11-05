@@ -1,9 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useTransition } from 'react'
 
 import { feedAction } from '@/app/feed-actions'
+import { PieceImage } from '@/components/piece-image'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
+import type { WornWith } from '@/lib/statements'
 
 import { PriceLine, sizeLine } from './product'
 import { ProductPhoto } from './product-photo'
@@ -44,8 +47,23 @@ function useFeedAction() {
   return { gone, failed, send }
 }
 
-/** slotName is null for a search result, which fills no slot. */
-export function FindCard({ find, slotName }: { find: Find; slotName: string | null }) {
+/**
+ * slotName is null for a search result or a statement piece, which fill no
+ * slot. A statement piece says what makes it one (its colour, texture or cut)
+ * in place of a match, and shows the pieces of his it wears with under the
+ * why; in a grid it takes its cell's width rather than a swipe row's.
+ */
+export function FindCard({
+  find,
+  slotName,
+  statement = null,
+  inGrid = false,
+}: {
+  find: Find
+  slotName: string | null
+  statement?: { qualities: string; wearsWith: WornWith[] } | null
+  inGrid?: boolean
+}) {
   const [mode, setMode] = useState<Mode>('actions')
   const { gone, failed, send } = useFeedAction()
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
@@ -54,20 +72,28 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string | nu
     <article
       data-gone={gone}
       aria-hidden={gone || undefined}
-      className="find flex w-[72vw] max-w-[20rem] flex-col sm:w-[20rem] lg:w-auto lg:max-w-none"
+      className={`find flex flex-col ${inGrid ? 'min-w-0' : 'w-[72vw] max-w-[20rem] sm:w-[20rem] lg:w-auto lg:max-w-none'}`}
     >
       <a href={find.url} target="_blank" rel="noopener noreferrer" className="pressable block" tabIndex={gone ? -1 : 0}>
-        <ProductPhoto find={find} sizes="(min-width: 1024px) 15rem, (min-width: 640px) 20rem, 72vw" className="aspect-[4/5] rounded-[var(--radius-tile)]" />
+        <ProductPhoto
+          find={find}
+          sizes={inGrid ? '(min-width: 1024px) 18rem, (min-width: 640px) 45vw, 92vw' : '(min-width: 1024px) 15rem, (min-width: 640px) 20rem, 72vw'}
+          className="aspect-[4/5] rounded-[var(--radius-tile)]"
+        />
         <p className="caption mt-3 flex items-baseline justify-between gap-3">
           <span className="truncate">{find.retailer}</span>
-          <span className="shrink-0 tabular-nums">Match {find.score}</span>
+          {statement ? null : <span className="shrink-0 tabular-nums">Match {find.score}</span>}
         </p>
         <h3 className="mt-0.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium text-ink">{find.title}</h3>
       </a>
       <div className="mt-1">
         <PriceLine find={find} />
       </div>
-      {find.why ? <p className="prose mt-2 line-clamp-4 text-[0.875rem] leading-snug text-ink-2">{find.why}</p> : null}
+      {statement ? <p className="mt-2 text-[0.8125rem] font-medium text-ink">{statement.qualities}</p> : null}
+      {find.why ? (
+        <p className={`prose line-clamp-4 text-[0.875rem] leading-snug text-ink-2 ${statement ? 'mt-1' : 'mt-2'}`}>{find.why}</p>
+      ) : null}
+      {statement && statement.wearsWith.length > 0 ? <WearsWith pieces={statement.wearsWith} /> : null}
       <p className="mt-2 text-[0.8125rem] text-ink-3">
         {sizeLine(find)}
         {find.colour_option ? ` in ${find.colour_option}` : ''}
@@ -128,6 +154,25 @@ export function FindCard({ find, slotName }: { find: Find; slotName: string | nu
         {failed ? <p className="mt-1 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
       </div>
     </article>
+  )
+}
+
+/** The pieces of his it wears with, small, each a tap to the piece. */
+function WearsWith({ pieces }: { pieces: WornWith[] }) {
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <p className="caption shrink-0">With your</p>
+      <ul className="flex min-w-0 gap-1.5">
+        {pieces.map((piece) => (
+          <li key={piece.id}>
+            <Link href={`/wardrobe/${piece.id}`} title={piece.name} className="pressable block rounded-[var(--radius-tile)]">
+              <PieceImage piece={piece} sizes="2.5rem" className="aspect-[3/4] w-10 rounded-[var(--radius-tile)]" />
+              <span className="sr-only">{piece.name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

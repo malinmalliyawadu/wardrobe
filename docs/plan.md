@@ -110,9 +110,10 @@ becomes owned.
 
 ## 2. The finder
 
-Nightly CLI (`scripts/find.ts`) with three stages. Stages 1 and 2 are
+Nightly CLI (`scripts/find.ts`) with four stages. Stages 1 and 2 are
 deterministic and free. Stage 3 costs Claude tokens and only runs on new or
-changed products.
+changed products. Stage 4, statement pieces (added 2026-11-05, see the build
+sequence), is free rules then Claude, on its own nightly cap.
 
 ### 2.1 Ingest
 
@@ -495,6 +496,39 @@ out), all three options kept; the pictures in 25 to 27 s for US$0.05 to
 he opens.
 
 Gate: Malin uses it for a week and wears what it suggests on most days.
+
+**Statement pieces**, asked for by Malin and built 2026-11-05 (migration
+0017). The blueprint's slots are mostly the right basics; he wanted a way to
+find the pieces that carry an outfit. He chose what a statement is for him
+(a bold colour, a texture, or a cut or detail, not a pattern) and a shelf
+Claude picks over a free filter on Shops.
+
+- A fourth stage of the nightly run. Free rules over everything read, in his
+  size, under the most he would pay for one of its kind (his budget on the
+  profile, else the blueprint's top band for the garment), not dismissed or
+  bought: one of his best colours that is not a neutral, a texture word in
+  the title or tags (cord, boucle, mohair, suede, leather, shearling,
+  velvet, moleskin, waffle, terry, crochet...), or a cut or detail in the
+  title (camp or Cuban collar, boxy, cropped, double-breasted, shawl, balloon
+  or barrel leg, western...). Not tees, shorts, gym kit, caps or bags; a shoe
+  only by colour or cut, since every loafer is leather or suede.
+- Sonnet judges each new or changed one, two signals first, against his
+  profile, his guide and his everyday pieces: what makes it a statement, a 0
+  to 100 for him (a pattern or a logo is under 40), the colour on offer that
+  suits him, one line on how to wear it, and up to three of his pieces it
+  wears with. Its own nightly cap, US$0.50 by default, inside the month's.
+- `/statements` shows the latest run's shortlist over 70, best first,
+  filtered by colour, texture or cut; Finds carries a row of the best five
+  under the search line. Save, dismiss and bought are the feed's.
+
+First real run, 2026-11-05, over the catalogue read the night before: 825
+picked from the 4,070 pieces in his size and budget (537 by colour, 183 by
+texture, 150 by cut), 100 judged in 46 s for US$0.53, 21 over the bar. The
+first pass through the rest is about US$4 more, eight nights at the
+default cap; after that only new pieces cost anything.
+
+Gate: Malin uses it for a week and agrees the shelf holds pieces he would buy,
+at a nightly cost he is happy with.
 
 ## 4. Design direction
 

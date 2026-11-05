@@ -134,7 +134,7 @@ export type ProductForScoring = {
   slot_ids: number[]
 }
 
-const IMAGE_WIDTH = 768
+export const IMAGE_WIDTH = 768
 
 export function buildScoreRequest(context: string, product: ProductForScoring) {
   const listing = {
@@ -262,7 +262,7 @@ export type ScoreStats = {
   seconds: number
 }
 
-type Log = (fields: Record<string, unknown>) => void
+export type Log = (fields: Record<string, unknown>) => void
 
 /**
  * Candidates that need a score: no score for the product's current version,
@@ -337,8 +337,36 @@ export async function scoreAll(
     save?: typeof saveScore
   },
 ): Promise<ScoreStats> {
-  const scoreOne = options.scoreOne ?? scoreProduct
-  const save = options.save ?? saveScore
+  return judgeAll(sql, runId, context, products, {
+    ...options,
+    event: 'score',
+    judgeOne: options.scoreOne ?? scoreProduct,
+    save: options.save ?? saveScore,
+  })
+}
+
+/**
+ * Asks Claude about each product in order, a few at a time, until the list or
+ * the money runs out: the slot scorer's loop, and the statement judge's. The
+ * first call goes alone, so it writes the cached context the rest read. A run
+ * of API errors in a row stops it, and the rest wait for the next run.
+ */
+export async function judgeAll<P extends { product_id: number }, O>(
+  sql: Sql,
+  runId: number,
+  context: string,
+  products: P[],
+  options: {
+    maxUsd: number
+    concurrency: number
+    log: Log
+    /** The prefix of the log events: "score", "statements". */
+    event: string
+    judgeOne: (context: string, product: P) => Promise<{ output: O; usage: Usage; servedBy: string }>
+    save: (sql: Sql, runId: number, product: P, output: O, usage: Usage, servedBy: string) => Promise<void>
+  },
+): Promise<ScoreStats> {
+  const { judgeOne: scoreOne, save, event } = options
   const started = Date.now()
   const stats: ScoreStats = {
     needed: products.length,
@@ -365,7 +393,7 @@ export async function scoreAll(
     stats.usd = costUsd(stats.tokens)
   }
 
-  const one = async (product: ProductForScoring) => {
+  const one = async (product: P) => {
     try {
       const { output, usage, servedBy } = await scoreOne(context, product)
       add(usage)
@@ -388,13 +416,13 @@ export async function scoreAll(
         stats.stopped = `${MAX_API_ERRORS_IN_A_ROW} API errors in a row; the last: ${(error as Error).message.slice(0, 200)}`
         stats.skipped_for_errors = queue.length
         queue.length = 0
-        options.log({ event: 'score.stopped', reason: stats.stopped, left: stats.skipped_for_errors })
+        options.log({ event: `${event}.stopped`, reason: stats.stopped, left: stats.skipped_for_errors })
       }
-      options.log({ event: 'score.failed', product_id: product.product_id, reason, message: (error as Error).message.slice(0, 200) })
+      options.log({ event: `${event}.failed`, product_id: product.product_id, reason, message: (error as Error).message.slice(0, 200) })
     }
     const done = stats.scored + stats.failed
     if (done % 25 === 0) {
-      options.log({ event: 'score.progress', done, of: stats.needed, usd: Number(stats.usd.toFixed(4)) })
+      options.log({ event: `${event}.progress`, done, of: stats.needed, usd: Number(stats.usd.toFixed(4)) })
     }
   }
 
@@ -486,7 +514,7 @@ export function plainText(html: string | null): string {
     .trim()
 }
 
-function parseJson(text: string): unknown {
+export function parseJson(text: string): unknown {
   try {
     return JSON.parse(text)
   } catch {
