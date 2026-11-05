@@ -192,6 +192,21 @@
       "wellington_store": null
     },
     {
+      "slug": "patagonia",
+      "name": "Patagonia",
+      "platform": "shopify",
+      "base_url": "https://www.patagonia.co.nz",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "The NZ site is its own Shopify shop priced in NZD; patagonia.com.au is a separate shop in AUD. The 'mens' collection is the men's range (about 1,070 products). Product types read like 'Medium,Bottoms & One Pieces', so the garment comes from the title; colours come from the variants' Color option and a colour: tag. Much of the range is technical kit the rules file as activewear. Probed 2026-11-05: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, which the client waits out. Its store locator is drawn by script, so no Wellington store could be read from the site.",
+      "wellington_store": null
+    },
+    {
       "slug": "uniqlo",
       "name": "Uniqlo AU",
       "platform": "uniqlo",

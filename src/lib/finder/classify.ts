@@ -31,7 +31,7 @@ type Rule = { pattern: RegExp; garment: GarmentType | null; kind?: string }
 
 /** Never a slot: judged on the product type and title together. */
 const NOT_CLOTHING =
-  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights)\b/i
+  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights|wetsuits?|wet suits?|spring suits?|full suits?|rash ?guards?|rashies?|booties|gaiters?|suspenders|waders?)\b/i
 
 /** Words that only exclude when they are the product type, because they turn up in titles ("Ring Spun Tee", "Book Club Shirt"). */
 const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|magazines?|accessories - other|gift)\b/i
@@ -42,7 +42,7 @@ const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|m
  * blueprint asks for activewear by name when it wants it).
  */
 const SPORT =
-  /\b(running|run|trail|hiking|hike|basketball|football|soccer|golf|tennis|training|trainer tee|gym|cycling|cycle|active|activewear|performance|compression|base ?layer|workout|yoga|marathon|stability|gore-?tex trail)\b/i
+  /\b(running|run|trail|hiking|hike|basketball|football|soccer|golf|tennis|training|trainer tee|gym|cycling|cycle|active|activewear|performance|compression|base ?layer|workout|yoga|marathon|stability|gore-?tex trail|wading|ski|skiing|snowboard(ing)?|bibs|bib shorts?|capilene)\b/i
 
 /** Most specific first. The first rule that matches wins. */
 const RULES: Rule[] = [
@@ -75,6 +75,8 @@ const RULES: Rule[] = [
   { pattern: /\b(polos?|rugby)\b/i, garment: 'polo' },
   { pattern: /\b(tanks?|singlets?)\b/i, garment: 'tank' },
   { pattern: /\b(t-?shirts?|tees?|henleys?)\b/i, garment: 'tee' },
+  // Insulation named like a knit (Patagonia's Down Sweater, a Micro Puff Hoody) is a jacket.
+  { pattern: /\b(down|puff(er)?|nano-air|insulated)\b.*\b(sweaters?|hoody|hoodies?|pullovers?|jumpers?)\b/i, garment: 'jacket' },
   {
     pattern: /\b(sweat ?shirts?|sweats?|sweat tops?|hoodies?|hoody|hoods?|hooded sweat|crew sweat|fleece)\b/i,
     garment: 'sweatshirt',
@@ -215,7 +217,7 @@ const LETTERS: Record<string, string> = {
   xxxl: 'XXXL', '3xl': 'XXXL', 'xxx-large': 'XXXL', 'xxx large': 'XXXL',
 }
 const LETTER_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
-const ONE = /^(one ?size|os|o\/s|osf|osa|one size fits all|osfa|no size|default title|n\/a|1 ?size)$/i
+const ONE = /^(one ?size|os|o\/s|osf|osa|one size fits all|osfa|no size|default title|n\/a|1 ?size|all|all sizes?)$/i
 
 /**
  * A size label as a key the filter can compare: "S", "S/M", "W30", "EU42",
