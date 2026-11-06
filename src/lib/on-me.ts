@@ -256,7 +256,7 @@ export async function outfitChoices(sql: Sql = db()): Promise<Choices> {
       select p.id::int as id, p.title as name, r.name as retailer,
              coalesce(p.garment_type, bs.garment_type) as garment_type,
              ${findColour(sql)} as colour_name,
-             p.images -> 0 as image
+             p.main_image as image
       from latest_action a
       join products p on p.id = a.product_id
       join retailers r on r.id = p.retailer_id

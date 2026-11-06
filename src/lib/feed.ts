@@ -7,6 +7,7 @@ import { wantedSizeKeys } from './finder/classify.ts'
 import { OPEN_STATUSES, type Rates } from './finder/filter.ts'
 import { FALLBACK_RATES } from './finder/fx.ts'
 import { pieceFromPurchase, syncSlotPieces } from './pieces.ts'
+import { photoChoices } from './product-photos.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
@@ -94,6 +95,8 @@ export type SavedFind = FindCard & {
   news: SavedEvent | null
   /** Typed in by him from a store that cannot be read, so its price is never checked. */
   byHand: boolean
+  /** The photos it can show: the shop's, and his own when he chose one (src/lib/product-photos.ts). */
+  photos: ProductImage[]
 }
 
 export type Run = {
@@ -306,7 +309,7 @@ export async function getFeed(): Promise<Feed> {
     )
     select c.product_id::int as product_id, s.slot_id::int as slot_id, s.score, s.why,
            s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
-           p.title, p.vendor, p.url, p.images -> 0 as image,
+           p.title, p.vendor, p.url, p.main_image as image,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known
@@ -377,6 +380,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       slot_labels: string[] | null
       listed: { label: string; key: string | null }[] | null
       by_hand: boolean
+      shop_images: ProductImage[]
     })[]
   >`
     with latest_action as (
@@ -386,7 +390,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
     select a.product_id::int as product_id, a.slot_id::int as slot_id, a.created_at as saved_at,
            a.price_cents as saved_price_cents,
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
-           p.title, p.vendor, p.url, p.images -> 0 as image,
+           p.title, p.vendor, p.url, p.main_image as image, p.images as shop_images,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known, r.platform = 'manual' as by_hand,
            coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
@@ -443,7 +447,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
     if (event.kind === 'back') return { ...event, price: nzd(event.price) }
     return event
   }
-  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, by_hand, ...row }) => {
+  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, by_hand, shop_images, ...row }) => {
     // The slot's own size labels and garment when it was saved for one, as the filter reads them.
     const garment = slot_garment ?? garment_type
     const sizeKeys = garment ? wantedSizeKeys(garment, slot_labels ?? [], sizes) : null
@@ -461,6 +465,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       // The stores are read before scoring, so a run still scoring has already found the changes.
       news: newsSince(events, run?.started_at ?? null),
       byHand: by_hand,
+      photos: photoChoices(shop_images, row.image),
     }
   })
 }

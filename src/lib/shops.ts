@@ -134,7 +134,7 @@ export async function searchShops(query: ShopQuery, sql: Sql = db()): Promise<Sh
       from product_scores order by product_id, scored_at desc, id desc
     ),
     listed as (
-      select p.id::int as product_id, p.title, p.vendor, p.url, p.images -> 0 as image, p.garment_type,
+      select p.id::int as product_id, p.title, p.vendor, p.url, p.main_image as image, p.garment_type,
              p.first_seen_at,
              r.name as retailer, r.currency, r.country, r.ships_to_nz, r.wellington_store,
              w.keys is not null as size_known,

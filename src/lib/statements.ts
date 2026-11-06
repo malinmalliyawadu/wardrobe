@@ -79,13 +79,13 @@ export async function getStatements(
     select c.product_id::int as product_id, null::int as slot_id, s.score, s.why,
            null::text as colour_verdict, null::text as fit_verdict, null::text as fabric_notes, s.colour_option,
            s.qualities, p.garment_type,
-           p.title, p.vendor, p.url, p.images -> 0 as image,
+           p.title, p.vendor, p.url, p.main_image as image,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            true as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known,
            coalesce((
              select jsonb_agg(jsonb_build_object(
-                      'id', w.id, 'name', w.name, 'colour_hex', w.colour_hex, 'image', wp.images -> 0,
+                      'id', w.id, 'name', w.name, 'colour_hex', w.colour_hex, 'image', wp.main_image,
                       'photo', case when ph.id is null then null
                                     else jsonb_build_object('id', ph.id, 'width', ph.width, 'height', ph.height) end
                     ) order by k.place)

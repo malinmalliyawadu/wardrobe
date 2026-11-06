@@ -483,7 +483,7 @@ type ProductForTryOn = { id: number; title: string; garment_type: string | null;
 
 async function productForTryOn(sql: Sql, productId: number): Promise<ProductForTryOn | null> {
   const [row] = await sql<ProductForTryOn[]>`
-    select p.id::int as id, p.title, p.garment_type, p.images -> 0 ->> 'src' as image,
+    select p.id::int as id, p.title, p.garment_type, p.main_image ->> 'src' as image,
            ${judgedColour(sql)} as colour
     from products p where p.id = ${productId}
   `
@@ -580,7 +580,7 @@ export async function lookForTryOn(sql: Sql, lookId: number): Promise<LookForTry
            coalesce(json_agg(json_build_object(
              'piece_id', p.id, 'name', p.name, 'garment_type', p.garment_type,
              'colour_name', p.colour_name, 'colour_hex', p.colour_hex, 'fabric', p.fabric, 'fit', p.fit,
-             'photo_id', p.photo_id, 'image', pr.images -> 0 ->> 'src'
+             'photo_id', p.photo_id, 'image', pr.main_image ->> 'src'
            ) order by lp.position) filter (where p.id is not null), '[]'::json) as pieces
     from looks l
     left join look_pieces lp on lp.look_id = l.id
@@ -709,7 +709,7 @@ async function chosenPieces(sql: Sql, choice: OutfitChoice, finds: FindsTaken): 
       ? []
       : sql<Choosable[]>`
           select p.id::int as piece_id, p.name, p.garment_type, p.colour_name, p.colour_hex, p.fabric, p.fit,
-                 p.photo_id::int as photo_id, pr.images -> 0 ->> 'src' as image
+                 p.photo_id::int as photo_id, pr.main_image ->> 'src' as image
           from wardrobe_pieces p left join products pr on pr.id = p.product_id
           where p.id = any (${choice.piece_ids}::bigint[]) and p.set_aside_at is null
         `,
@@ -725,7 +725,7 @@ async function chosenPieces(sql: Sql, choice: OutfitChoice, finds: FindsTaken): 
                  coalesce(p.garment_type, bs.garment_type) as garment_type,
                  ${findColour(sql)} as colour_name,
                  null::text as colour_hex, null::text as fabric, null::text as fit,
-                 null::int as photo_id, p.images -> 0 ->> 'src' as image
+                 null::int as photo_id, p.main_image ->> 'src' as image
           from products p
           left join latest_action a on a.product_id = p.id
           left join blueprint_slots bs on bs.id = a.slot_id
