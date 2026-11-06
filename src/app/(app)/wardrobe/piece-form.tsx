@@ -207,7 +207,7 @@ function SwatchRadios({ title, swatches, chosen }: { title: string; swatches: Sw
           <label key={swatch.hex} className="swatch-toggle cursor-pointer">
             <input type="radio" name="colour_hex" value={swatch.hex} defaultChecked={chosen === swatch.hex} className="sr-only" />
             <span className="sr-only">{swatch.name}</span>
-            <ColourSwatch colour={swatch.hex} className="aspect-[3/4] w-full" />
+            <ColourSwatch colour={swatch.hex} name={swatch.name} className="aspect-[3/4] w-full" />
           </label>
         ))}
       </div>

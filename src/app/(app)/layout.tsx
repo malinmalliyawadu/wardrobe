@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 
+import { ColourTip } from '@/components/colour-tip'
 import { LivePalette } from '@/components/live-palette'
 import { Nav, NavShell, Wordmark } from '@/components/nav'
 import { PaletteStrip } from '@/components/palette-strip'
@@ -31,6 +32,7 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
           {children}
         </main>
       </div>
+      <ColourTip />
     </div>
   )
 }

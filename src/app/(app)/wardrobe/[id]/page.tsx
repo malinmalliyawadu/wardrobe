@@ -73,7 +73,7 @@ async function Content({ params }: Pick<PageProps<'/wardrobe/[id]'>, 'params'>) 
   return (
     <div className="mt-4 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-x-12 lg:gap-y-0">
       <div className={`w-56 lg:w-72 ${spread ? '' : 'lg:row-span-2'}`}>
-        <PieceImage piece={piece} sizes="18rem" thumb={false} className="aspect-[3/4] rounded-[var(--radius-tile)]" />
+        <PieceImage piece={piece} colour={colour} sizes="18rem" thumb={false} className="aspect-[3/4] rounded-[var(--radius-tile)]" />
         <div className="mt-1">
           <PhotoButton id={piece.id} hasPhoto={piece.photo !== null} />
         </div>

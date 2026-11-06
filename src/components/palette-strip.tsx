@@ -5,7 +5,7 @@ import type { CSSProperties } from 'react'
  * The app's signature: his five best colours as a row of flat chips beside
  * the wordmark, on every page. Undyed calico until there is a guide, the
  * season's colours once the read is confirmed, his own once the guide is
- * drafted. Tapping it opens the guide.
+ * drafted. Tapping it opens the guide; each chip is named under the mouse.
  */
 
 export type StripColour = { hex: string; name?: string }
@@ -30,6 +30,7 @@ export function PaletteStrip({
       {shown.map((colour, index) => (
         <span
           key={`${index}-${colour.hex}`}
+          data-colour={colour.name}
           className={`swatch block rounded-[2px] ${chip}`}
           style={{ '--swatch': colour.hex } as CSSProperties}
         />

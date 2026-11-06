@@ -216,10 +216,10 @@ function SwatchPicker({ title, swatches, chosen }: { title: string; swatches: Pa
       <p className="caption mb-2">{title}</p>
       <div className="grid grid-cols-6 gap-3 sm:grid-cols-8">
         {swatches.map((swatch) => (
-          <label key={swatch.hex} className="swatch-toggle cursor-pointer" title={swatch.name}>
+          <label key={swatch.hex} className="swatch-toggle cursor-pointer">
             <input type="checkbox" name="colours" value={swatch.hex} defaultChecked={chosen.has(swatch.hex)} className="sr-only" />
             <span className="sr-only">{swatch.name}</span>
-            <Swatch colour={swatch.hex} className="aspect-[3/4] w-full" />
+            <Swatch colour={swatch.hex} name={swatch.name} className="aspect-[3/4] w-full" />
           </label>
         ))}
       </div>

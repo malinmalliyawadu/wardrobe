@@ -75,7 +75,9 @@ for the few words that carry a screen, normal for everything read. No
 gradients, no serif, no pills, no tracked caps labels, no hairline rules
 between sections (space and a `.caption` instead), no middle dots. Colour
 otherwise is Malin's own palette as flat swatches: the strip beside the
-wordmark on every page, a slot's colours, a piece's colour.
+wordmark on every page, a slot's colours, a piece's colour. Every swatch
+carries its name as `data-colour` (the `name` prop on `Swatch`), and
+`src/components/colour-tip.tsx` in the app layout shows it under the mouse.
 
 Tabs, by how often each is opened: Today (the outfit of the day and nothing
 else), Finds (`/finds`: ask the shops, the way into Statement pieces, last

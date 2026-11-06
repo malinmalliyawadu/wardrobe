@@ -8,7 +8,7 @@ import { BOTTOMS, FOOTWEAR, isWhole, LAYER_ORDER, TOPS } from './look-rules.ts'
 import { inPalette, listPieces, type Piece } from './pieces.ts'
 import type { Profile } from './profile.ts'
 import { generate, type GenerationMeta } from './structured.ts'
-import { colourNameFor, profileBrief, type Guide } from './style-guide.ts'
+import { colourNameFor, getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { latestLookTryOns, type OnMe } from './try-on.ts'
 import { forEveryday, forGym, type GarmentType, type SlotStatus } from './wardrobe-values.ts'
 
@@ -526,7 +526,8 @@ export type Look = {
   weather: string
   why: string
   styling: string | null
-  better: { slot_id: number; name: string; colours: string[]; why: string | null } | null
+  /** The wanted slot that would lift it, with its colours' names from the guide. */
+  better: { slot_id: number; name: string; colours: string[]; colour_names: (string | null)[]; why: string | null } | null
   /** Replaced: remade (look-remake.ts), kept for the days he wore it. */
   status: 'new' | 'saved' | 'dismissed' | 'replaced'
   piece_count: number
@@ -581,7 +582,7 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
     where ${where}
     order by ${order}
   `
-  const [pieceList, onMe] = await Promise.all([listPieces(sql), latestLookTryOns(rows.map((row) => row.id), sql)])
+  const [pieceList, onMe, guide] = await Promise.all([listPieces(sql), latestLookTryOns(rows.map((row) => row.id), sql), getGuide()])
   const pieces = new Map(pieceList.map((piece) => [piece.id, piece]))
   return rows.map((row) => ({
     id: row.id,
@@ -595,7 +596,13 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
     piece_count: row.piece_count,
     better:
       row.better_slot_id && row.better_name
-        ? { slot_id: row.better_slot_id, name: row.better_name, colours: row.better_colours ?? [], why: row.better_why }
+        ? {
+            slot_id: row.better_slot_id,
+            name: row.better_name,
+            colours: row.better_colours ?? [],
+            colour_names: (row.better_colours ?? []).map((hex) => colourNameFor(guide, hex)),
+            why: row.better_why,
+          }
         : null,
     pieces: row.piece_ids.flatMap((id) => (pieces.has(id) ? [pieces.get(id)!] : [])),
     worn: row.worn,

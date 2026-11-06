@@ -86,7 +86,11 @@ async function Content() {
                   href={`/wardrobe/${piece.id}`}
                   className="pressable -mx-2 flex min-h-12 items-center gap-3 rounded-[var(--radius-control)] px-2 py-2"
                 >
-                  <Swatch colour={piece.colour_hex ?? 'var(--surface)'} className="h-9 w-7 shrink-0" />
+                  <Swatch
+                    colour={piece.colour_hex ?? 'var(--surface)'}
+                    name={colourNameFor(guide, piece.colour_hex ?? '') ?? piece.colour_name}
+                    className="h-9 w-7 shrink-0"
+                  />
                   <span className="min-w-0 flex-1 truncate text-ink-2">{piece.name}</span>
                 </Link>
               </li>
@@ -102,11 +106,11 @@ function Tile({ piece, guide }: { piece: Piece; guide: StoredGuide | null }) {
   const colour = colourNameFor(guide, piece.colour_hex ?? '') ?? piece.colour_name
   return (
     <Link href={`/wardrobe/${piece.id}`} className="pressable block rounded-[var(--radius-tile)]">
-      <PieceImage piece={piece} sizes="(min-width: 1280px) 14rem, (min-width: 1024px) 16rem, (min-width: 640px) 12rem, 45vw" className="aspect-[3/4] rounded-[var(--radius-tile)]" />
+      <PieceImage piece={piece} colour={colour} sizes="(min-width: 1280px) 14rem, (min-width: 1024px) 16rem, (min-width: 640px) 12rem, 45vw" className="aspect-[3/4] rounded-[var(--radius-tile)]" />
       <p className="mt-2.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium">{piece.name}</p>
       {colour ? (
         <p className="mt-1 flex items-center gap-1.5 text-[0.8125rem] text-ink-3">
-          {piece.colour_hex ? <Swatch colour={piece.colour_hex} className="size-3 shrink-0" /> : null}
+          {piece.colour_hex ? <Swatch colour={piece.colour_hex} name={colour} className="size-3 shrink-0" /> : null}
           <span className="truncate">{colour}</span>
         </p>
       ) : null}
