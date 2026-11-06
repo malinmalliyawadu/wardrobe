@@ -148,7 +148,7 @@ function PaletteRow({ guide }: { guide: StoredGuide }) {
         className="bleed pressable flex gap-px lg:mx-0 lg:grid lg:grid-cols-6 lg:overflow-hidden lg:rounded-[var(--radius-tile)]"
       >
         {best.map((colour, index) => (
-          <Swatch key={`${index}-${colour.hex}`} colour={colour.hex} className="h-16 min-w-0 flex-1 rounded-none!" />
+          <Swatch key={`${index}-${colour.hex}`} colour={colour.hex} name={colour.name} className="h-16 min-w-0 flex-1 rounded-none!" />
         ))}
       </Link>
       <div className="mt-2 flex items-center justify-between gap-4">

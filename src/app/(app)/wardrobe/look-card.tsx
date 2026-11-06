@@ -113,8 +113,8 @@ export function LookCard({
           className="pressable mt-4 -mx-2 flex items-center gap-3 rounded-[var(--radius-control)] px-2 py-2"
         >
           <span className="flex shrink-0 gap-0.5" aria-hidden>
-            {look.better.colours.slice(0, 2).map((hex) => (
-              <Swatch key={hex} colour={hex} className="h-8 w-6" />
+            {look.better.colours.slice(0, 2).map((hex, index) => (
+              <Swatch key={hex} colour={hex} name={look.better?.colour_names[index]} className="h-8 w-6" />
             ))}
           </span>
           <span className="min-w-0 text-[0.875rem] leading-snug">

@@ -164,7 +164,7 @@ function SwatchGrid({ colours, struck = false }: { colours: GuideColour[]; struc
     <ul className="mt-3 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 lg:grid-cols-6">
       {colours.map((colour) => (
         <li key={colour.hex}>
-          <Swatch colour={colour.hex} struck={struck} className="aspect-[4/5] w-full" />
+          <Swatch colour={colour.hex} name={colour.name} struck={struck} className="aspect-[4/5] w-full" />
           <p className="mt-1.5 text-[0.9375rem] font-medium leading-snug first-letter:uppercase">{colour.name}</p>
           <p className="mt-0.5 text-sm leading-snug text-ink-3 first-letter:uppercase">{colour.use}</p>
         </li>
@@ -178,10 +178,11 @@ function MetalChip({ metal }: { metal: 'gold' | 'silver' | 'mixed' }) {
   const gold = '#b08d3c'
   const silver = '#b4b7bc'
   const studs = metal === 'mixed' ? [gold, silver] : metal === 'gold' ? [gold, gold] : [silver, silver]
+  const name = (colour: string) => (colour === gold ? 'gold' : 'silver')
   return (
     <span className="flex w-8 shrink-0 justify-between pt-1" aria-hidden>
       {studs.map((colour, index) => (
-        <span key={index} className="swatch size-3.5 rounded-full" style={{ '--swatch': colour } as CSSProperties} />
+        <span key={index} data-colour={name(colour)} className="swatch size-3.5 rounded-full" style={{ '--swatch': colour } as CSSProperties} />
       ))}
     </span>
   )

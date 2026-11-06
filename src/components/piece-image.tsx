@@ -11,14 +11,16 @@ import { productLoader } from './feed/product-photo'
 export type PieceLook = {
   name: string
   colour_hex: string | null
+  colour_name?: string | null
   photo: PiecePhoto | null
   image: ProductImage | null
 }
 
 /**
  * A piece as a picture: his own photo, cropped to fill; or the shop's photo,
- * whole, on the photo ground; or, with neither, the cloth in its colour. The
- * caller sets the box (aspect and rounding) through className.
+ * whole, on the photo ground; or, with neither, the cloth in its colour,
+ * named under the mouse like any swatch. The caller sets the box (aspect and
+ * rounding) through className.
  */
 export function PieceImage({
   piece,
@@ -26,6 +28,7 @@ export function PieceImage({
   className = '',
   thumb = true,
   label,
+  colour,
 }: {
   piece: PieceLook
   sizes: string
@@ -33,6 +36,8 @@ export function PieceImage({
   thumb?: boolean
   /** Shown on the cloth when there is no photo, where nothing else says what the piece is. */
   label?: string
+  /** The cloth's colour name, when the caller has a better one than the piece's own (the guide's). */
+  colour?: string | null
 }) {
   if (piece.photo) {
     return (
@@ -60,6 +65,7 @@ export function PieceImage({
     <div
       role="img"
       aria-label={piece.name}
+      data-colour={(piece.colour_hex && (colour ?? piece.colour_name)) || undefined}
       className={`swatch relative overflow-hidden ${className}`}
       style={{ '--swatch': piece.colour_hex ?? 'var(--surface)' } as CSSProperties}
     >
