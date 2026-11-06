@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
-import path from 'node:path'
 
 import sharp, { type OutputInfo } from 'sharp'
 
 import { db, type Sql } from './db.ts'
+import { files } from './storage.ts'
 
 export const PHOTO_KINDS = ['face', 'full_body', 'reference'] as const
 export type PhotoKind = (typeof PHOTO_KINDS)[number]
@@ -28,20 +27,6 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 export const ACCEPTED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
 export class PhotoError extends Error {}
-
-/*
- * Photos live on a volume outside the app (PHOTOS_DIR), so the bundler must not
- * try to trace these paths: without the turbopackIgnore hints it treats every
- * runtime path as a reference into the project and copies the whole repository
- * into the server output.
- */
-export function photosDir(): string {
-  return path.resolve(/*turbopackIgnore: true*/ process.env.PHOTOS_DIR ?? './data/photos')
-}
-
-export function photoPath(file: string): string {
-  return path.join(/*turbopackIgnore: true*/ photosDir(), file)
-}
 
 export type Normalised = { master: { data: Buffer; info: OutputInfo }; thumb: Buffer; sha256: string }
 
@@ -81,7 +66,7 @@ export async function normaliseImage(bytes: Buffer): Promise<Normalised> {
 }
 
 /**
- * Normalise an upload into two JPEGs on disk and one row in profile_photos.
+ * Normalise an upload into two stored JPEGs (src/lib/storage.ts) and one row in profile_photos.
  * The file name is the content hash, so the same photo uploaded twice is one
  * file and one row.
  */
@@ -92,9 +77,7 @@ export async function storePhoto(input: { bytes: Buffer; mime: string; kind: Pho
   const name = sha256.slice(0, 24)
   const relative = `${name}.jpg`
 
-  await mkdir(/*turbopackIgnore: true*/ photosDir(), { recursive: true })
-  await writeFile(/*turbopackIgnore: true*/ photoPath(relative), master.data)
-  await writeFile(/*turbopackIgnore: true*/ photoPath(thumbName(relative)), thumb)
+  await storePair(relative, master.data, thumb)
 
   const [row] = await db()<Photo[]>`
     insert into profile_photos (kind, path, mime, bytes, width, height, sha256)
@@ -122,17 +105,13 @@ export async function photoFile(id: number, variant: 'master' | 'thumb'): Promis
     select path from profile_photos where id = ${id} and deleted_at is null
   `
   if (!row) return null
-  const file = variant === 'thumb' ? thumbName(row.path) : row.path
-  try {
-    return await readFile(/*turbopackIgnore: true*/ photoPath(file))
-  } catch {
-    return null
-  }
+  return files().get(variant === 'thumb' ? thumbName(row.path) : row.path)
 }
 
 /** Base64 of the master file, which is what Claude is sent. */
 export async function photoBase64(photo: Pick<Photo, 'path'>): Promise<string> {
-  const bytes = await readFile(/*turbopackIgnore: true*/ photoPath(photo.path))
+  const bytes = await files().get(photo.path)
+  if (!bytes) throw new PhotoError('A photo is missing its file. Delete it and add it again.')
   return bytes.toString('base64')
 }
 
@@ -144,7 +123,7 @@ export async function removePhoto(id: number, sql: Sql = db()): Promise<void> {
     returning id::int as id, path
   `
   if (!row) return
-  await unlinkPair(row.path)
+  await removePair(row.path)
   await removeTryOns(sql, [row.id])
 }
 
@@ -159,7 +138,7 @@ export async function removeAllPhotos(sql: Sql = db()): Promise<{ photos: number
     where deleted_at is null
     returning id::int as id, path
   `
-  await Promise.all(rows.map((row) => unlinkPair(row.path)))
+  await Promise.all(rows.map((row) => removePair(row.path)))
   // Every try-on, not only those of the photos just deleted: one made from a
   // photo deleted earlier is still a picture of him.
   const tryOns = await removeTryOns(sql, null)
@@ -186,29 +165,19 @@ async function removeTryOns(sql: Sql, photoIds: number[] | null): Promise<number
     from gone where t.id = gone.id
     returning gone.path
   `
-  await Promise.all(
-    rows.flatMap((row) =>
-      row.path
-        ? [
-            unlink(/*turbopackIgnore: true*/ photoPath(row.path)).catch((error: NodeJS.ErrnoException) => {
-              if (error.code !== 'ENOENT') throw error
-            }),
-          ]
-        : [],
-    ),
-  )
+  await Promise.all(rows.flatMap((row) => (row.path ? [files().remove(row.path)] : [])))
   // Images deleted; a failed request had none.
   return rows.filter((row) => row.path).length
 }
 
-export async function unlinkPair(relative: string): Promise<void> {
-  await Promise.all(
-    [relative, thumbName(relative)].map((file) =>
-      unlink(/*turbopackIgnore: true*/ photoPath(file)).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== 'ENOENT') throw error
-      }),
-    ),
-  )
+/** A master and its thumb, both JPEGs. */
+export async function storePair(relative: string, master: Buffer, thumb: Buffer): Promise<void> {
+  await Promise.all([files().put(relative, master, 'image/jpeg'), files().put(thumbName(relative), thumb, 'image/jpeg')])
+}
+
+/** A master and its thumb, gone. One already missing is fine. */
+export async function removePair(relative: string): Promise<void> {
+  await Promise.all([files().remove(relative), files().remove(thumbName(relative))])
 }
 
 export function thumbName(relative: string): string {

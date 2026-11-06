@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import sharp, { type OutputInfo } from 'sharp'
 
 import { db, type Sql } from './db.ts'
 import { lookOutfitKey, outfitKey } from './outfit-key.ts'
-import { photosDir } from './photos.ts'
+import { files } from './storage.ts'
 import {
   editImage,
   fetchProductImage,
@@ -35,7 +34,7 @@ import {
  * the next time the look is on show. A picture is of the pieces, not of one
  * look (outfit_key, migration 0016): a look with the same pieces as one
  * already drawn, such as one made again after the first was dismissed, shows
- * that picture and is never drawn again. Files live on the photos volume under
+ * that picture and is never drawn again. Files live in the file store under
  * looks/ and are served only through /photos/looks/:id.
  */
 
@@ -198,7 +197,7 @@ export async function makeLookImage(id: number, options: { sql?: Sql; fetch?: ty
     )
     const result = await editImage({ images, prompt: row.prompt, size: LOOK_IMAGE_SIZE }, fetchImpl)
 
-    // Re-encoded through sharp like every picture on the volume, which drops any metadata.
+    // Re-encoded through sharp like every stored picture, which drops any metadata.
     let file: { data: Buffer; info: OutputInfo }
     try {
       file = await sharp(result.image, { failOn: 'none' }).jpeg({ quality: 90, mozjpeg: true }).toBuffer({ resolveWithObject: true })
@@ -207,8 +206,7 @@ export async function makeLookImage(id: number, options: { sql?: Sql; fetch?: ty
     }
     const name = `${id}-${createHash('sha256').update(file.data).digest('hex').slice(0, 16)}.jpg`
     const relative = path.posix.join(LOOK_IMAGE_DIR, name)
-    await mkdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), LOOK_IMAGE_DIR), { recursive: true })
-    await writeFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), relative), file.data)
+    await files().put(relative, file.data, 'image/jpeg')
 
     const usage = result.usage
     await sql`
@@ -249,9 +247,5 @@ export async function lookImageFile(id: number, sql: Sql = db()): Promise<Buffer
     select path from look_images where id = ${id} and status = 'ready' and path is not null
   `
   if (!row) return null
-  try {
-    return await readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.path))
-  } catch {
-    return null
-  }
+  return files().get(row.path)
 }

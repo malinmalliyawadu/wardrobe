@@ -1,13 +1,12 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-
 import { db, type Sql } from './db.ts'
-import { checkUpload, normaliseImage, photoPath, thumbName, unlinkPair } from './photos.ts'
+import { checkUpload, normaliseImage, removePair, storePair, thumbName } from './photos.ts'
+import { files } from './storage.ts'
 
 /*
  * Photos of finds he adds by hand, from a store the finder cannot read
  * (migration 0012). Usually the shop's own product photo, saved from its page
  * on his phone. Stored like his photos (src/lib/photos.ts): a metadata-free
- * master and thumb on the photos volume, under finds/, served only through
+ * master and thumb in the file store, under finds/, served only through
  * /photos/finds/:id. The product's images list names that address, so the
  * cards, the try-on viewer and a piece bought from it show it like any shop
  * photo. It goes nowhere but the try-on editor, on his tap.
@@ -25,9 +24,7 @@ export async function storeFindPhoto(input: { bytes: Buffer; mime: string }, sql
   const { master, thumb, sha256 } = await normaliseImage(input.bytes)
   const relative = `${FIND_DIR}/${sha256.slice(0, 24)}.jpg`
 
-  await mkdir(/*turbopackIgnore: true*/ photoPath(FIND_DIR), { recursive: true })
-  await writeFile(/*turbopackIgnore: true*/ photoPath(relative), master.data)
-  await writeFile(/*turbopackIgnore: true*/ photoPath(thumbName(relative)), thumb)
+  await storePair(relative, master.data, thumb)
 
   // The same photo chosen twice is one file and one row, and counts as new, so the orphan sweep waits again.
   const [row] = await sql<{ id: number }[]>`
@@ -49,7 +46,7 @@ export async function clearFindOrphans(sql: Sql = db()): Promise<number> {
       and not exists (select 1 from products p where p.find_photo_id = ph.id)
     returning path
   `
-  await Promise.all(rows.map((row) => unlinkPair(row.path)))
+  await Promise.all(rows.map((row) => removePair(row.path)))
   return rows.length
 }
 
@@ -61,11 +58,7 @@ export async function findPhoto(id: number, sql: Sql = db()): Promise<FindPhoto 
 export async function findPhotoFile(id: number, variant: 'master' | 'thumb', sql: Sql = db()): Promise<Buffer | null> {
   const [row] = await sql<{ path: string }[]>`select path from find_photos where id = ${id}`
   if (!row) return null
-  try {
-    return await readFile(/*turbopackIgnore: true*/ photoPath(variant === 'thumb' ? thumbName(row.path) : row.path))
-  } catch {
-    return null
-  }
+  return files().get(variant === 'thumb' ? thumbName(row.path) : row.path)
 }
 
 /** The address a product's images list gives for one of these photos. */

@@ -4,7 +4,7 @@ import { lookImageFile } from '@/lib/look-image'
  * GET /photos/looks/:id
  *
  * A look's picture is drawn from photos of his clothes, so it is served like
- * them: from the photos volume, through this one door, never from public/. A
+ * them: from the photo store, through this one door, never from public/. A
  * new picture is a new row with a new id, so an id's bytes never change.
  */
 export async function GET(_request: Request, context: RouteContext<'/photos/looks/[id]'>): Promise<Response> {

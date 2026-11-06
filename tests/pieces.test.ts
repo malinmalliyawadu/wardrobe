@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { access, mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -28,7 +28,7 @@ import {
   updatePiece,
   type PieceValues,
 } from '../src/lib/pieces.ts'
-import { photoPath } from '../src/lib/photos.ts'
+import { files } from '../src/lib/storage.ts'
 
 import { guideFixture } from './fixtures.ts'
 
@@ -324,7 +324,7 @@ describe('pieces and slots together', () => {
       .toBuffer()
     const stored = await storePiecePhoto({ bytes: jpeg, mime: 'image/jpeg' }, sql)
     assert.ok(stored.path.startsWith('wardrobe/'))
-    const meta = await sharp(photoPath(stored.path)).metadata()
+    const meta = await sharp((await files().get(stored.path))!).metadata()
     assert.equal(meta.exif, undefined, 'no metadata survives')
     assert.equal(snapToGuide(stored.colourHex!, guideFixture).hex, '#7a2e1f', 'the oxblood is read on our own server')
 
@@ -333,15 +333,15 @@ describe('pieces and slots together', () => {
 
     const other = await storePiecePhoto({ bytes: await sharp(jpeg).flop().jpeg().toBuffer(), mime: 'image/jpeg' }, sql)
     await attachPhoto(piece, other.id, sql)
-    await assert.rejects(access(photoPath(stored.path)), 'the old photo is deleted')
+    assert.equal(await files().get(stored.path), null, 'the old photo is deleted')
     assert.equal((await getPiece(piece))?.photo?.id, other.id)
 
     // A photo read but never saved as a piece goes after a day.
     const orphan = await storePiecePhoto({ bytes: await sharp(jpeg).flip().jpeg().toBuffer(), mime: 'image/jpeg' }, sql)
     await sql`update wardrobe_photos set created_at = now() - interval '2 days' where id = ${orphan.id}`
     assert.equal(await clearOrphans(sql), 1)
-    await assert.rejects(access(photoPath(orphan.path)))
-    await access(photoPath(other.path))
+    assert.equal(await files().get(orphan.path), null)
+    assert.ok(await files().get(other.path))
 
     const { photoPath: gone } = await deletePiece(piece)
     assert.equal(gone, other.path)

@@ -1,10 +1,8 @@
-import { access, constants, mkdir } from 'node:fs/promises'
-
 import Anthropic from '@anthropic-ai/sdk'
 
 import { MODELS, claude } from './claude.ts'
 import { db } from './db.ts'
-import { photosDir } from './photos.ts'
+import { checkFiles } from './storage.ts'
 
 export type Check = {
   name: string
@@ -63,20 +61,13 @@ export async function checkClaude(): Promise<Check> {
 }
 
 /**
- * Whether uploads and try-ons can be written. In Docker the app runs as a
- * non-root user, so a volume mounted as a host directory owned by root reads
- * fine and fails on the first upload; this says so before Malin finds out.
+ * Whether uploads and try-ons can be written: R2 in production, the folder in
+ * dev. See checkFiles for what counts as a failure.
  */
 export async function checkPhotos(): Promise<Check> {
   const started = performance.now()
-  const dir = photosDir()
-  try {
-    await mkdir(/*turbopackIgnore: true*/ dir, { recursive: true })
-    await access(/*turbopackIgnore: true*/ dir, constants.W_OK)
-    return { name: 'Photos', ok: true, detail: `${dir} is writable`, latencyMs: elapsed(started) }
-  } catch (error) {
-    return { name: 'Photos', ok: false, detail: `${dir}: ${message(error)}`, latencyMs: elapsed(started) }
-  }
+  const { ok, detail } = await checkFiles()
+  return { name: 'Photos', ok, detail, latencyMs: elapsed(started) }
 }
 
 export async function checkAll(): Promise<Check[]> {

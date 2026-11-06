@@ -20,7 +20,7 @@ Three layers, each derived from the one above, then the finder's tables.
 | `product_scores` | one per product version | Claude's verdict: best slot, score, verdicts, the one-line why, and tokens spent |
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
-| `try_ons` | one per outfit he asks to see on him, more on "Make it again" | A picture of him in a find, a look or pieces he chose: what was sent, its `outfit_key` (the pieces and finds in any order), source photo, provider, cost, the file on the photos volume. A kept picture of an outfit is what every card and the chooser show for it |
+| `try_ons` | one per outfit he asks to see on him, more on "Make it again" | A picture of him in a find, a look or pieces he chose: what was sent, its `outfit_key` (the pieces and finds in any order), source photo, provider, cost, the file in the photo store. A kept picture of an outfit is what every card and the chooser show for it |
 | `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, what it is worn for (`everyday`, `gym` or `both`), the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
 | `find_photos` | one per find added by hand | Index of the photos of finds from a store that cannot be read (Lululemon), on disk under `finds/`; `products.find_photo_id` keeps one from being cleared |
@@ -30,7 +30,7 @@ Three layers, each derived from the one above, then the finder's tables.
 | `look_wears` | one per look per day | The days he wore a look, in New Zealand time |
 | `day_outfits` | one a day, more when he asks again | The outfit of the day: the date it dresses him for, his note, the forecast it was dressed for, which option is on show, and on a day he trains the gym fit and its line for the day |
 | `day_outfit_options` | three a day | The day's options, best first, each a look (an existing one, saved or offered before and not dismissed, when it matches piece for piece) with a sentence for that day |
-| `look_images` | one per outfit on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, its `outfit_key`, cost, the file on the photos volume. A look shows the picture of its pieces whichever look it was drawn for |
+| `look_images` | one per outfit on show, again when its pieces change | A flat lay of a look drawn by OpenAI from photos of his clothes (never of him): what was sent, its `outfit_key`, cost, the file in the photo store. A look shows the picture of its pieces whichever look it was drawn for |
 | `searches` | one per search on the Search tab | What he typed, what it was read as, its limit, what it spent |
 | `search_results` | up to 150 a search | The products a search offered Claude, in order, each with its verdict and a re-checked price |
 | `statement_candidates` | hundreds a run | What the statement rules picked in a run, with the signals that picked it and the price and sizes in his size |
@@ -64,9 +64,9 @@ cache-buster.
 **Money is integer cents plus a currency on the retailer.** Prices from END.
 are GBP and are converted for display, never stored converted.
 
-**Photos are files, not bytea.** They sit in `PHOTOS_DIR` (a Coolify volume at
-`/data/photos` in production) and the table holds the path, hash and
-dimensions. The database backup stays small and the files can be deleted
+**Photos are files, not bytea.** They sit in a private R2 bucket in production
+and in `PHOTOS_DIR` locally (`src/lib/storage.ts`), and the table holds the
+path, which is the file's key in either, with the hash and dimensions. The database backup stays small and the files can be deleted
 independently of the profile derived from them.
 
 **The style guide is one jsonb column per section** (`palette`,
@@ -157,7 +157,7 @@ listing photo is a new try-on), the provider and model, the prompt and
 settings, the provider's request id (what a deletion request to them needs),
 the tokens it reported and what they cost. A unique index on `status =
 'making'` holds the one-at-a-time rule in the database. The image is a file
-under `PHOTOS_DIR/try-ons`, served only through `/photos/try-ons/:id`.
+under `try-ons/` in the photo store, served only through `/photos/try-ons/:id`.
 Deleting a photo deletes the try-ons made from it, and "delete photos" all of
 them; the rows stay, with `path` cleared and `deleted_at` set, so the spend is
 still counted. A remake is a new row, so an id's bytes never change.

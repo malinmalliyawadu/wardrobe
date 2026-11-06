@@ -20,8 +20,8 @@ npm run db:migrate
 npm run dev
 ```
 
-`npm run health` checks the database, Claude and the photos folder from the
-shell.
+`npm run health` checks the database, Claude and the photo store from the
+shell. Locally photos go to `PHOTOS_DIR`; leave the `R2_*` settings empty.
 
 `APP_PASSWORD` unset (as in `.env.example`) leaves the local app open; set it
 to try the sign-in.
@@ -29,7 +29,8 @@ to try the sign-in.
 ## Deploy to Coolify
 
 One Postgres and one application, in the same Coolify project and
-environment so they share a private network. The app is the `Dockerfile`; it
+environment so they share a private network, and a Cloudflare R2 bucket for
+the photos, so they never fill the server. The app is the `Dockerfile`; it
 runs its migrations on boot and refuses to serve if one fails. Do the steps
 in this order: the data goes in before the app first starts.
 
@@ -51,16 +52,34 @@ every migration as applied.
 mkdir -p ~/Desktop/wardrobe-move && pg_dump --format=custom --no-owner --no-acl wardrobe > ~/Desktop/wardrobe-move/wardrobe.dump
 ```
 
-```bash
-tar -C /Users/malin/Projects/wardrobe/data -czf ~/Desktop/wardrobe-move/photos.tgz photos
-```
-
 On the Postgres resource: **Backups → Import backup**, upload `wardrobe.dump`,
 leave the restore options as they are, start the restore and watch
-**Database Restore Output** to the end. The photos go in at step 4, once the
-app's volume exists.
+**Database Restore Output** to the end. The photos go up at step 3.
 
-### 3. The application
+### 3. The photos, in R2
+
+1. In the Cloudflare dashboard: **R2 Object Storage → Create bucket**, name
+   `wardrobe-photos`, location Automatic, storage class Standard. Leave
+   **Public access** off: the app is the only way in.
+2. **R2 Object Storage → API → Manage API tokens → Create Account API
+   token**: permission **Object Read & Write**, applied to
+   `wardrobe-photos` only, no expiry. It shows the **Access Key ID** and
+   **Secret Access Key** once; they are `R2_ACCESS_KEY_ID` and
+   `R2_SECRET_ACCESS_KEY`. The **Account ID** on the R2 overview page is
+   `R2_ACCOUNT_ID`.
+3. Copy the local photos up. Put the four `R2_*` settings in the laptop's
+   `.env` for this one command, then take them out again, so local uploads
+   go back to the folder:
+
+   ```bash
+   npm run photos:move
+   ```
+
+   It ends with a `move.done` line saying `"ok":true`: every file a row
+   names is in the bucket. Then delete `~/Desktop/wardrobe-move`: it holds
+   his profile.
+
+### 4. The application
 
 1. **New resource → Application → GitHub**, `malinmalliyawadu/wardrobe`,
    branch `main`, build pack **Dockerfile**, port `3000`. Use the GitHub App
@@ -75,33 +94,18 @@ app's volume exists.
    | `ANTHROPIC_API_KEY` | an Anthropic API key |
    | `OPENAI_API_KEY` | the OpenAI key, for try-ons only |
    | `APP_PASSWORD` | the sign-in password. Long, and not used anywhere else |
+   | `R2_ACCOUNT_ID` | from step 3 |
+   | `R2_ACCESS_KEY_ID` | from step 3 |
+   | `R2_SECRET_ACCESS_KEY` | from step 3 |
+   | `R2_BUCKET` | `wardrobe-photos` |
 
-   Leave `PGSSLMODE` unset: the database is on the private network.
-4. **Persistent storage → + Add → Volume mount**, name `wardrobe-data`,
-   destination path `/data`. A volume, not a directory mount: the app runs
-   as a non-root user, and a host directory belongs to root, so photos would
-   read but every upload would fail.
-5. **Health check**: the image has its own (`/api/health/live`, the database
+   Leave `PGSSLMODE` unset: the database is on the private network. No
+   persistent storage: the photos are in R2.
+4. **Health check**: the image has its own (`/api/health/live`, the database
    only, so a Claude outage never takes the app down). If Coolify's is
    switched on, give it the same path and port 3000.
-6. **Deploy.** The log shows `migrate.complete` with `applied: 0` after the
+5. **Deploy.** The log shows `migrate.complete` with `applied: 0` after the
    import, then `Ready`.
-
-### 4. The photos
-
-From the laptop, with the server's SSH host and the app container's name
-(the application's page shows it):
-
-```bash
-scp ~/Desktop/wardrobe-move/photos.tgz <server>:/tmp/photos.tgz
-```
-
-```bash
-ssh <server> 'docker exec -i <container> tar -xzf - -C /data < /tmp/photos.tgz && rm /tmp/photos.tgz'
-```
-
-`docker exec` runs as the app's own user, so the files land owned by it.
-Then delete `~/Desktop/wardrobe-move`: it holds his photos and profile.
 
 ### 5. The nightly finder
 
@@ -129,6 +133,38 @@ a run started by hand late in the evening makes the scheduled one a no-op.
 ### 6. Check it
 
 - Sign in at the domain. `/api/health` (signed in) says ok for the database,
-  Claude and the photos volume.
+  Claude and Photos (`R2 bucket wardrobe-photos is writable`).
 - On the iPhone, in Safari: **Share → Add to Home Screen**. It opens as
   Wardrobe, with the palette strip as its icon, signed in.
+
+## Moving a running deploy off its volume
+
+Once, for the app that kept photos on the `wardrobe-data` volume at `/data`
+before they moved to R2 (2026-11-07). Leave the volume mounted until the end.
+
+1. Make the bucket and its key: step 3, items 1 and 2.
+2. On the application, add the four `R2_*` environment variables (step 4.3)
+   and deploy the commit that brings R2. From then on new photos go to the
+   bucket, and the older ones show as missing until the next item, so do it
+   straight away.
+3. On the application: **Terminal**, then
+
+   ```bash
+   npm run photos:move
+   ```
+
+   It copies everything in `/data/photos` up, checks each file's MD5 against
+   the bucket's, and ends with `move.done` and `"ok":true` once every file a
+   row names is there. Run it again if anything failed: what already landed
+   is not sent twice.
+4. Check the app shows his photos, try-ons and the outfit of the day, then
+   free the disk:
+
+   ```bash
+   npm run photos:move -- --prune
+   ```
+
+   It deletes each local file only once the bucket's copy matches.
+5. **Persistent storage**: delete the `/data` volume mount, and the volume
+   itself if Coolify offers to, then deploy. `/api/health` says
+   `R2 bucket wardrobe-photos is writable`.
