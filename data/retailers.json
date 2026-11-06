@@ -207,6 +207,21 @@
       "wellington_store": null
     },
     {
+      "slug": "bronze-snake",
+      "name": "Bronze Snake",
+      "platform": "shopify",
+      "base_url": "https://bronzesnake.com",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "AU",
+      "currency": "AUD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "A Melbourne label, one Shopify shop in AUD (its meta.json says so, and it lists NZ among the countries it ships to); there is no NZ site or market, so prices are AUD converted for display and shipping to NZ is extra. The 'mens' collection is the men's range (about 490 products); 'mens-new' is only its new arrivals. Probed 2026-11-07: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, which the client waits out. Its stores are all in Australia.",
+      "wellington_store": null
+    },
+    {
       "slug": "rodd-and-gunn",
       "name": "Rodd & Gunn",
       "platform": "rodd-and-gunn",

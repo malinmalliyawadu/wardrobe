@@ -37,6 +37,15 @@ test('garment types from real titles and product types', () => {
     ["Men's Micro Puff® Hoody", 'Medium,Tops', 'jacket'],
     ["Men's Better Sweater® 1/4-Zip", 'Fleece', 'sweatshirt'],
     ["Men's Twill Traveler 5-Pocket Pants - Regular", 'Medium,Bottoms & One Pieces', 'trousers'],
+    ['Short Sleeve Seersucker Cuban Shirt', 'Shirts', 'shirt'],
+    ['Jackson Fitted Short Sleeve Henley Ivory', 'Mens Tees', 'tee'],
+    ["Men's Short-Sleeved Self-Guided Sun Shirt", 'Medium,Tops', 'shirt'],
+    ['Christian Kimber Otway Short-Sleeved Polo - Sky Stripe', null, 'polo'],
+    ['Linen Short', 'Mens Shorts', 'shorts'],
+    ['Cassius Knitted Vest Khaki', 'Mens Jackets', 'knitwear'],
+    ['CABLE KNIT VEST NAVY', null, 'knitwear'],
+    ['Oliver Spencer V Neck Knit Vest', null, 'knitwear'],
+    ['Patagonia Down Sweater Vest', null, 'jacket'],
   ]
   for (const [title, type, garment, kind] of cases) {
     const result = garmentOf(title, type)
@@ -56,6 +65,8 @@ test('never a slot: swimwear, socks, jewellery, sunglasses, towels', () => {
     ["Men's R1® Yulex® Regulator® Front-Zip Spring Suit", 'Wetsuits'],
     ['R3® Yulex® Regulator® Split Toe Wetsuit Booties', null],
     ["Men's RØ® Top", 'Tops - L/S,L/S Pullovers / Swimwear'],
+    ['Merino Rib Vest', 'Underwear'],
+    ['Ribbed Vest White', null],
   ] as const) {
     assert.equal(garmentOf(title, type).garment_type, null, title)
   }
@@ -95,6 +106,14 @@ test('menswear: a menswear store needs only not to say women or kids; a mixed st
   assert.ok(!isMenswear({ ...base, tags: ['Gender:Women'], catalogue: 'mixed' }))
   assert.ok(isMenswear({ ...base, tags: ['Woman Man Nov 2026'], catalogue: 'mixed' }), 'says men as well as women')
   assert.ok(!isMenswear({ ...base, tags: ['Child Boys', 'Mens'], catalogue: 'mixed' }), 'kids never')
+  assert.ok(
+    !isMenswear({ ...base, productType: 'Womens Pants', tags: ['Mens', 'Mens: Pants'], catalogue: 'mixed' }),
+    "a women's product type outweighs a loose men tag",
+  )
+  assert.ok(
+    isMenswear({ ...base, productType: 'Womens Denim', tags: ['Gender:Men', 'Gender:Women'], catalogue: 'mixed' }),
+    'but not a gender tag',
+  )
 })
 
 test('size keys by garment', () => {

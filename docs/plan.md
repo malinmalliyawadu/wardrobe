@@ -139,6 +139,7 @@ Probed on 2026-11-04:
 | Area 51 | yes | yes (49 Dixon St) |
 | END. (UK, ships to NZ) | yes | no |
 | Patagonia NZ (added 2026-11-05) | yes | not readable (locator drawn by script) |
+| Bronze Snake (AU, ships to NZ; added 2026-11-07) | yes | no (Australia only) |
 | Hallensteins | no (406) | yes |
 | Rodd & Gunn (added 2026-11-05) | no (410); links only | yes (46 Willis St) |
 | THE ICONIC | no | no |
