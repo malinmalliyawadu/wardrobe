@@ -10,7 +10,9 @@ import { checkUpload, normaliseImage, photoPath, thumbName, unlinkPair } from '.
  * master and thumb on the photos volume, under finds/, served only through
  * /photos/finds/:id. The product's images list names that address, so the
  * cards, the try-on viewer and a piece bought from it show it like any shop
- * photo. It goes nowhere but the try-on editor, on his tap.
+ * photo. It goes nowhere but the try-on editor, on his tap. The same kind of
+ * photo is what he adds as his own for a find from a store that is read
+ * (src/lib/product-photos.ts).
  */
 
 export const FIND_DIR = 'finds'
@@ -41,12 +43,17 @@ export async function storeFindPhoto(input: { bytes: Buffer; mime: string }, sql
   return { id: row.id, width: master.info.width, height: master.info.height }
 }
 
-/** Photos no product shows: chosen for a find never added, or replaced since. */
+/**
+ * Photos no product shows: chosen for a find never added, or replaced since.
+ * A product shows one as a find added by hand (find_photo_id) or as the photo
+ * he chose for it (chosen_image, src/lib/product-photos.ts).
+ */
 export async function clearFindOrphans(sql: Sql = db()): Promise<number> {
   const rows = await sql<{ path: string }[]>`
     delete from find_photos ph
     where ph.created_at < now() - make_interval(hours => ${ORPHAN_HOURS})
       and not exists (select 1 from products p where p.find_photo_id = ph.id)
+      and not exists (select 1 from products p where p.chosen_image ->> 'src' = ${SRC_PREFIX} || ph.id::text)
     returning path
   `
   await Promise.all(rows.map((row) => unlinkPair(row.path)))
@@ -68,9 +75,11 @@ export async function findPhotoFile(id: number, variant: 'master' | 'thumb', sql
   }
 }
 
+const SRC_PREFIX = '/photos/finds/'
+
 /** The address a product's images list gives for one of these photos. */
 export function findPhotoSrc(id: number): string {
-  return `/photos/finds/${id}`
+  return `${SRC_PREFIX}${id}`
 }
 
 /** The photo id in an image address, when the address is one of these. */

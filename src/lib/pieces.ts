@@ -6,6 +6,7 @@ import { kitGarmentOf } from './finder/classify.ts'
 import { hexDistance } from './finder/photo-colour.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import { finish, text, type ParseResult } from './form-parse.ts'
+import { photoChoices } from './product-photos.ts'
 import { FITS, type Fit } from './profile-values.ts'
 import { guideColours, type Guide } from './style-guide.ts'
 import {
@@ -75,7 +76,7 @@ const SELECT = (sql: Tx) => sql`
          p.warmth, p.worn_for, p.brand, p.size, p.notes,
          p.slot_id::int as slot_id, s.name as slot_name, s.status as slot_status,
          p.product_id::int as product_id, pr.url as product_url, r.name as retailer,
-         pr.images -> 0 as image,
+         pr.main_image as image,
          case when ph.id is null then null
               else json_build_object('id', ph.id, 'width', ph.width, 'height', ph.height) end as photo,
          p.source, p.edited_at, p.set_aside_at, p.created_at
@@ -492,7 +493,8 @@ export type PieceDraft = {
   photo_id: number | null
   product_id: number | null
   values: Partial<PieceValues>
-  preview: { photo: PiecePhoto } | { image: ProductImage; title: string } | null
+  /** A link's preview carries every photo it can show, to choose from (src/lib/product-photos.ts). */
+  preview: { photo: PiecePhoto } | { image: ProductImage; title: string; photos: ProductImage[] } | null
   /** A line above the form when the read was partial. */
   note: string | null
 }
@@ -508,8 +510,8 @@ export async function draftFromProduct(
   readImage: (src: string) => Promise<string | null>,
   sql: Tx = db(),
 ): Promise<PieceDraft> {
-  const [product] = await sql<{ title: string; vendor: string | null; garment_type: GarmentType | null; image: ProductImage | null; image_colours: string[] | null; colours: string[] }[]>`
-    select pr.title, pr.vendor, pr.garment_type, pr.images -> 0 as image, pr.image_colours,
+  const [product] = await sql<{ title: string; vendor: string | null; garment_type: GarmentType | null; image: ProductImage | null; images: ProductImage[]; image_colours: string[] | null; colours: string[] }[]>`
+    select pr.title, pr.vendor, pr.garment_type, pr.main_image as image, pr.images, pr.image_colours,
            coalesce(array_agg(distinct v.option_colour) filter (where v.option_colour is not null), '{}') as colours
     from products pr left join product_variants v on v.product_id = pr.id
     where pr.id = ${productId}
@@ -530,7 +532,7 @@ export async function draftFromProduct(
       colour_name: product.colours.length === 1 ? product.colours[0]!.toLowerCase() : null,
       brand: product.vendor,
     },
-    preview: product.image ? { image: product.image, title: product.title } : null,
+    preview: product.image ? { image: product.image, title: product.title, photos: photoChoices(product.images, product.image) } : null,
     note: product.colours.length > 1 ? `The shop sells it in ${product.colours.length} colours. Check the colour is yours.` : null,
   }
 }

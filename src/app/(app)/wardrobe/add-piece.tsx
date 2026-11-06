@@ -4,6 +4,7 @@ import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { Field, FormMessage, PendingNote, Spinner, SubmitButton, TextInput, withEcho } from '@/components/form'
+import { PhotoChoice } from '@/components/photo-choice'
 import { PieceImage } from '@/components/piece-image'
 import { SectionHead } from '@/components/section'
 import type { OpenSlot, PieceDraft } from '@/lib/pieces'
@@ -202,14 +203,22 @@ function LinkStep({
           Read the link
         </SubmitButton>
       </form>
-      {image ? (
-        <div className="mt-6 flex items-center gap-4">
-          <PieceImage
-            piece={{ name: image.title, colour_hex: null, photo: null, image: image.image }}
-            sizes="5rem"
-            className="aspect-[4/5] w-20 shrink-0 rounded-[var(--radius-tile)]"
-          />
-          <p className="text-[0.9375rem] leading-snug text-ink-2">{image.title}</p>
+      {image && draft?.product_id ? (
+        <div className="mt-6">
+          <p className="max-w-[52ch] text-[0.9375rem] leading-snug text-ink-2">
+            <span className="font-medium text-ink">{image.title}</span>. Choose the photo the piece shows, or add your
+            own.
+          </p>
+          <div className="mt-3">
+            <PhotoChoice
+              key={draft.product_id}
+              productId={draft.product_id}
+              photos={image.photos}
+              shown={image.image.src}
+              label="The photo the piece shows"
+              bleed
+            />
+          </div>
         </div>
       ) : null}
     </div>

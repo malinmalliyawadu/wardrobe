@@ -33,7 +33,7 @@ export async function Wishlist() {
       {news ? <p className="mt-1 text-[0.9375rem] text-ink-2">{line}</p> : null}
 
       <div className="max-w-2xl">
-        <AddLink key={count} slots={list.openSlots} manualStores={manualStores(retailers)} />
+        <AddLink slots={list.openSlots} manualStores={manualStores(retailers)} />
       </div>
 
       {count > 0 ? (

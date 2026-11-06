@@ -107,8 +107,10 @@ export async function addManualFind(sql: Sql, retailer: Retailer, url: URL, find
   const image: ProductImage = { src: findPhotoSrc(photoId), width: photo.width, height: photo.height, alt: null }
   const product = manualProduct(retailer, url, find, image)
   await writePage(sql, retailer.id, [product])
+  // A new photo here is the find's photo, so it replaces any he chose for it since (src/lib/product-photos.ts).
   const [row] = await sql<{ id: number }[]>`
-    update products set find_photo_id = ${photoId}
+    update products set find_photo_id = ${photoId},
+                        chosen_image = case when ${find.photo_id !== null} then null else chosen_image end
     where retailer_id = ${retailer.id} and external_id = ${product.external_id}
     returning id::int as id
   `
