@@ -10,8 +10,8 @@ import type { ProductImage } from './finder/shopify.ts'
  * what every page and try-on reads. Choosing the shop's first photo clears
  * the choice, so the product follows the shop again.
  *
- * His own photo is a find photo (src/lib/find-photos.ts): stored on the
- * photos volume, served at /photos/finds/:id, and kept from the orphan sweep
+ * His own photo is a find photo (src/lib/find-photos.ts): stored in the
+ * photo store, served at /photos/finds/:id, and kept from the orphan sweep
  * while a product shows it.
  */
 
