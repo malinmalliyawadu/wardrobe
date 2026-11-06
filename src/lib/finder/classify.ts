@@ -29,9 +29,12 @@ export type ClassifyInput = {
 
 type Rule = { pattern: RegExp; garment: GarmentType | null; kind?: string }
 
-/** Never a slot: judged on the product type and title together. */
+/**
+ * Never a slot: judged on the product type and title together. A vest is an
+ * undershirt or a singlet here, but a knit vest is knitwear.
+ */
 const NOT_CLOTHING =
-  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights|wetsuits?|wet suits?|spring suits?|full suits?|rash ?guards?|rashies?|booties|gaiters?|suspenders|waders?)\b/i
+  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|(?<!\b(?:knit|knitted|sweater|jumper|cable|crochet)[\s-])vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights|wetsuits?|wet suits?|spring suits?|full suits?|rash ?guards?|rashies?|booties|gaiters?|suspenders|waders?)\b/i
 
 /** Words that only exclude when they are the product type, because they turn up in titles ("Ring Spun Tee", "Book Club Shirt"). */
 const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|magazines?|accessories - other|gift)\b/i
@@ -63,9 +66,10 @@ const RULES: Rule[] = [
   { pattern: /\b(gloves?|mittens?)\b/i, garment: 'accessory', kind: 'gloves' },
   { pattern: /\bwatch(es)?\b/i, garment: 'accessory', kind: 'watch' },
   { pattern: /\b(neck ?ties?|bow ?ties?|ties|pocket squares?)\b/i, garment: 'accessory', kind: 'tie' },
-  // Bottoms before tops, so "sweat short" is shorts and "knit pant" trousers.
+  // Bottoms before tops, so "sweat short" is shorts and "knit pant" trousers,
+  // but a short-sleeve shirt is not a pair of shorts.
   { pattern: /\b(jeans?|selvage|selvedge)\b/i, garment: 'jeans' },
-  { pattern: /\bshorts?\b/i, garment: 'shorts' },
+  { pattern: /\bshorts?\b(?![\s-]*sleeve)/i, garment: 'shorts' },
   {
     pattern: /\b(trousers?|pants?|chinos?|slacks|cords|joggers?|track ?pants?|sweatpants?)\b/i,
     garment: 'trousers',
@@ -161,15 +165,22 @@ export function slotKind(garment: GarmentType, name: string): string | null {
 const WOMEN = /\b(women'?s?|womens|womenswear|woman|ladies|female|her|wmns|gender:womens)\b/i
 const MEN = /\b(men'?s?|mens|menswear|man|male|his|gender:mens|unisex)\b/i
 const KIDS = /\b(kids?|child|children|childrens|boys?|girls?|baby|babies|junior|youth|toddlers?|infants?|teens?)\b/i
+/** A tag that sets the gender on purpose ("Gender:Men"), as against a loose "Mens" tag. */
+const GENDER_MEN_TAG = /^gender:\s*(men|mens|male|unisex)$/i
 
 /**
  * Menswear from the words a store uses. A menswear-only store needs only to
  * not say women or kids; a mixed store has to say men (or unisex) somewhere in
  * the type, tags or title, and is not menswear if it says women and not men.
+ * A product type that says women and not men is the store's own filing and
+ * outweighs a loose men tag (Bronze Snake tags women's pieces in its men's
+ * collection "Mens"), though not a gender tag.
  */
 export function isMenswear(input: Pick<ClassifyInput, 'title' | 'productType' | 'tags' | 'catalogue'>): boolean {
   const words = [input.productType ?? '', input.title, ...input.tags].join(' | ')
   if (KIDS.test(words)) return false
+  const type = input.productType ?? ''
+  if (WOMEN.test(type) && !MEN.test(type) && !input.tags.some((tag) => GENDER_MEN_TAG.test(tag))) return false
   const men = MEN.test(words)
   const women = WOMEN.test(words)
   if (input.catalogue === 'menswear') return men || !women

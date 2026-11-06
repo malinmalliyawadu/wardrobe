@@ -148,13 +148,14 @@ what they edit so a return visit shows saved values.
 M3 built 2026-11-04; gate pending (a week of daily feed Malin is happy with,
 at a known cost per night). `npm run find` runs three stages into one
 `finder_runs` row. Ingest (`src/lib/finder/ingest.ts`, `shopify.ts`,
-`http.ts`): twelve Shopify stores from `data/retailers.json`, one request a second per
+`http.ts`): thirteen Shopify stores from `data/retailers.json`, one request a second per
 host, robots.txt read once per host per run, about 2.5 minutes. Country Road,
 Good As Gold, Huffer and END. are read through their men's collections;
 Crane Brothers through its myshopify host. Patagonia NZ (added 2026-11-05,
 its own NZD shop, read through `mens`) is mostly technical kit that the
 rules file as activewear, so its finds are the casual fleece, shirts and
-pants. Rodd & Gunn (added 2026-11-05, migration 0019, platform
+pants. Bronze Snake (added 2026-11-07) is a Melbourne label in AUD that
+ships here, read through `mens`; its feed rate-limits like Patagonia's. Rodd & Gunn (added 2026-11-05, migration 0019, platform
 `rodd-and-gunn`, `rodd-and-gunn.ts`) is links only, like Uniqlo, Malin's
 call: it is not Shopify and its catalogue is a page per colour (about 2,540),
 most of an hour a night at a page a second, so it is never walked and has no
