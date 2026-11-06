@@ -365,3 +365,17 @@ ask, `tidyAround` keeps only looks that still wear it), synchronous in
 `readPieceLooks` shows the newest such set under the page's top spread,
 three across on the laptop. Gym-only kit gets gym fits. First run: three
 looks in 25 s for US$0.09.
+
+Choosing a find's photo built 2026-11-07 (migration 0020), asked for by
+Malin. When a pasted link is read (on the wishlist, or a piece from a shop
+link), the shop's photos come up as a row to choose the one it shows, with
+"Your own" at the end; a wishlist row has "Change photo" for later
+(`src/components/photo-choice.tsx`, `src/lib/product-photos.ts`). The
+choice is `products.chosen_image`, which the nightly walk never touches, and
+`main_image` (generated: the choice, else the shop's first) is what every
+page and try-on reads; choosing the shop's first clears it. The finder's own
+reads (the photo colour rule, Claude's look when scoring) keep
+`images -> 0`, the shop's photo, since a URL must reach it. His own photo is
+a find photo (`find-photos.ts`), kept from the orphan sweep while a product
+shows it, and goes nowhere but the try-on editor on his tap, like those of
+finds added by hand.

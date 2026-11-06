@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useTransition } from 'react'
 
 import { feedAction } from '@/app/feed-actions'
+import { PhotoChoice } from '@/components/photo-choice'
 import { PieceImage } from '@/components/piece-image'
 import type { FindCard as Find, SavedFind, DismissReason } from '@/lib/feed'
 import type { WornWith } from '@/lib/statements'
@@ -183,7 +184,7 @@ function WearsWith({ pieces }: { pieces: WornWith[] }) {
 
 /** A saved find: a compact row, with what changed since he saved it. */
 export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName: string | null; change: ChangeLine | null }) {
-  const [mode, setMode] = useState<'actions' | 'bought'>('actions')
+  const [mode, setMode] = useState<'actions' | 'bought' | 'photo'>('actions')
   const { gone, failed, send } = useFeedAction()
   const ids = { product_id: find.product_id, slot_id: find.slot_id }
 
@@ -226,12 +227,22 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
         </div>
         <div key={mode} className="tray">
           {mode === 'actions' ? (
-            <div className="-ml-2 flex items-center gap-1">
+            <div className="-ml-2 flex flex-wrap items-center gap-x-1">
               <button type="button" className="text-button" onClick={() => setMode('bought')}>
                 Bought it
               </button>
+              <button type="button" className="text-button text-ink-2" onClick={() => setMode('photo')}>
+                Change photo
+              </button>
               <button type="button" className="text-button text-ink-2" onClick={() => send({ action: 'cleared', ...ids })}>
                 Remove
+              </button>
+            </div>
+          ) : mode === 'photo' ? (
+            <div className="mt-2">
+              <PhotoChoice productId={find.product_id} photos={find.photos} shown={find.image?.src ?? null} />
+              <button type="button" className="text-button -ml-2 mt-1" onClick={() => setMode('actions')}>
+                Done
               </button>
             </div>
           ) : (

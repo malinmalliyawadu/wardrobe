@@ -4,15 +4,19 @@ import { startTransition, useActionState, useState } from 'react'
 
 import { addLinkToSaved, chooseFindPhoto, type FindPhotoState } from '@/app/feed-actions'
 import { Spinner, SubmitButton } from '@/components/form'
+import { PhotoChoice } from '@/components/photo-choice'
 import type { FindPhoto } from '@/lib/find-photos'
+import type { ProductPhotos } from '@/lib/product-photos'
 import { GARMENT_GROUPS, GARMENT_LABELS, type GarmentType } from '@/lib/wardrobe-values'
 
 /**
  * Paste a product link from any of the shops and it joins the wishlist, found or not.
- * The shop is read there and then, so the button says so while it waits. A
- * link from a shop that cannot be read (Lululemon) opens the fields to add it
- * by hand as soon as it is pasted: its photo, what it is, the price, and the
- * colour and size he wants.
+ * The shop is read there and then, so the button says so while it waits.
+ * Once it is in, the shop's photos come up under the form to choose the one
+ * it shows, or to add his own, until he is done or adds the next. A link from
+ * a shop that cannot be read (Lululemon) opens the fields to add it by hand
+ * as soon as it is pasted: its photo, what it is, the price, and the colour
+ * and size he wants.
  */
 
 export type ManualStore = { name: string; currency: string; hosts: string[] }
@@ -41,6 +45,7 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
   const [kind, setKind] = useState<string | null>(values?.garment_type ?? null)
   const [photo, setPhoto] = useState<FindPhoto | null>(null)
   const [round, setRound] = useState(0)
+  const [added, setAdded] = useState<ProductPhotos | null>(null)
 
   // Each answer from the server, once: a new photo replaces the last, and an add clears the form for the next.
   const [seenPhoto, setSeenPhoto] = useState<FindPhotoState>(photoState)
@@ -57,6 +62,7 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
       setKind(null)
       setPhoto(null)
       setRound(round + 1)
+      setAdded(state.added ?? null)
     }
   }
 
@@ -65,74 +71,90 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
   const linkError = errors.link
 
   return (
-    <form key={round} action={action} className="mt-6">
-      <label htmlFor="saved-link" className="mb-1.5 block text-sm font-medium text-ink-2">
-        Add a product you want
-      </label>
-      <input
-        id="saved-link"
-        name="link"
-        type="url"
-        inputMode="url"
-        autoComplete="off"
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        enterKeyHint={store ? 'next' : 'go'}
-        placeholder="Paste a link from one of the shops"
-        defaultValue={values?.link ?? ''}
-        onChange={(event) => setLink(event.target.value)}
-        aria-invalid={linkError ? true : undefined}
-        aria-describedby={linkError ? 'saved-link-error' : undefined}
-        className="field"
-      />
-      {linkError ? (
-        <p id="saved-link-error" role="alert" className="mt-1.5 text-sm text-alert">
-          {linkError}
-        </p>
-      ) : null}
-
-      {store ? (
-        <ByHand
-          store={store}
-          values={values}
-          errors={errors}
-          photo={photo}
-          photoPending={photoPending}
-          photoMessage={photoState?.ok === false ? photoState.message : undefined}
-          kind={kind ?? slotKind}
-          onKind={setKind}
-          onPhoto={(file) => {
-            const form = new FormData()
-            form.set('file', file)
-            startTransition(() => photoAction(form))
-          }}
-        />
-      ) : null}
-
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <label htmlFor="saved-slot" className="sr-only">
-          For which slot
+    <>
+      <form key={round} action={action} className="mt-6">
+        <label htmlFor="saved-link" className="mb-1.5 block text-sm font-medium text-ink-2">
+          Add a product you want
         </label>
-        <select
-          id="saved-slot"
-          name="slot_id"
-          value={slotId}
-          onChange={(event) => setSlotId(event.target.value)}
-          className="field sm:flex-1"
-        >
-          <option value="">Not for a slot</option>
-          {slots.map((slot) => (
-            <option key={slot.id} value={slot.id}>
-              For: {slot.name}
-            </option>
-          ))}
-        </select>
-        <SubmitButton pending={store ? 'Saving' : 'Reading the shop'} variant="quiet" className="sm:shrink-0">
-          Add to wishlist
-        </SubmitButton>
-      </div>
-    </form>
+        <input
+          id="saved-link"
+          name="link"
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint={store ? 'next' : 'go'}
+          placeholder="Paste a link from one of the shops"
+          defaultValue={values?.link ?? ''}
+          onChange={(event) => setLink(event.target.value)}
+          aria-invalid={linkError ? true : undefined}
+          aria-describedby={linkError ? 'saved-link-error' : undefined}
+          className="field"
+        />
+        {linkError ? (
+          <p id="saved-link-error" role="alert" className="mt-1.5 text-sm text-alert">
+            {linkError}
+          </p>
+        ) : null}
+
+        {store ? (
+          <ByHand
+            store={store}
+            values={values}
+            errors={errors}
+            photo={photo}
+            photoPending={photoPending}
+            photoMessage={photoState?.ok === false ? photoState.message : undefined}
+            kind={kind ?? slotKind}
+            onKind={setKind}
+            onPhoto={(file) => {
+              const form = new FormData()
+              form.set('file', file)
+              startTransition(() => photoAction(form))
+            }}
+          />
+        ) : null}
+
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label htmlFor="saved-slot" className="sr-only">
+            For which slot
+          </label>
+          <select
+            id="saved-slot"
+            name="slot_id"
+            value={slotId}
+            onChange={(event) => setSlotId(event.target.value)}
+            className="field sm:flex-1"
+          >
+            <option value="">Not for a slot</option>
+            {slots.map((slot) => (
+              <option key={slot.id} value={slot.id}>
+                For: {slot.name}
+              </option>
+            ))}
+          </select>
+          <SubmitButton pending={store ? 'Saving' : 'Reading the shop'} variant="quiet" className="sm:shrink-0">
+            Add to wishlist
+          </SubmitButton>
+        </div>
+      </form>
+      {added ? (
+        <div key={added.product_id} className="tray mt-6" aria-live="polite">
+          <p className="max-w-[52ch] text-[0.9375rem] leading-snug text-ink-2">
+            <span className="font-medium text-ink">{added.title}</span> is on your wishlist. Choose the photo it shows,
+            here and in a try-on, or add your own.
+          </p>
+          <div className="mt-3">
+            <PhotoChoice productId={added.product_id} photos={added.photos} shown={added.shown} bleed />
+          </div>
+          <button type="button" className="text-button -ml-2 mt-1" onClick={() => setAdded(null)}>
+            Done
+          </button>
+        </div>
+      ) : null}
+    </>
   )
 }
 
