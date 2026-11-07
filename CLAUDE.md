@@ -293,7 +293,13 @@ three options from his pieces against Open-Meteo's forecast for 7am to 10pm
 refreshes until it is there. Each option is a look (an existing one, saved
 or offered before and not dismissed, when it matches piece for piece, so its
 flat lay is not drawn again); day sets are `look_sets.kind = 'day'` and never
-the Looks tab's newest set. The option on show gets a flat lay drawn by
+the Looks tab's newest set. Every option keeps to the day's warmth limit
+(`src/lib/warmth.ts`, 2026-11-07, after Malin found them three layers and
+wool on warm days): read from the warmest the day feels (feels-like already
+counts the wind), it caps layers on the body and warm pieces and rules out
+knits and coats on hot days; the prompts state it, `tidyDay` drops an option
+over it, and a piece with no warmth set has it read from its garment and
+cloth. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.

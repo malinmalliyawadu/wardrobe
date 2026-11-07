@@ -27,6 +27,7 @@ import { getProfile, type Profile } from './profile.ts'
 import { weekdayOf } from './profile-values.ts'
 import { GenerationError, generate, type GenerationMeta } from './structured.ts'
 import { getGuide, profileBrief, type Guide } from './style-guide.ts'
+import { limitForPrompt, withinWarmth, WARMTH_RULES, warmthLimit, type WarmthLimit } from './warmth.ts'
 import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type Forecast } from './weather.ts'
 
 /*
@@ -44,6 +45,10 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  * outfit and kept with the look. Made the first time Today is
  * opened for a day (after six in the evening, for tomorrow), in the
  * background; the card refreshes until it is there.
+ *
+ * Every option is held to the day's warmth limit (warmth.ts), read from the
+ * forecast: left to itself Opus dressed him in three layers and wool on a
+ * warm day.
  *
  * On a day he trains (a gym day on his week, or a note that says so) the same
  * call adds a gym fit from his gym kit (migration 0014): one look of the gym
@@ -81,13 +86,13 @@ export const DAY_SYSTEM_PROMPT = `You are an experienced menswear stylist dressi
 
 Give ${DAY_OPTIONS} options for the day, best first. Each is one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, and an outer layer when the day asks for it. Accessories only when they add something, and then in his metal. Use only the pieces on the list, by id, each at most once in an outfit; never invent a garment. The options must differ: no two share more than two pieces.
 
-Dress him for the forecast, not the month. You are given the hours he is likely out, 7am to 10pm, with temperature, feels-like temperature, rain chance and wind. In Wellington the wind decides as much as the thermometer: a southerly is cold whatever the number says, and wind cuts through an open knit. Rain likely while he is out calls for an outer layer that sheds water, if he owns one, and shoes that cope (no suede). A day that swings, cool morning and warm afternoon, wants a layer he can take off and carry. Warm days want lighter fabrics and fewer layers. A UV index of 6 or more is strong in New Zealand: sunglasses or a cap if he has them. When no forecast could be read you are given the month's usual weather instead; dress for an ordinary day of it.
+Dress him for the forecast, not the month or the season. You are given the hours he is likely out, 7am to 10pm, with temperature, feels-like temperature, rain chance and wind, and the day's warmth_limit, which every option must keep to: no more layers than most_layers, no more warm pieces than most_warm_pieces, none of garments_ruled_out; null means no limit. An option over it is thrown away. ${WARMTH_RULES} Wind matters for what a garment does in it: it cuts through an open knit and lifts an unbuttoned layer. Dress for the warm middle of the day, not its coolest hour: when the morning or evening is cooler, the answer is one light layer he can take off and carry, never a warmer outfit. Warm days want light cloth, cotton and linen, a tee or a short-sleeved shirt; wool and knits are for cool days. Rain likely while he is out calls for an outer layer that sheds water, if he owns one and the limit has room, and shoes that cope (no suede). A UV index of 6 or more is strong in New Zealand: sunglasses or a cap if he has them. When no forecast could be read you are given the month's usual weather instead, and the limit is read from its usual high; dress for an ordinary day of it.
 
-The season sets the fabric weights and the mood within his palette: the lighter and brighter of his colours in spring and summer, the deeper ones in autumn and winter. Never step outside his palette to follow a season.
+The season sets the mood within his palette, never the warmth: the lighter and brighter of his colours in spring and summer, the deeper ones in autumn and winter. Never step outside his palette to follow a season.
 
 Work out the day from the weekday and his week: an office day, a weekend, or a day with an evening out. Where his week is empty, weekdays are office days. Office means smart casual unless his profile says otherwise. If he said what is on, that decides; dress for the most demanding part of the day and say how to adjust for the rest.
 
-${GYM_FIT_RULES} The day's options are everyday outfits, never gym fits. When he trains this day (trains_today, or his note says he is training) and his gym kit is ready (gym.kit_ready), also give gym: one gym fit for this day's weather on the walk there, a layer when it is cold, windy or wet; its today line says what about the day it answers. Otherwise gym is null. A gym fit may repeat one he wore this week or saved; kit is small.
+${GYM_FIT_RULES} The day's options are everyday outfits, never gym fits. When he trains this day (trains_today, or his note says he is training) and his gym kit is ready (gym.kit_ready), also give gym: one gym fit for this day's weather on the walk there, within the same warmth_limit, a layer when it is cold or wet; its today line says what about the day it answers. Otherwise gym is null. A gym fit may repeat one he wore this week or saved; kit is small.
 
 He may re-wear a look he saved, piece for piece, when it suits the day; it is often the best option. Never offer an outfit he wore in the past week, piece for piece, nor one he dismissed, and learn from the reasons he gave. Prefer pieces he has worn less lately.
 
@@ -128,6 +133,18 @@ function forecastForPrompt(forecast: Forecast) {
   }
 }
 
+/**
+ * The day's warmth limit: from the warmest the forecast feels, else from the
+ * month's usual high when no forecast could be read.
+ */
+export function dayLimit(input: Pick<DayInput, 'forecast' | 'date'>): WarmthLimit {
+  return warmthLimit(input.forecast?.feels_high ?? usualFor(input.date).high)
+}
+
+function usualFor(date: string) {
+  return wellingtonToday(new Date(`${date}T12:00:00+12:00`))
+}
+
 /** Whether his week says he trains on this day. */
 export function trainsOn(profile: Pick<Profile, 'life'>, date: string): boolean {
   return profile.life.gym_days?.includes(weekdayOf(date)) ?? false
@@ -145,7 +162,10 @@ export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessagePar
     },
     ...(input.forecast
       ? { forecast_wellington: forecastForPrompt(input.forecast) }
-      : { usual_weather: `${wellingtonToday(new Date(`${input.date}T12:00:00+12:00`)).weather} (no forecast could be read)` }),
+      : { usual_weather: `${usualFor(input.date).weather} (no forecast could be read)` }),
+    warmth_limit: input.forecast
+      ? limitForPrompt(dayLimit(input))
+      : limitForPrompt(dayLimit(input), `the month's usual high, ${usualFor(input.date).high}°`),
     profile: profileBrief(input.profile),
     gym: gymForPrompt(input.profile, input.pieces),
     style_guide: {
@@ -178,9 +198,10 @@ export async function draftDay(input: DayInput): Promise<DayDraft> {
     model: MODELS.day,
   })
   const usd = callUsd(MODELS.day, { input_tokens: meta.input_tokens, output_tokens: meta.output_tokens })
-  const gym = gymReadiness(input.pieces).ready && data.gym ? tidyGym(data.gym, input.pieces, input.history) : null
+  const limit = dayLimit(input)
+  const gym = gymReadiness(input.pieces).ready && data.gym ? tidyGym(data.gym, input.pieces, input.history, limit) : null
   return {
-    options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek),
+    options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek, limit),
     gym,
     proposed: data.options.length,
     meta,
@@ -188,45 +209,59 @@ export async function draftDay(input: DayInput): Promise<DayDraft> {
   }
 }
 
+type Tidyable = Pick<Piece, 'id' | 'name' | 'garment_type' | 'fabric' | 'warmth' | 'set_aside_at' | 'worn_for'>
+
+/** The options whose pieces sit within the day's warmth limit. */
+function warmEnough<T extends Pick<DayOption, 'piece_ids'>>(options: T[], pieces: Tidyable[], limit: WarmthLimit | null): T[] {
+  const byId = new Map(pieces.map((piece) => [piece.id, piece]))
+  return options.filter((option) => withinWarmth(option.piece_ids.map((id) => byId.get(id)!), limit))
+}
+
 /**
  * Holds the options to what a look must be (tidyLooks), with the day's own
  * rules on what has gone before: a look he saved may come back, one he
  * dismissed or wore this past week may not. A gym fit is not one of the
- * day's options. At most DAY_OPTIONS are kept.
+ * day's options, and none may be warmer than the day's limit. At most
+ * DAY_OPTIONS are kept.
  */
 export function tidyDay(
   options: DayOption[],
-  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>[],
+  pieces: Tidyable[],
   history: Pick<History, 'dismissed'>,
   wornThisWeek: Pick<Worn, 'piece_ids'>[],
+  limit: WarmthLimit | null = null,
 ): DayOption[] {
   const notAgain = [
     ...history.dismissed,
     ...wornThisWeek.map((look) => ({ title: '', piece_ids: look.piece_ids, reason: 'not_me' as LookDismissReason })),
   ]
-  return tidyLooks(
+  const whole = tidyLooks(
     options.filter((option) => option.occasion !== 'gym').map((option) => ({ ...option, title: option.title.trim(), better_with: null })),
     pieces,
     [],
     { saved: [], dismissed: notAgain },
-  ).slice(0, DAY_OPTIONS)
+  )
+  return warmEnough(whole, pieces, limit).slice(0, DAY_OPTIONS)
 }
 
 /**
- * The day's gym fit held to what a gym fit must be. Kit is small, so one he
- * wore this week or saved may come back; one he dismissed may not.
+ * The day's gym fit held to what a gym fit must be, and to the day's warmth
+ * limit. Kit is small, so one he wore this week or saved may come back; one
+ * he dismissed may not.
  */
 export function tidyGym(
   gym: DayOption,
-  pieces: Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>[],
+  pieces: Tidyable[],
   history: Pick<History, 'dismissed'>,
+  limit: WarmthLimit | null = null,
 ): DayOption | null {
-  const [kept] = tidyLooks(
+  const whole = tidyLooks(
     [{ ...gym, occasion: 'gym' as const, title: gym.title.trim(), better_with: null }],
     pieces,
     [],
     { saved: [], dismissed: history.dismissed },
   )
+  const [kept] = warmEnough(whole, pieces, limit)
   return kept ?? null
 }
 

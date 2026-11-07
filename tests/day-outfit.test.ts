@@ -19,6 +19,7 @@ import {
 import { actOnLook, lookKey, readLooks, saveSet } from '../src/lib/looks.ts'
 import { createPiece, type Piece } from '../src/lib/pieces.ts'
 import { saveGuide } from '../src/lib/style-guide.ts'
+import { warmthLimit } from '../src/lib/warmth.ts'
 import type { Forecast } from '../src/lib/weather.ts'
 
 import { guideFixture, profileFixture } from './fixtures.ts'
@@ -30,17 +31,30 @@ import { guideFixture, profileFixture } from './fixtures.ts'
  * the draft is a fixture.
  */
 
-type Shelf = Pick<Piece, 'id' | 'garment_type' | 'set_aside_at' | 'worn_for'>
+type Shelf = Pick<Piece, 'id' | 'name' | 'garment_type' | 'fabric' | 'warmth' | 'set_aside_at' | 'worn_for'>
+const piece = (id: number, garment_type: Shelf['garment_type'], name: string, extra: Partial<Shelf> = {}): Shelf => ({
+  id,
+  name,
+  garment_type,
+  fabric: null,
+  warmth: null,
+  set_aside_at: null,
+  worn_for: 'everyday',
+  ...extra,
+})
 const shelf: Shelf[] = [
-  { id: 1, garment_type: 'coat', set_aside_at: null, worn_for: 'everyday' },
-  { id: 2, garment_type: 'knitwear', set_aside_at: null, worn_for: 'everyday' },
-  { id: 3, garment_type: 'shirt', set_aside_at: null, worn_for: 'everyday' },
-  { id: 4, garment_type: 'trousers', set_aside_at: null, worn_for: 'everyday' },
-  { id: 5, garment_type: 'jeans', set_aside_at: null, worn_for: 'everyday' },
-  { id: 6, garment_type: 'boots', set_aside_at: null, worn_for: 'everyday' },
-  { id: 7, garment_type: 'sneakers', set_aside_at: null, worn_for: 'both' },
-  { id: 8, garment_type: 'tank', set_aside_at: null, worn_for: 'gym' },
-  { id: 9, garment_type: 'shorts', set_aside_at: null, worn_for: 'gym' },
+  piece(1, 'coat', 'Ink wool coat'),
+  piece(2, 'knitwear', 'Pine merino crewneck'),
+  piece(3, 'shirt', 'White oxford button-down'),
+  piece(4, 'trousers', 'Putty chinos'),
+  piece(5, 'jeans', 'Indigo jeans'),
+  piece(6, 'boots', 'Brown chelsea boots'),
+  piece(7, 'sneakers', 'White sneakers', { worn_for: 'both' }),
+  piece(8, 'tank', 'Pine training tank', { worn_for: 'gym' }),
+  piece(9, 'shorts', 'Black training shorts', { worn_for: 'gym' }),
+  piece(10, 'tee', 'Cream tee'),
+  piece(11, 'overshirt', 'Olive cotton overshirt'),
+  piece(12, 'sweatshirt', 'Grey hoodie', { worn_for: 'both' }),
 ]
 
 const option = (piece_ids: number[], extra: Partial<DayOption> = {}): DayOption => ({
@@ -115,6 +129,27 @@ describe('the pure parts', () => {
     assert.equal(tidyGym(gym, shelf, { dismissed: [{ title: 'x', piece_ids: [7, 8, 9], reason: 'colours' }] }), null)
   })
 
+  test('on a warm day an option over the warmth limit is dropped', () => {
+    const options = [
+      option([10, 11, 3, 4, 7]), // three layers
+      option([2, 3, 4, 6]), // a wool knit
+      option([10, 11, 4, 7]), // a tee and an overshirt
+      option([3, 5, 7]), // a shirt
+    ]
+    assert.deepEqual(
+      tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(23)).map((o) => o.piece_ids),
+      [[11, 10, 4, 7], [3, 5, 7]],
+    )
+    assert.equal(tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(16)).length, 3, 'a mild day takes three layers and one warm piece')
+    assert.equal(tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(10)).length, 3, 'a cold day has no limit')
+  })
+
+  test('the gym fit keeps to the warmth limit too', () => {
+    const hoodie = option([12, 8, 9, 7], { occasion: 'gym' })
+    assert.equal(tidyGym(hoodie, shelf, { dismissed: [] }, warmthLimit(24)), null)
+    assert.ok(tidyGym(hoodie, shelf, { dismissed: [] }, warmthLimit(12)))
+  })
+
   test('a look is the same outfit as another with the same pieces in any order, gym or not', () => {
     assert.equal(lookKey({ occasion: 'office', piece_ids: [6, 4, 2] }), lookKey({ occasion: 'weekend', piece_ids: [2, 4, 6] }))
     assert.notEqual(lookKey({ occasion: 'office', piece_ids: [7, 8, 9] }), lookKey({ occasion: 'gym', piece_ids: [7, 8, 9] }))
@@ -152,6 +187,12 @@ describe('the pure parts', () => {
     })
     assert.equal(body.forecast_wellington.in_short, '9° to 15°, feels like 5°. Southerly 40 km/h, gusts to 75. A chance of a shower.')
     assert.equal(body.usual_weather, undefined)
+    assert.deepEqual(body.warmth_limit, {
+      read_from: 'feels like 13° at the warmest',
+      most_layers: null,
+      most_warm_pieces: null,
+      garments_ruled_out: [],
+    })
     assert.deepEqual(body.gym, { days_a_week: 0, days: null, kit_ready: false, kit_missing: ['a top', 'shorts or joggers', 'trainers'] })
   })
 
@@ -168,6 +209,8 @@ describe('the pure parts', () => {
     const body = JSON.parse(content.split('\n\n')[0]!)
     assert.match(body.usual_weather, /^Wellington in November: usually 11 to 17 degrees/)
     assert.equal(body.forecast_wellington, undefined)
+    assert.equal(body.warmth_limit.read_from, "the month's usual high, 17°")
+    assert.equal(body.warmth_limit.most_layers, 3)
     assert.equal(body.day.dressing_for, 'today')
     assert.match(content, /He says this is on: "dinner out tonight"/)
   })
