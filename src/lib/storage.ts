@@ -120,11 +120,15 @@ export function r2Store(settings: R2Settings, fetchImpl: typeof fetch = fetch): 
   const url = (key: string) => `${origin}/${settings.bucket}/${safeKey(key).split('/').map(encodeURIComponent).join('/')}`
 
   async function send(method: string, key: string, init: { body?: Uint8Array<ArrayBuffer>; headers?: Record<string, string> } = {}): Promise<Response> {
-    const request = await client.sign(url(key), { method, ...init })
+    const signed = await client.sign(url(key), { method, ...init })
+    // Sent as the signed headers and the bytes themselves, never the signed Request: a Request
+    // holds its body as a stream, which fetch sends chunked with no Content-Length, and R2
+    // refuses that with 411 MissingContentLength. Bytes go with their length, on every try.
+    const request = { method, headers: signed.headers, body: init.body }
     // A network failure or a 5xx is tried again, three tries in all; anything else is an answer.
     for (let attempt = 1; ; attempt++) {
       try {
-        const response = await fetchImpl(request.clone())
+        const response = await fetchImpl(signed.url, request)
         if (response.status < 500 || attempt === 3) return response
         await response.body?.cancel()
       } catch (error) {

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -21,7 +23,8 @@ import {
 
 /*
  * The photo store: the folder against a throwaway directory, R2 against a
- * fake fetch that records what would have been sent. Nothing leaves the
+ * fake fetch that records what would have been sent, and once through Node's
+ * real fetch to a local server, for what reaches the wire. Nothing leaves the
  * machine.
  */
 
@@ -32,9 +35,11 @@ type Sent = { method: string; url: string; headers: Headers; body: Buffer }
 
 function fakeR2(answer: (sent: Sent, index: number) => Response) {
   const sent: Sent[] = []
-  const fetchImpl = (async (input: Request) => {
-    const request = input instanceof Request ? input : new Request(input)
-    const entry = { method: request.method, url: request.url, headers: request.headers, body: Buffer.from(await request.arrayBuffer()) }
+  const fetchImpl = (async (input: string, init: RequestInit = {}) => {
+    // Bytes, not a stream or a Request: only bytes go out with a Content-Length, which R2 requires.
+    assert.equal(typeof input, 'string')
+    assert.ok(init.body === undefined || init.body instanceof Uint8Array, 'the body is sent as bytes')
+    const entry = { method: init.method ?? 'GET', url: input, headers: new Headers(init.headers), body: Buffer.from((init.body as Uint8Array | undefined) ?? []) }
     sent.push(entry)
     return answer(entry, sent.length - 1)
   }) as typeof fetch
@@ -120,6 +125,33 @@ describe('R2 store', () => {
     const down = fakeR2(() => new Response(null, { status: 500 }))
     await assert.rejects(down.store.put('a.jpg', Buffer.from('x')), /R2 put a\.jpg: 500/)
     assert.equal(down.sent.length, 3)
+  })
+
+  test('a put reaches the wire with a Content-Length, not chunked (R2 answers 411 otherwise)', async () => {
+    const seen: { length?: string; chunked?: string; body: Buffer }[] = []
+    const server = createServer((request, response) => {
+      const chunks: Buffer[] = []
+      request.on('data', (chunk: Buffer) => chunks.push(chunk))
+      request.on('end', () => {
+        seen.push({ length: request.headers['content-length'], chunked: request.headers['transfer-encoding'], body: Buffer.concat(chunks) })
+        response.end()
+      })
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    try {
+      const { port } = server.address() as AddressInfo
+      // Node's own fetch, pointed at the local server in place of R2.
+      const local = ((input: string, init?: RequestInit) =>
+        fetch(input.replace('https://acct123.r2.cloudflarestorage.com', `http://127.0.0.1:${port}`), init)) as typeof fetch
+      const data = Buffer.from('a master jpeg, 1568px')
+      await r2Store(settings, local).put('wardrobe/abc.jpg', data)
+      assert.equal(seen.length, 1)
+      assert.equal(seen[0]?.length, String(data.length))
+      assert.equal(seen[0]?.chunked, undefined)
+      assert.deepEqual(seen[0]?.body, data)
+    } finally {
+      await new Promise((resolve) => server.close(resolve))
+    }
   })
 
   test('the MD5 comes from the ETag, without downloading', async () => {
