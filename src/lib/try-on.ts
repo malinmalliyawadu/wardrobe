@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import sharp, { type OutputInfo } from 'sharp'
@@ -8,8 +7,8 @@ import { z } from 'zod'
 import { db, type Sql } from './db.ts'
 import { findPhotoFile, findPhotoId } from './find-photos.ts'
 import { findKey, lookOutfitKey, outfitKey } from './outfit-key.ts'
-import { photosDir } from './photos.ts'
 import { productImageAt } from './product-image.ts'
+import { files } from './storage.ts'
 
 /*
  * Try-on: "See it on me" on a feed find, on a look, on pieces he chose
@@ -19,7 +18,7 @@ import { productImageAt } from './product-image.ts'
  * editor with the product's own photo (a find), or with the photos of the
  * pieces (a look or an outfit), and it returns him wearing it. Agreed with Malin on 2026-11-04, with the photo rule
  * in docs/plan.md section 1.1: made on request only, one at a time (a unique
- * index holds that), kept on the photos volume, deleted with his photos.
+ * index holds that), kept in the file store, deleted with his photos.
  * OpenAI does not train on API data and keeps requests up to 30 days for
  * abuse monitoring.
  *
@@ -454,12 +453,13 @@ async function asJpeg(bytes: Buffer, unreadable: string): Promise<Buffer> {
   }
 }
 
-/** His own photo of a piece, the master on the photos volume. Never fetched from anywhere. */
+/** His own photo of a piece, the stored master. Never fetched from a shop. */
 export async function piecePhoto(sql: Sql, photoId: number): Promise<Buffer> {
   const [row] = await sql<{ path: string }[]>`select path from wardrobe_photos where id = ${photoId}`
   if (!row) throw new TryOnError('A piece’s photo has changed since you asked. Try again.')
   try {
-    const bytes = await readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.path))
+    const bytes = await files().get(row.path)
+    if (!bytes) throw new TryOnError('A piece’s photo could not be read.')
     return await asJpeg(bytes, 'A piece’s photo could not be read.')
   } catch (error) {
     if (error instanceof TryOnError) throw error
@@ -899,10 +899,8 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
 
   try {
     if (row.photo_deleted) throw new TryOnError('The photo was deleted before it was made.')
-    const [person, garments] = await Promise.all([
-      readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.photo_path)),
-      garmentImages(sql, row, fetchImpl),
-    ])
+    const [person, garments] = await Promise.all([files().get(row.photo_path), garmentImages(sql, row, fetchImpl)])
+    if (!person) throw new TryOnError('Your photo is missing its file. Add it again on the Photos page.')
     const [width, height] = (row.settings.size ?? `${OUTPUT_EDGE}x${OUTPUT_EDGE}`).split('x').map(Number)
     const result = await editImage(
       { images: [person, ...garments], prompt: row.prompt, size: { width: width!, height: height! } },
@@ -920,8 +918,7 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
     }
     const name = `${id}-${createHash('sha256').update(file.data).digest('hex').slice(0, 16)}.jpg`
     const relative = path.posix.join(TRY_ON_DIR, name)
-    await mkdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), TRY_ON_DIR), { recursive: true })
-    await writeFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), relative), file.data)
+    await files().put(relative, file.data, 'image/jpeg')
 
     const usage = result.usage
     // The photo may have been deleted while OpenAI was working; then the file goes too.
@@ -936,7 +933,7 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
       returning id
     `
     if (!saved) {
-      await unlink(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), relative)).catch(() => {})
+      await files().remove(relative).catch(() => {})
       throw new TryOnError('The photo was deleted before it was made.')
     }
     return 'ready'
@@ -1021,11 +1018,7 @@ export async function tryOnFile(id: number, sql: Sql = db()): Promise<Buffer | n
     select path from try_ons where id = ${id} and status = 'ready' and deleted_at is null and path is not null
   `
   if (!row) return null
-  try {
-    return await readFile(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ photosDir(), row.path))
-  } catch {
-    return null
-  }
+  return files().get(row.path)
 }
 
 export type TryOnSpend = { count: number; usd: number; thisMonthCount: number; thisMonthUsd: number }

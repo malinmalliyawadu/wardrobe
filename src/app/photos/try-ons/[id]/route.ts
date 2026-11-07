@@ -4,7 +4,7 @@ import { tryOnFile } from '@/lib/try-on'
  * GET /photos/try-ons/:id
  *
  * A try-on is a picture of him, so it is served like his photos: from the
- * photos volume, through this one door, never from public/. A remake is a new
+ * photo store, through this one door, never from public/. A remake is a new
  * row with a new id, so a given id's bytes never change while the row lives.
  */
 export async function GET(_request: Request, context: RouteContext<'/photos/try-ons/[id]'>): Promise<Response> {

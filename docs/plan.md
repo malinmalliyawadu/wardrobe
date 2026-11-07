@@ -40,13 +40,17 @@ Captured once, edited rarely.
 | Taste | 6 to 10 reference images or brands he likes, hard no-gos (logos, skinny fit, whatever), owned staples he is happy with | typed and uploaded |
 | Budget | per-category ceiling (tees, knits, outerwear, shoes, accessories) and an overall monthly figure | typed |
 
-Photos are sensitive. They live on a Coolify volume, never in the database.
-One is sent to the Claude API for the analysis call. One full-length photo is
+Photos are sensitive. They live in a private Cloudflare R2 bucket, never in
+the database and never public: the bucket has no public address, the app
+reads it with its own key, and the app's sign-in is the only way to see one.
+R2 stores them encrypted and does nothing else with them. (Moved there from a
+Coolify volume by Malin's call on 2026-11-07, so photos do not fill the
+server.) One is sent to the Claude API for the analysis call. One full-length photo is
 sent to the OpenAI Images API only for a try-on Malin asks for, one find at a
 time, together with the product's own image. OpenAI does not train on API data.
 It keeps the request and the result in abuse-monitoring logs for up to 30 days,
 processed in the US, and they cannot be deleted sooner without a
-zero-data-retention agreement. Results are stored on the photos volume, and
+zero-data-retention agreement. Results are stored with the photos, and
 "delete photos" removes them with the photos. The Anthropic API does not train
 on API traffic either. The profile page has a "delete photos, keep the derived
 profile" action. (Agreed with Malin on 2026-11-04, with OpenAI as the try-on
@@ -289,7 +293,7 @@ choosing it, before any code: try-on quality on menswear (fit, drape, colour
 held true to the product photo, since colour is the point of the app), and its
 data terms (retention, training on inputs, deletion). Malin agrees the provider
 and the change to the photo rule in section 1.1 first. Then: generated on
-request only, never in bulk; cached on the photos volume with a row per image
+request only, never in bulk; cached with the photos with a row per image
 (product, source photo, provider, cost); deleted along with his photos by the
 existing "delete photos" action; cost per image recorded like the finder's.
 Gate: Malin tries on a week of feed picks and finds the images honest enough to
@@ -352,7 +356,7 @@ nightly there, and Malin using it from his phone.
   device out.
 - Coolify: the README's click-through. The image builds with the network off,
   migrates and seeds the shop list on boot, keeps photos on a named volume at
-  `/data`, and is health-checked on the database alone so a Claude outage
+  `/data` (in an R2 bucket since 2026-11-07), and is health-checked on the database alone so a Claude outage
   cannot take it down. The finder is a scheduled task with a one-hour timeout.
 - PWA: manifest and icons (the palette strip in his colours on pine, since the 2026-11-05 redesign; the Today swatch fan before),
   no service worker.

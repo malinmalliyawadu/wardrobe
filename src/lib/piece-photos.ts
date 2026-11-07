@@ -1,5 +1,3 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
-
 import type Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
@@ -8,15 +6,16 @@ import { MODELS, callUsd, claude } from './claude.ts'
 import { db, type Sql } from './db.ts'
 import { readPhoto } from './finder/photo-colour.ts'
 import { snapToGuide, type PieceValues } from './pieces.ts'
-import { checkUpload, normaliseImage, photoPath, thumbName, unlinkPair } from './photos.ts'
+import { checkUpload, normaliseImage, PhotoError, removePair, storePair, thumbName } from './photos.ts'
 import { FITS } from './profile-values.ts'
 import { finalText, plainDashes } from './structured.ts'
 import { guideColours, type Guide } from './style-guide.ts'
+import { files } from './storage.ts'
 import { PIECE_GARMENT_TYPES, WARMTHS } from './wardrobe-values.ts'
 
 /*
  * Photos of his clothes. Stored like his own photos (src/lib/photos.ts): a
- * metadata-free master and thumb on the photos volume, under wardrobe/, served
+ * metadata-free master and thumb in the file store, under wardrobe/, served
  * only through /photos/wardrobe/:id. Agreed with Malin on 2026-11-04: a photo
  * of a piece goes to Claude (Sonnet) once, when he adds it, to fill in the
  * form he then checks, and the looks are made from the pieces' words, not
@@ -38,9 +37,7 @@ export async function storePiecePhoto(input: { bytes: Buffer; mime: string }, sq
   const relative = `${PIECE_DIR}/${sha256.slice(0, 24)}.jpg`
   const read = await readPhoto(master.data)
 
-  await mkdir(/*turbopackIgnore: true*/ photoPath(PIECE_DIR), { recursive: true })
-  await writeFile(/*turbopackIgnore: true*/ photoPath(relative), master.data)
-  await writeFile(/*turbopackIgnore: true*/ photoPath(thumbName(relative)), thumb)
+  await storePair(relative, master.data, thumb)
 
   const colourRead = { hex: read.hex, colours: read.colours, share: Number(read.share.toFixed(3)), foreground: Number(read.foreground.toFixed(3)) }
   const [row] = await sql<{ id: number }[]>`
@@ -62,18 +59,14 @@ export async function clearOrphans(sql: Sql = db()): Promise<number> {
       and not exists (select 1 from wardrobe_pieces p where p.photo_id = ph.id)
     returning path
   `
-  await Promise.all(rows.map((row) => unlinkPair(row.path)))
+  await Promise.all(rows.map((row) => removePair(row.path)))
   return rows.length
 }
 
 export async function piecePhotoFile(id: number, variant: 'master' | 'thumb', sql: Sql = db()): Promise<Buffer | null> {
   const [row] = await sql<{ path: string }[]>`select path from wardrobe_photos where id = ${id}`
   if (!row) return null
-  try {
-    return await readFile(/*turbopackIgnore: true*/ photoPath(variant === 'thumb' ? thumbName(row.path) : row.path))
-  } catch {
-    return null
-  }
+  return files().get(variant === 'thumb' ? thumbName(row.path) : row.path)
 }
 
 /** A new photo for a piece he already has. The old one goes. */
@@ -89,7 +82,7 @@ export async function attachPhoto(pieceId: number, photoId: number, sql: Sql = d
     const [gone] = await tx<{ path: string }[]>`delete from wardrobe_photos where id = ${piece.photo_id} returning path`
     return gone?.path ?? null
   })
-  if (old) await unlinkPair(old)
+  if (old) await removePair(old)
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +154,9 @@ export function buildReadRequest(base64: string, guide: Pick<Guide, 'palette'> |
 
 /** One Sonnet call. The read and its cost are kept on the photo's row. */
 export async function readPiecePhoto(photo: StoredPiecePhoto, guide: Pick<Guide, 'palette'> | null, sql: Sql = db()): Promise<PieceRead> {
-  const base64 = (await readFile(/*turbopackIgnore: true*/ photoPath(photo.path))).toString('base64')
+  const bytes = await files().get(photo.path)
+  if (!bytes) throw new PhotoError('That photo is missing its file. Add it again.')
+  const base64 = bytes.toString('base64')
   const response = await claude().beta.messages.create(buildReadRequest(base64, guide), { maxRetries: 3 })
   const usd = callUsd(MODELS.piece, response.usage)
   const meta = {

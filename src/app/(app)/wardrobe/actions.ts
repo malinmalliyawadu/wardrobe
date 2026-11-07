@@ -26,7 +26,7 @@ import {
   updatePiece,
   type PieceDraft,
 } from '@/lib/pieces'
-import { PhotoError, unlinkPair } from '@/lib/photos'
+import { PhotoError, removePair } from '@/lib/photos'
 import { text } from '@/lib/form-parse'
 import {
   actOnLook,
@@ -192,7 +192,7 @@ export async function removePiece(form: FormData): Promise<void> {
   const pieceId = id(form)
   if (pieceId) {
     const { photoPath } = await deletePiece(pieceId)
-    if (photoPath) await unlinkPair(photoPath)
+    if (photoPath) await removePair(photoPath)
   }
   refreshAll()
   redirect('/wardrobe')

@@ -17,10 +17,12 @@
     "health": "node --env-file-if-exists=.env scripts/health.ts",
     "find": "node --env-file-if-exists=.env scripts/find.ts",
     "db:seed-retailers": "node --env-file-if-exists=.env scripts/seed-retailers.ts",
+    "photos:move": "node --env-file-if-exists=.env scripts/move-photos.ts",
     "test": "node --env-file-if-exists=.env --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
+    "aws4fetch": "^1.0.20",
     "next": "16.4.5",
     "postgres": "^4.0.0",
     "react": "19.3.0",

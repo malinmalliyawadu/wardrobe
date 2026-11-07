@@ -45,8 +45,10 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
   its action returns. On success the action `redirect`s back to the hub.
 - Every mutation calls `revalidatePath('/', 'layout')` so Today and the hub
   re-read the profile.
-- Photos live in `PHOTOS_DIR` (a volume at `/data/photos` in Docker), never
-  in `public/`, and are served only through `/photos/[id]`. Masters are 1568px
+- Photos live in a private Cloudflare R2 bucket in production and in
+  `PHOTOS_DIR` locally, never in `public/`, and are served only through
+  `/photos/*`. Every read, write and delete goes through `files()` in
+  `src/lib/storage.ts`; a row's `path` is the file's key in either store. Masters are 1568px
   JPEGs with no metadata; the row holds the hash and the dimensions.
 - `npm test` creates and drops its own scratch database for the migration
   test. Never point the test at a database you care about anyway.
@@ -218,8 +220,13 @@ choice: an installed iPhone app handles a Basic Auth prompt badly):
 and `/api/health/live`; `APP_PASSWORD` unset leaves local dev open; the cookie
 is an HMAC keyed by the password and lasts a year (`src/lib/auth.ts`). The
 tabs live in the `(app)` route group so `/login` has no nav. Deploying is the
-README's click-through (Postgres, the data carried across, a named volume at
-`/data`, the finder as a scheduled task with a 3600 s timeout). The container
+README's click-through (Postgres, the data carried across, the photos in a
+private R2 bucket, the finder as a scheduled task with a 3600 s timeout).
+Photos moved off the `/data` volume to R2 on 2026-11-07, Malin's call so
+they do not fill the Coolify server: `src/lib/storage.ts` (aws4fetch, all
+four `R2_*` settings or none, the folder in dev and tests) and
+`npm run photos:move` (copy, MD5 check, `--prune`), with the README's
+one-time steps for the running deploy. The container
 health check is `/api/health/live` (database only); `/api/health` adds Claude
 and whether the photos folder is writable. Icons are the palette strip,
 drawn by `scripts/icons.ts` into `public/icons` and `src/app`; no service

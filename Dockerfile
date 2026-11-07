@@ -52,11 +52,12 @@ COPY --chown=wardrobe:wardrobe public ./public
 COPY --chown=wardrobe:wardrobe db ./db
 COPY --chown=wardrobe:wardrobe scripts ./scripts
 COPY --chown=wardrobe:wardrobe src ./src
-# The retailer list the finder seeds from. /data stays the photos volume.
+# The retailer list the finder seeds from.
 COPY --chown=wardrobe:wardrobe data/retailers.json ./data/retailers.json
 
-# Uploaded photos. Mount a Coolify volume here or they vanish on redeploy.
-VOLUME ["/data"]
+# Photos live in R2 (the R2_* settings). PHOTOS_DIR is only where the old
+# /data volume is read from by `npm run photos:move`, and where photos would
+# go without R2, which /api/health reports as a failure in production.
 
 USER wardrobe
 EXPOSE 3000
@@ -66,7 +67,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
 
 # Apply pending migrations, bring the shop list up to date (idempotent, and
 # it never undoes a switch made on /you/finder), then serve. Coolify provides DATABASE_URL,
-# ANTHROPIC_API_KEY, OPENAI_API_KEY and APP_PASSWORD. `&&` means a failed
+# ANTHROPIC_API_KEY, OPENAI_API_KEY, APP_PASSWORD and the four R2_* settings. `&&` means a failed
 # migration stops the container from serving at all, which is the honest
 # outcome.
 CMD ["sh", "-c", "node scripts/migrate.ts && node scripts/seed-retailers.ts && ./node_modules/.bin/next start"]
