@@ -401,7 +401,7 @@ a find photo (`find-photos.ts`), kept from the orphan sweep while a product
 shows it, and goes nowhere but the try-on editor on his tap, like those of
 finds added by hand.
 
-Worn built 2026-11-07 (migration 0021), asked for by Malin to start
+Worn built 2026-11-07 (migration 0022), asked for by Malin to start
 discarding outfits and pieces; he chose looks and pieces, a section of its
 own, and every offer counted. `/wardrobe/worn` (`src/lib/wear.ts`) records
 nothing new: an offer is a set a look was in or a day it was on Today (the

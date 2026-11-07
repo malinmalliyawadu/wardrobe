@@ -536,7 +536,7 @@ export type Look = {
   pieces: Piece[]
   /** Days he wore it, newest first, as YYYY-MM-DD in New Zealand. */
   worn: string[]
-  /** How often it was offered: each set it was in, each day on Today (look_offers, migration 0021). */
+  /** How often it was offered: each set it was in, each day on Today (look_offers, migration 0022). */
   offered: number
   /** Of those, the days it was one of the day's options or the gym fit. */
   on_today: number

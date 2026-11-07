@@ -8,7 +8,7 @@ import { listPieces, type Piece } from './pieces.ts'
  * What gets worn and what only gets offered, asked for by Malin on 2026-11-07
  * so he can start discarding outfits and pieces. Nothing new is recorded: an
  * offer is a set of looks a look was in or a day it was on Today (the
- * look_offers view, migration 0021), and a wear is a look_wears row. A piece
+ * look_offers view, migration 0022), and a wear is a look_wears row. A piece
  * is offered when a look wearing it is, and worn on a day a look wearing it
  * was; a day or a set counts once for a piece, however many of its looks wore
  * it. Wears of looks since dismissed or remade still count for their pieces,
