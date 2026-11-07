@@ -182,6 +182,19 @@ export async function setAsidePiece(form: FormData): Promise<void> {
   refreshAll()
 }
 
+/** Set aside from a row on the Worn page, which leaves at once; this makes it so. */
+export async function setAsideRow(input: { piece_id: number; slot_to: 'wanted' | 'retired' }): Promise<{ ok: boolean }> {
+  const pieceId = Number(input.piece_id)
+  if (!Number.isInteger(pieceId) || pieceId <= 0) return { ok: false }
+  try {
+    await setAside(pieceId, input.slot_to === 'retired' ? 'retired' : 'wanted')
+  } catch {
+    return { ok: false }
+  }
+  refreshAll()
+  return { ok: true }
+}
+
 export async function restore(form: FormData): Promise<void> {
   const pieceId = id(form)
   if (pieceId) await restorePiece(pieceId)

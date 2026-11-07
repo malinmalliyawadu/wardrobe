@@ -84,7 +84,7 @@ carries its name as `data-colour` (the `name` prop on `Swatch`), and
 Tabs, by how often each is opened: Today (the outfit of the day and nothing
 else), Finds (`/finds`: ask the shops, the way into Statement pieces, last
 night's finds, the way into Shops), Wishlist (`/wishlist`: what he saved and the links he pasted, with
-what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks and On me under its name; a
+what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks, On me and Worn under its name; a
 piece is `/wardrobe/[id]`), Blueprint, You. Old `/looks/*` paths redirect
 from `next.config.ts`.
 
@@ -400,3 +400,16 @@ reads (the photo colour rule, Claude's look when scoring) keep
 a find photo (`find-photos.ts`), kept from the orphan sweep while a product
 shows it, and goes nowhere but the try-on editor on his tap, like those of
 finds added by hand.
+
+Worn built 2026-11-07 (migration 0022), asked for by Malin to start
+discarding outfits and pieces; he chose looks and pieces, a section of its
+own, and every offer counted. `/wardrobe/worn` (`src/lib/wear.ts`) records
+nothing new: an offer is a set a look was in or a day it was on Today (the
+`look_offers` view, a day once however often he asked again), a wear is a
+`look_wears` row, and a piece counts through its looks, wears of dismissed
+and remade looks included. Rotate out comes first, by a rule the page states
+(`rotateOut`: offered 3 times or more and worn on at most one in four, or 14
+days owned since looks began with no look wearing it), then saved looks,
+other pieces, never in a look, and looks offered and never saved, each most
+passed over first, with Dismiss or Set aside on the row. Look cards and a
+piece's page carry the same line (`wearLine` in format.ts).

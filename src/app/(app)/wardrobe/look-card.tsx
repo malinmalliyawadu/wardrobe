@@ -22,7 +22,8 @@ import { lookAction } from './actions'
  * place.
  */
 
-const REASONS: { value: LookDismissReason; label: string }[] = [
+/** Why he dismissed a look, as the chips say it. The Worn page asks the same. */
+export const REASONS: { value: LookDismissReason; label: string }[] = [
   { value: 'colours', label: 'Colours' },
   { value: 'too_dressy', label: 'Too dressy' },
   { value: 'too_casual', label: 'Too casual' },
@@ -42,7 +43,7 @@ export function LookCard({
   /** Today in New Zealand, YYYY-MM-DD. */
   today: string
   occasion: string
-  /** "Worn 3 times, last on 2 November", formatted on the server. */
+  /** "Offered 4 times, 2 on Today. Worn twice, last on 2 November.", formatted on the server. */
   wornLine: string | null
 }) {
   const [asking, setAsking] = useState(false)

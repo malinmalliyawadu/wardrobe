@@ -3,10 +3,10 @@ import type { ReactNode } from 'react'
 
 import { PageTitle } from '@/components/section'
 
-export type WardrobeSection = 'pieces' | 'looks' | 'on-me'
+export type WardrobeSection = 'pieces' | 'looks' | 'on-me' | 'worn'
 
 /**
- * The tab's three sections under its name: Pieces, Looks, On me. The open
+ * The tab's four sections under its name: Pieces, Looks, On me, Worn. The open
  * one is ink with a rule under it. Switching is a plain navigation, so
  * nothing moves.
  */
@@ -15,9 +15,10 @@ export function WardrobeTabs({ current }: { current: WardrobeSection }) {
     { key: 'pieces', href: '/wardrobe', label: 'Pieces' },
     { key: 'looks', href: '/wardrobe/looks', label: 'Looks' },
     { key: 'on-me', href: '/wardrobe/on-me', label: 'On me' },
+    { key: 'worn', href: '/wardrobe/worn', label: 'Worn' },
   ] as const
   return (
-    <nav aria-label="Pieces, looks and pictures of you" className="subnav mt-8">
+    <nav aria-label="Pieces, looks, pictures of you and what you wear" className="subnav mt-8">
       {items.map((item) => (
         <Link
           key={item.key}

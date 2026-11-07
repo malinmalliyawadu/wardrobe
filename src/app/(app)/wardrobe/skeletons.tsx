@@ -100,6 +100,40 @@ export function LooksSkeleton() {
   )
 }
 
+/** The head, then a section of rows: a strip of pieces, a caption, a name and a line. */
+export function WornSkeleton() {
+  return (
+    <>
+      <HeadWaiting current="worn" />
+      <Skeleton label="Loading what you wear">
+        <div className="mt-12">
+          <HeadBone width="w-24" />
+        </div>
+        <div className="mt-4 grid gap-x-12 lg:grid-cols-2">
+          {[0, 1, 2, 3].map((row) => (
+            <div key={row} className="flex flex-col gap-3 border-t border-line py-5 sm:flex-row sm:gap-5">
+              <div className="flex shrink-0 gap-px">
+                {[0, 1, 2, 3].map((piece) => (
+                  <Bone key={piece} className="aspect-[3/4] w-11 sm:w-12" />
+                ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <TextBone className="w-16" size="text-[0.8125rem]" />
+                <div className="mt-1 text-[1.125rem]">
+                  <TextBone className="w-3/5" />
+                </div>
+                <div className="mt-1.5 text-[0.875rem]">
+                  <TextBone className="w-4/5" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Skeleton>
+    </>
+  )
+}
+
 /** The picture, then the name and the details form beside it on the laptop. */
 export function PieceSkeleton() {
   return (

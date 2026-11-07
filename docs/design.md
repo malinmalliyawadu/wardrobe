@@ -18,7 +18,7 @@ Six tabs, ordered by how often each is opened:
 | Today | `/` | The outfit of the day, and nothing else. Three options to swipe between, a gym fit on gym days, "something on today" at the end. Until there is a guide and a wardrobe, it says what to do next. |
 | Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), a row of the best statement pieces leading to `/statements`, last night's finds by slot, and the way into everything the finder read (`/shops`). |
 | Wishlist | `/wishlist` | What he wants: every find he saved and every link he pasted, each with what changed since. He opens it in a shop to decide whether to buy, so it is a tab of its own, with the paste-a-link line first. |
-| Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`) and On me (`/wardrobe/on-me`) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
+| Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`), On me (`/wardrobe/on-me`) and Worn (`/wardrobe/worn`, what to rotate out and what he passes over) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
 | Blueprint | `/blueprint` | What to own, by priority, with the style guide (`/blueprint/guide`) at the top wearing its palette. |
 | You | `/you` | The profile, the finder's spend and shops, the systems. Edited rarely. |
 
@@ -86,7 +86,9 @@ and the phone is the same content in one column, not the other way round.
     of 4 cards (3 at `lg`, 4 at `xl`).
   - Wishlist: the paste-a-link form (`max-w-2xl`), then the rows in two columns.
   - Wardrobe: pieces 4 across at `lg`, 5 at `xl`; looks 3 across; pictures
-    4 across.
+    4 across; Worn as rows two across at `lg`, each a picture (a strip of a
+    look's pieces, stacked above the words on the phone) beside its name, how
+    often it was offered and worn, and the one way to discard it.
   - Blueprint: `lg:grid-cols-[18rem_minmax(0,1fr)]`: the palette band, the
     overview line and "Add your own" in a sticky left column, the priority
     groups on the right with rows no wider than `max-w-3xl`.
