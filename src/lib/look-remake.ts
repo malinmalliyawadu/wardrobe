@@ -25,6 +25,8 @@ import { getProfile, type Profile } from './profile.ts'
 import { GenerationError, generate, type GenerationMeta } from './structured.ts'
 import { getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { forEveryday, forGym } from './wardrobe-values.ts'
+import { dayLimit } from './day-outfit.ts'
+import { limitForPrompt, WARMTH_RULES } from './warmth.ts'
 import { dressDate, forecastLine, nzSeason, weekday, type Forecast } from './weather.ts'
 
 /*
@@ -61,7 +63,7 @@ export const REMAKE_SYSTEM_PROMPT = `You are an experienced menswear stylist. Yo
 
 A piece marked swap comes out, and one other piece from pieces_to_choose_from goes in its place: the one that does its job in this look best for him. It may be a different garment (sneakers for boots, an overshirt for a knit) as long as the look stays one whole outfit. He swapped it for a reason, so choose something that changes what it did (its colour, weight or formality) rather than its near twin, unless his note says otherwise. A piece marked remove comes out with nothing in its place. Every piece marked keep stays. Add nothing else.
 
-The remade look is still one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, each piece once. Use only ids from the look and from pieces_to_choose_from. ${GYM_FIT_RULES} Dress it for the same occasion and the same day as before. When he wrote a note, it decides between the candidates.
+The remade look is still one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, each piece once. Use only ids from the look and from pieces_to_choose_from. ${GYM_FIT_RULES} Dress it for the same occasion and the same day as before. When a day is given, what you bring in keeps the look within its warmth_limit where the kept pieces allow: no more layers than most_layers, no more warm pieces than most_warm_pieces, none of garments_ruled_out; null means no limit. ${WARMTH_RULES} When he wrote a note, it decides between the candidates.
 
 Then write the look's words again for what it is now, as if it had always been this look: never mention what came out or why. title: two to five words, plain, a new one when the change shows in it. weather: the kind of day it is dressed for, in a few words. why: exactly two short sentences to him, the colour story in his palette and then the one proportion or fit move from his guide that the look uses; describe only what the pieces' words say, never a detail they do not. styling: one short instruction for wearing it, or null. today: when a day is given, one sentence for that day naming the weather or the plan it answers; otherwise null. piece_ids: the outermost layer first, down to the shoes, then any accessories.
 
@@ -151,6 +153,7 @@ export function buildRemakeMessages(input: RemakeInput): Anthropic.Beta.BetaMess
             weekday: weekday(day.date),
             season_in_new_zealand: nzSeason(day.date),
             forecast_wellington: day.forecast ? forecastLine(day.forecast) : null,
+            warmth_limit: limitForPrompt(dayLimit(day)),
             what_is_on: day.note,
           },
         }

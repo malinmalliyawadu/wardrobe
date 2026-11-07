@@ -10,6 +10,7 @@ import type { Profile } from './profile.ts'
 import { generate, type GenerationMeta } from './structured.ts'
 import { colourNameFor, getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { latestLookTryOns, type OnMe } from './try-on.ts'
+import { limitForPrompt, pieceWarmth, WARMTH_RULES, warmthLimit } from './warmth.ts'
 import { forEveryday, forGym, type GarmentType, type SlotStatus } from './wardrobe-values.ts'
 
 /*
@@ -158,7 +159,7 @@ Each look is one complete outfit he could put on today: at least one top, exactl
 
 ${GYM_FIT_RULES} Make gym fits only when his gym kit is ready (gym.kit_ready). In a set for his week, make one gym fit when he trains up to three days a week and two when he trains more, and none when he gave no gym days. When he asks for gym fits, every look is one; his kit is small, so they may share pieces, but no two are the same.
 
-Dress him for Wellington: mild, windy, often wet, with layers year round. You are given today's date and the month's usual weather; make most looks for an ordinary day of that month and one for a colder, wetter or windier day than usual. Match warmth: a light linen shirt is not a winter look, a car coat is not a summer one.
+Dress him for Wellington in the month you are given. You have its usual weather and warmth_limit, read from the month's usual high: make most looks for an ordinary day of that month, within that limit, and one for a colder, wetter or windier day than usual, which may go past it. ${WARMTH_RULES} Match warmth: a light linen shirt is not a winter look, a wool knit and a jacket are not a summer one.
 
 Spread the set across his week. Weight the occasions by the days he gave for office, the gym, evenings out and the rest; where he gave nothing, assume office days, weekends and evenings out. Office means smart casual unless his profile says otherwise. Travel only when he travels.
 
@@ -180,12 +181,12 @@ const WELLINGTON: { high: number; low: number }[] = [
 ]
 
 /** Today in New Zealand, and the month's usual weather, for the prompt and the set's record. */
-export function wellingtonToday(now: Date = new Date()): { date: string; month: string; weather: string } {
+export function wellingtonToday(now: Date = new Date()): { date: string; month: string; weather: string; high: number } {
   const date = now.toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
   const month = now.toLocaleDateString('en-NZ', { month: 'long', timeZone: 'Pacific/Auckland' })
   const index = Number(date.slice(5, 7)) - 1
   const { high, low } = WELLINGTON[index]!
-  return { date, month, weather: `Wellington in ${month}: usually ${low} to ${high} degrees, often windy, showers likely` }
+  return { date, month, high, weather: `Wellington in ${month}: usually ${low} to ${high} degrees, often windy, showers likely` }
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +217,7 @@ export function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | nul
       : piece.colour_name ?? 'no single colour',
     fabric: piece.fabric,
     fit: piece.fit,
-    warmth: piece.warmth,
+    warmth: pieceWarmth(piece),
     notes: piece.notes,
     worn_lately: worn.get(piece.id) ?? 0,
   }
@@ -235,10 +236,11 @@ export function buildLooksMessages(input: {
   around?: Pick<Piece, 'id' | 'name' | 'worn_for'>
   now?: Date
 }): Anthropic.Beta.BetaMessageParam[] {
-  const { date, weather } = wellingtonToday(input.now)
+  const { date, weather, high } = wellingtonToday(input.now)
   const body = {
     today: date,
     usual_weather: weather,
+    warmth_limit: limitForPrompt(warmthLimit(high), `the month's usual high, ${high}°`),
     profile: profileBrief(input.profile),
     gym: gymForPrompt(input.profile, input.pieces),
     style_guide: {

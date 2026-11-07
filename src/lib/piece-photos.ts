@@ -116,7 +116,11 @@ export const PieceReadSchema = z.object({
     .describe('The hex of the palette colour this piece is, copied exactly from the list, when it is that colour or very close; null when it is none of them.'),
   fabric: z.string().nullable().describe('The cloth as it looks: "merino", "selvedge denim", "brushed cotton". Null when you cannot tell.'),
   fit: z.enum(FITS).nullable().describe('The cut, when the photo shows it; null for shoes, accessories and when you cannot tell.'),
-  warmth: z.enum(WARMTHS).describe('light: a summer layer; mid: most days in Wellington; warm: winter and southerlies.'),
+  warmth: z
+    .enum(WARMTHS)
+    .describe(
+      'light: comfortable on a warm day (a cotton or linen tee, shirt or shorts, a thin shell); mid: for a mild or cool day (a cotton knit or sweatshirt, an overshirt, denim, a light jacket); warm: for a cold day (wool or cashmere knits, fleece, flannel, a lined or wool coat).',
+    ),
   brand: z.string().nullable().describe('Only when a label or logo is legible in the photo; otherwise null.'),
   notes: z
     .string()
