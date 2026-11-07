@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 import { db, type Sql } from './db.ts'
 import { findPhotoFile, findPhotoId } from './find-photos.ts'
+import { cutListings, cutsFor, type Cut, type CutReader } from './garment-cut.ts'
 import { findKey, lookOutfitKey, outfitKey } from './outfit-key.ts'
 import { productImageAt } from './product-image.ts'
 import { files } from './storage.ts'
@@ -151,22 +152,50 @@ export function placement(garmentType: string | null): Placement {
   }
 }
 
+const KEEP_HIM =
+  'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him. That is his body, not the clothes: what he puts on keeps its own cut and volume, and may stand away from him.'
+
+/** A sentence, ending in a full stop. */
+function sentence(text: string): string {
+  const trimmed = text.trim()
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`
+}
+
+/**
+ * The fit line when a find's cut was read (src/lib/garment-cut.ts): its
+ * shape in positions, measured against his own frame, never taken in.
+ */
+function cutLine(cut: Cut): string {
+  return [
+    `Its cut, as the shop photographs it${cut.fit ? `: ${cut.fit}` : ''}.`,
+    sentence(cut.silhouette),
+    'Keep exactly that cut on him, measured against his own shoulders, arms and waist; never take it in to his shape. Let it drape with natural creases and no smoothing.',
+  ].join(' ')
+}
+
 /**
  * The instruction. Image 1 is him, image 2 the product. What it asks for, in
  * order of what matters: him unchanged (proportions are what he is judging),
  * the garment exactly as sold (colour first, since colour is the point of the
- * app), then a believable fit. It asks for no flattery.
+ * app), then the fit it is cut for: in words when its cut was read, since the
+ * editor left to the photo fits everything close to him. It asks for no
+ * flattery.
  */
-export function tryOnPrompt(product: { title: string; garment_type: string | null; colour: string | null }): string {
+export function tryOnPrompt(
+  product: { title: string; garment_type: string | null; colour: string | null },
+  cut: Cut | null = null,
+): string {
   const { noun, how } = placement(product.garment_type)
   const colour = product.colour ? `, in ${product.colour}` : ''
   return [
     `Image 1 is a photo of a man. Image 2 is a shop's product photo of "${product.title}"${colour}.`,
     `Make a photograph of the man in image 1 wearing that exact ${noun} ${how}, so he can judge honestly whether to buy it.`,
-    'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him.',
+    KEEP_HIM,
     `Reproduce the ${noun} exactly as in image 2: the same colour and shade, shown under the light of image 1 without shifting its hue, brightness or saturation; the same fabric, texture, weight, pattern, cut, length, collar, buttons, pockets, stitching and hardware. Add nothing that is not in image 2: no logos, text or details.`,
     `Change nothing else he is wearing. If image 2 shows a model or other clothes, take only the ${noun}.`,
-    'Let it fit and drape the way that cut would on his body, with natural creases and no smoothing.',
+    cut
+      ? cutLine(cut)
+      : 'Let it keep the cut image 2 shows, on his frame: the same room, length and line, never taken in to his shape. Let it drape with natural creases and no smoothing.',
   ].join('\n')
 }
 
@@ -198,9 +227,10 @@ function colourWords(piece: Pick<PieceSent, 'colour_name' | 'colour_hex'>): stri
 
 /**
  * One line per piece, numbering the photos from image 2 in order and
- * describing a piece with no photo in words.
+ * describing a piece with no photo in words. A piece of his says the fit he
+ * filed it as; a find whose cut was read says it in positions, by product id.
  */
-function pieceLines(pieces: PieceSent[]): { lines: string[]; lastImage: number } {
+function pieceLines(pieces: PieceSent[], cuts: Map<number, Cut> = new Map()): { lines: string[]; lastImage: number } {
   let image = 1
   const lines = pieces.map((piece) => {
     const { noun } = placement(piece.garment_type)
@@ -210,18 +240,19 @@ function pieceLines(pieces: PieceSent[]): { lines: string[]; lastImage: number }
       return `- No photo: "${piece.name}", the ${noun}${colour ? `, in ${colour}` : ''}${cloth ? `, ${cloth}` : ''}.`
     }
     image += 1
-    return `- Image ${image}: "${piece.name}", the ${noun}${colour ? `, ${colour}` : ''}.`
+    const cut = piece.piece_id === null && piece.product_id ? cuts.get(piece.product_id) : undefined
+    const fit = cut ? cut.fit : piece.fit
+    const shape = cut ? ` Cut as photographed: ${sentence(cut.silhouette)}` : ''
+    return `- Image ${image}: "${piece.name}", the ${noun}${colour ? `, ${colour}` : ''}${fit ? `, ${fit} fit` : ''}.${shape}`
   })
   return { lines, lastImage: image }
 }
 
-const KEEP_HIM =
-  'Keep him exactly as he is: face, hair, skin tone, build, body shape, height and proportions, pose, expression, camera angle, lighting and background. Do not slim, lengthen, straighten or flatter him.'
-
 const EACH_AS_PHOTOGRAPHED =
   'Reproduce each piece exactly as in its photo: the same colour and shade, shown under the light of image 1 without shifting its hue, brightness or saturation; the same fabric, texture, weight, pattern, cut, length, collar, buttons, pockets, stitching and hardware. Take only the garment from each photo, nothing of the bed, floor, hanger, model or other clothes around it. Make a piece given only in words plainly, in exactly that colour, with no pattern, logos or details that are not described. Add no logos, text or details anywhere.'
 
-const NATURAL_FIT = 'Let each piece fit and drape the way its cut would on his body, with natural creases and no smoothing.'
+const NATURAL_FIT =
+  'Let each piece keep its own cut, as its photo and its line show it, on his frame: the same room, length and line, never taken in to his shape. Let each drape with natural creases and no smoothing.'
 
 /**
  * The instruction for a whole look. Image 1 is him; the pieces with a photo
@@ -252,8 +283,8 @@ export function lookTryOnPrompt(look: { title: string; styling: string | null; p
  * question), so each goes in place of the matching thing he is wearing and
  * the rest of what he has on stays.
  */
-export function outfitTryOnPrompt(pieces: PieceSent[]): string {
-  const { lines, lastImage } = pieceLines(pieces)
+export function outfitTryOnPrompt(pieces: PieceSent[], cuts: Map<number, Cut> = new Map()): string {
+  const { lines, lastImage } = pieceLines(pieces, cuts)
   const owned = pieces.some((piece) => piece.piece_id !== null && piece.shown.kind !== 'words')
   const saved = pieces.some((piece) => piece.piece_id === null && piece.shown.kind !== 'words')
   const one = lastImage === 2
@@ -862,6 +893,8 @@ export async function startAgain(tryOnId: number, sql: Sql = db()): Promise<Star
 
 type Making = {
   id: number
+  product_id: number | null
+  look_id: number | null
   product_image: string | null
   pieces: PieceSent[] | null
   prompt: string
@@ -883,14 +916,46 @@ async function garmentImages(sql: Sql, row: Making, fetchImpl: typeof fetch): Pr
 }
 
 /**
+ * The prompt as sent: the one recorded, made again with the cut in words when
+ * a find in it has had its cut read (src/lib/garment-cut.ts). The read is
+ * made here rather than on the tap, so the card shows the picture in the
+ * making at once; a find read before is not read again. A look holds only
+ * his own pieces, whose fit is on the piece, so its prompt stands.
+ */
+async function promptWithCuts(sql: Sql, row: Making, read: CutReader | undefined): Promise<string> {
+  if (row.look_id !== null) return row.prompt
+  if (row.product_id !== null && row.product_image) {
+    const [product, listings] = await Promise.all([
+      productForTryOn(sql, row.product_id),
+      cutListings(sql, [{ product_id: row.product_id, image: row.product_image }]),
+    ])
+    const cut = (await cutsFor(listings, { sql, read })).get(row.product_id)
+    return product && cut ? tryOnPrompt(product, cut) : row.prompt
+  }
+  const pieces = row.pieces ?? []
+  const finds = pieces.flatMap((piece) =>
+    piece.piece_id === null && piece.product_id && piece.shown.kind === 'product'
+      ? [{ product_id: piece.product_id, image: piece.shown.src, garment_type: piece.garment_type }]
+      : [],
+  )
+  if (finds.length === 0) return row.prompt
+  const cuts = await cutsFor(await cutListings(sql, finds), { sql, read })
+  return cuts.size > 0 ? outfitTryOnPrompt(pieces, cuts) : row.prompt
+}
+
+/**
  * Make the image for a recorded request and file it. Never throws: whatever
  * goes wrong ends as a failed row with words for the card.
  */
-export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof fetch } = {}): Promise<TryOnStatus> {
+export async function makeTryOn(
+  id: number,
+  options: { sql?: Sql; fetch?: typeof fetch; readCut?: CutReader } = {},
+): Promise<TryOnStatus> {
   const sql = options.sql ?? db()
   const fetchImpl = options.fetch ?? fetch
   const [row] = await sql<Making[]>`
-    select t.id::int as id, t.product_image, t.pieces, t.prompt, t.settings,
+    select t.id::int as id, t.product_id::int as product_id, t.look_id::int as look_id,
+           t.product_image, t.pieces, t.prompt, t.settings,
            ph.path as photo_path, ph.deleted_at is not null as photo_deleted
     from try_ons t join profile_photos ph on ph.id = t.photo_id
     where t.id = ${id} and t.status = 'making'
@@ -899,11 +964,17 @@ export async function makeTryOn(id: number, options: { sql?: Sql; fetch?: typeof
 
   try {
     if (row.photo_deleted) throw new TryOnError('The photo was deleted before it was made.')
-    const [person, garments] = await Promise.all([files().get(row.photo_path), garmentImages(sql, row, fetchImpl)])
+    const [person, garments, prompt] = await Promise.all([
+      files().get(row.photo_path),
+      garmentImages(sql, row, fetchImpl),
+      promptWithCuts(sql, row, options.readCut),
+    ])
     if (!person) throw new TryOnError('Your photo is missing its file. Add it again on the Photos page.')
+    // The row keeps the prompt as sent, which the picture's page shows.
+    if (prompt !== row.prompt) await sql`update try_ons set prompt = ${prompt} where id = ${id} and status = 'making'`
     const [width, height] = (row.settings.size ?? `${OUTPUT_EDGE}x${OUTPUT_EDGE}`).split('x').map(Number)
     const result = await editImage(
-      { images: [person, ...garments], prompt: row.prompt, size: { width: width!, height: height! } },
+      { images: [person, ...garments], prompt, size: { width: width!, height: height! } },
       fetchImpl,
     )
 

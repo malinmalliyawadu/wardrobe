@@ -21,6 +21,7 @@ Three layers, each derived from the one above, then the finder's tables.
 | `feed_actions` | append only | saved, dismissed (with a one-tap reason), bought |
 | `finder_runs` | one per night | Counts and cost of each run |
 | `try_ons` | one per outfit he asks to see on him, more on "Make it again" | A picture of him in a find, a look or pieces he chose: what was sent, its `outfit_key` (the pieces and finds in any order), source photo, provider, cost, the file in the photo store. A kept picture of an outfit is what every card and the chooser show for it |
+| `product_cuts` | one per find and photo, read before its first try-on | Claude's read of a find's cut from the shop's photo and listing (fit, and where the seams sit, the room and the length), which the try-on prompt says in words; and what the read cost |
 | `wardrobe_pieces` | tens | What he owns: garment, colour, cloth, fit, warmth, what it is worn for (`everyday`, `gym` or `both`), the slot it fills, the product it was bought as |
 | `wardrobe_photos` | one per piece photo | Index of photos of his clothes on disk, with the colour read here and Claude's read |
 | `find_photos` | one per find added by hand | Index of the photos of finds from a store that cannot be read (Lululemon), on disk under `finds/`; `products.find_photo_id` keeps one from being cleared |

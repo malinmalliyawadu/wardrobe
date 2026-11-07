@@ -8,8 +8,8 @@ import Anthropic from '@anthropic-ai/sdk'
  * drafting, looks, the outfit of the day and remaking a look run rarely (the
  * outfit once a day at most, a remake on his tap) and quality matters, so
  * they get Opus; scoring
- * runs over hundreds of products a night and a photo of one of his clothes is
- * a quick read, so those get Sonnet.
+ * runs over hundreds of products a night, and a photo of one of his clothes or
+ * a find's cut before its try-on is a quick read, so those get Sonnet.
  */
 const OPUS = 'claude-opus-5-5'
 const SONNET = 'claude-sonnet-5-5'
@@ -18,6 +18,7 @@ export const MODELS = {
   profile: OPUS,
   scoring: SONNET,
   piece: SONNET,
+  cut: SONNET,
   looks: OPUS,
   day: OPUS,
   remake: OPUS,

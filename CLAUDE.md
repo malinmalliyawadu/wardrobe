@@ -210,7 +210,13 @@ save, for a slot or none. What it marks as on Today comes from
 M3.5 try-on built 2026-11-04 with OpenAI (`gpt-image-2.5-sunburst`, high,
 his photo's aspect), chosen by Malin over the recommended FASHN; the research
 and the agreed photo rule are in docs/plan.md. Gate pending: a week of
-try-ons he finds honest enough to change what he buys.
+try-ons he finds honest enough to change what he buys. A find's cut goes into
+the prompt in words (`src/lib/garment-cut.ts`, migration 0021, 2026-11-07):
+left to the photo, the editor fitted an oversized overshirt close to him, so
+Sonnet reads the shop's photo and listing once per find and photo, when its
+first try-on is made, and says where the seams sit, the room and the length;
+his own find photos are never read. A piece of his says the fit it is filed
+as.
 
 M4 deploy and polish built 2026-11-04; gate pending (Malin using it on
 Coolify, from his phone). GitHub: `malinmalliyawadu/wardrobe`, public, CI on

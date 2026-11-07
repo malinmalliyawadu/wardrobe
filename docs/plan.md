@@ -340,6 +340,22 @@ says which is which. A try-on row is now of a find or of a look, never both;
 it keeps how each piece was sent. A look with a piece gone from the wardrobe
 cannot be tried on. The viewer shows him beside the pieces' photos.
 
+A find's cut is said in words (2026-11-07, migration 0021, after Bronze
+Snake's Phillip overshirt, plainly oversized in the shop's photo, came back a
+regular fit on him). Left to the photo, the editor fits every garment close
+to his body, and "keep his build" pulled the same way. So before a try-on
+with a find is made, Sonnet reads the shop's photo (by URL, as the nightly
+scorer does) and the listing once and says the cut in positions: where the
+shoulder seams sit, the room in the body and sleeves, where it ends
+(`src/lib/garment-cut.ts`, kept in `product_cuts` per product and photo).
+The prompt carries that line, his build is said to be his body and not the
+clothes, and every piece is to keep its own cut, never taken in to his shape.
+His own photo of a find is never read, and shoes, belts, bags and
+accessories have no cut to read. A read takes about 3 s and US$0.0075, once
+per find; it is Anthropic spend, so it is not in the try-on figures on
+/you/finder, which are OpenAI's. First reads: the Phillip overshirt
+oversized, a Country Road tee whose listing says relaxed, relaxed.
+
 **M4 Deploy and polish.** Coolify deployment, scheduled task, PWA manifest and
 icons, price-drop and restock tracking on saved items, verified Wellington
 store addresses, loading and empty states that are actually good.
