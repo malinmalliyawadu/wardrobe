@@ -218,7 +218,20 @@
       "currency": "AUD",
       "ships_to_nz": true,
       "catalogue": "mixed",
-      "notes": "A Melbourne label, one Shopify shop in AUD (its meta.json says so, and it lists NZ among the countries it ships to); there is no NZ site or market, so prices are AUD converted for display and shipping to NZ is extra. The 'mens' collection is the men's range (about 490 products); 'mens-new' is only its new arrivals. Probed 2026-11-07: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, which the client waits out. Its stores are all in Australia.",
+      "notes": "A Melbourne label, one Shopify shop in AUD (its meta.json says so, and it lists NZ among the countries it ships to); there is no NZ site or market, so prices are AUD converted for display and shipping to NZ is extra. The 'mens' collection is the men's range (about 490 products); 'mens-new' is only its new arrivals. Probed 2026-11-07: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, and after a whole-catalogue read it stayed limited for over an hour. Its stores are all in Australia.",
+      "wellington_store": null
+    },
+    {
+      "slug": "lskd",
+      "name": "LSKD",
+      "platform": "shopify",
+      "base_url": "https://www.lskd.co",
+      "country": "AU",
+      "currency": "AUD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "enabled": false,
+      "notes": "Links only by default, Malin's call 2026-11-07: a Gold Coast activewear label, one Shopify shop in AUD (its meta.json says so, and it ships to NZ). Its currency is not settled: the shop prices by the visitor's country (Shopify Markets), so the Base tank is A$50 in Australia but its feed gave 55, the NZ$ figure, to a request from NZ, and what is stored as AUD may be NZD depending on where the server is. A pasted link is read from /products/<handle>.js like any Shopify store, and a saved one is re-read each night. It starts switched off on /you/finder: its robots.txt disallows /collections/*/* (so no 'mens' collection feed), and the whole /products.json (about 4,900 products, 1,450 of them men's) tags every tee 'category:Tops > Tees & Tanks', which the rules read as tanks. Probed 2026-11-07: robots.txt allows /products/ and /products.json, and a burst of requests is answered 429 with Retry-After 60, and after a whole-catalogue read it stayed limited for over an hour. Its stores are in Australia and Auckland.",
       "wellington_store": null
     },
     {
