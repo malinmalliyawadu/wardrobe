@@ -159,7 +159,10 @@ Crane Brothers through its myshopify host. Patagonia NZ (added 2026-11-05,
 its own NZD shop, read through `mens`) is mostly technical kit that the
 rules file as activewear, so its finds are the casual fleece, shirts and
 pants. Bronze Snake (added 2026-11-07) is a Melbourne label in AUD that
-ships here, read through `mens`; its feed rate-limits like Patagonia's. Rodd & Gunn (added 2026-11-05, migration 0019, platform
+ships here, read through `mens`; its feed rate-limits like Patagonia's. LSKD (added 2026-11-07, Malin's ask
+for gym tanks) is a Gold Coast activewear shop that ships here, links only by
+his call: a Shopify store that starts switched off, so a pasted link is read
+and a saved one re-read each night, but it is not walked. Rodd & Gunn (added 2026-11-05, migration 0019, platform
 `rodd-and-gunn`, `rodd-and-gunn.ts`) is links only, like Uniqlo, Malin's
 call: it is not Shopify and its catalogue is a page per colour (about 2,540),
 most of an hour a night at a page a second, so it is never walked and has no
