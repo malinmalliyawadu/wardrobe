@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 
 import { ButtonLink } from '@/components/button-link'
 import { SectionHead } from '@/components/section'
-import { day, list, wornLine } from '@/lib/format'
+import { day, list, lookWearLine } from '@/lib/format'
 import { gymReadiness, OCCASION_LABELS, readiness, readLooks, todayNz, type Look, type LookKind } from '@/lib/looks'
 import { listPieces } from '@/lib/pieces'
 import { getGuide } from '@/lib/style-guide'
@@ -154,7 +154,7 @@ function Section({
       {hint ? <p className="mt-1 text-sm text-ink-3">{hint}</p> : null}
       <div className="mt-6 grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
         {looks.map((look) => (
-          <LookCard key={look.id} look={look} today={today} occasion={OCCASION_LABELS[look.occasion]} wornLine={wornLine(look.worn)} />
+          <LookCard key={look.id} look={look} today={today} occasion={OCCASION_LABELS[look.occasion]} wornLine={lookWearLine(look)} />
         ))}
       </div>
     </section>

@@ -536,6 +536,10 @@ export type Look = {
   pieces: Piece[]
   /** Days he wore it, newest first, as YYYY-MM-DD in New Zealand. */
   worn: string[]
+  /** How often it was offered: each set it was in, each day on Today (look_offers, migration 0021). */
+  offered: number
+  /** Of those, the days it was one of the day's options or the gym fit. */
+  on_today: number
   /** The latest try-on of the whole look, if he asked for one. */
   on_me: OnMe | null
   /** The pieces he marked, while a remake of it is being made. */
@@ -576,6 +580,8 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
            l.better_slot_id::int as better_slot_id, s.name as better_name, s.colours as better_colours, l.better_why,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids,
            array(select to_char(w.worn_on, 'YYYY-MM-DD') from look_wears w where w.look_id = l.id order by w.worn_on desc) as worn,
+           (select count(*)::int from look_offers o where o.look_id = l.id) as offered,
+           (select count(o.for_date)::int from look_offers o where o.look_id = l.id) as on_today,
            (select json_build_object('swap', r.swap, 'remove', r.remove) from look_remakes r
             where r.look_id = l.id and r.status = 'making' and r.started_at > now() - interval '5 minutes'
             limit 1) as remaking
@@ -608,6 +614,8 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
         : null,
     pieces: row.piece_ids.flatMap((id) => (pieces.has(id) ? [pieces.get(id)!] : [])),
     worn: row.worn,
+    offered: row.offered,
+    on_today: row.on_today,
     on_me: onMe.get(row.id) ?? null,
     remaking: row.remaking,
   }))

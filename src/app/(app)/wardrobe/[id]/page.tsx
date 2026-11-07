@@ -8,11 +8,12 @@ import { SubmitButton } from '@/components/form'
 import { HoldButton } from '@/components/hold-button'
 import { PieceImage } from '@/components/piece-image'
 import { SectionHead } from '@/components/section'
-import { day, list, wornLine } from '@/lib/format'
+import { day, list, lookWearLine, wearLine } from '@/lib/format'
 import { dressable, OCCASION_LABELS, readinessAround, readPieceLooks, todayNz, type PieceLooks } from '@/lib/looks'
 import { fillableSlots, getPiece, inPalette, listPieces, type Piece } from '@/lib/pieces'
 import { colourNameFor, getGuide } from '@/lib/style-guide'
 import { GARMENT_LABELS, type WornFor } from '@/lib/wardrobe-values'
+import { wearOf } from '@/lib/wear'
 
 import { removePiece, restore, setAsidePiece } from '../actions'
 import { LookCard } from '../look-card'
@@ -42,12 +43,13 @@ async function Content({ params }: Pick<PageProps<'/wardrobe/[id]'>, 'params'>) 
   const { id: raw } = await params
   const id = Number(raw)
   const valid = Number.isInteger(id) && id > 0
-  const [piece, guide, slots, pieces, around] = await Promise.all([
+  const [piece, guide, slots, pieces, around, wear] = await Promise.all([
     valid ? getPiece(id) : null,
     getGuide(),
     valid ? fillableSlots(id) : [],
     listPieces(),
     valid ? readPieceLooks(id) : null,
+    valid ? wearOf(id) : null,
   ])
 
   if (!piece) {
@@ -84,6 +86,14 @@ async function Content({ params }: Pick<PageProps<'/wardrobe/[id]'>, 'params'>) 
         <p className="mt-3 text-[0.9375rem] text-ink-2">
           {[GARMENT_LABELS[piece.garment_type], colour, palette, WORN_FOR_LINE[piece.worn_for]].filter(Boolean).join(', ')}.
         </p>
+        {wear ? (
+          <p className="mt-2 text-[0.9375rem] text-ink-2">
+            {wearLine(wear)}{' '}
+            <Link href="/wardrobe/worn" className={LINK}>
+              What you wear
+            </Link>
+          </p>
+        ) : null}
         {piece.slot_id && piece.slot_name && !piece.set_aside_at ? (
           <p className="mt-2 text-[0.9375rem] text-ink-2">
             Fills your{' '}
@@ -126,7 +136,7 @@ async function Content({ params }: Pick<PageProps<'/wardrobe/[id]'>, 'params'>) 
               look={look}
               today={todayNz()}
               occasion={OCCASION_LABELS[look.occasion]}
-              wornLine={wornLine(look.worn)}
+              wornLine={lookWearLine(look)}
             />
           ))}
         </div>
