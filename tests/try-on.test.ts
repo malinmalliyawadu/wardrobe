@@ -8,6 +8,7 @@ import { after, before, describe, test } from 'node:test'
 import sharp from 'sharp'
 
 import { connect, db, type Sql } from '../src/lib/db.ts'
+import { buildCutRequest, readsCut, type Cut, type CutListing, type CutReader } from '../src/lib/garment-cut.ts'
 import { getOnMe, keptOutfits, listOnMe, outfitTitle } from '../src/lib/on-me.ts'
 import { lookOutfitKey, outfitKey } from '../src/lib/outfit-key.ts'
 import { removeAllPhotos, removePhoto, storePhoto } from '../src/lib/photos.ts'
@@ -41,8 +42,16 @@ import {
 /*
  * Try-on: the pure parts, then the whole lifecycle against a real Postgres in
  * a scratch database (never the one DATABASE_URL names) and a throwaway
- * PHOTOS_DIR. OpenAI and the shop are a fake fetch: nothing leaves the machine.
+ * PHOTOS_DIR. OpenAI and the shop are a fake fetch, and Claude's read of a
+ * find's cut a fake reader: nothing leaves the machine.
  */
+
+const noCut: CutReader = async () => null
+
+const OVERSIZED: Cut = {
+  fit: 'oversized',
+  silhouette: 'Shoulder seams dropped well down the upper arm; a wide, boxy body with room at the chest; sleeves stack at the wrist; hem at the top of the thigh',
+}
 
 describe('the pure parts', () => {
   test('an outfit is keyed by its pieces and finds in any order, sorted as Postgres sorts with collate C', () => {
@@ -138,6 +147,43 @@ describe('the pure parts', () => {
     assert.ok(layer('tee') < layer('jeans') && layer('jeans') < layer('boots') && layer('boots') < layer('bag'))
     assert.equal(outfitTitle(['Field Jacket', 'Chalk tee', 'Putty chinos']), 'Field Jacket, Chalk tee and Putty chinos')
     assert.equal(outfitTitle(['Field Jacket']), 'Field Jacket')
+  })
+
+  test('a find whose cut was read says it in positions, and the editor is told not to take it in', () => {
+    const shirt = { title: 'Phillip Washed Cotton Overshirt Green', garment_type: 'overshirt', colour: 'Green' }
+    const plain = tryOnPrompt(shirt)
+    assert.match(plain, /what he puts on keeps its own cut and volume/, 'his build is his body, not the clothes')
+    assert.match(plain, /Let it keep the cut image 2 shows, on his frame: .* never taken in to his shape\./)
+
+    const cut = tryOnPrompt(shirt, OVERSIZED)
+    assert.match(cut, /Its cut, as the shop photographs it: oversized\. Shoulder seams dropped well down the upper arm; .* hem at the top of the thigh\. Keep exactly that cut on him/)
+    assert.match(cut, /never take it in to his shape/)
+    assert.doesNotMatch(cut, /Let it keep the cut image 2 shows/, 'one fit line, not two')
+    assert.doesNotMatch(cut, /[–—]/, 'plain hyphens only')
+
+    const jacket = { piece_id: null, product_id: 9, name: 'Field Jacket', garment_type: 'jacket', colour_name: 'olive', colour_hex: null, fabric: null, fit: null, shown: { kind: 'product', src: 'x' } } as const
+    const tee = { piece_id: 2, name: 'Chalk tee', garment_type: 'tee', colour_name: 'chalk', colour_hex: null, fabric: null, fit: 'relaxed', shown: { kind: 'photo', photo_id: 1 } } as const
+    const outfit = outfitTryOnPrompt([jacket, tee], new Map([[9, OVERSIZED]]))
+    assert.match(outfit, /- Image 2: "Field Jacket", the outer layer, olive, oversized fit\. Cut as photographed: Shoulder seams .* thigh\./)
+    assert.match(outfit, /- Image 3: "Chalk tee", the top, chalk, relaxed fit\./, 'a piece of his says the fit he filed')
+    assert.match(outfit, /Let each piece keep its own cut, .* never taken in to his shape/)
+
+    // A cut is a garment's, read from a shop's photo only.
+    assert.ok(readsCut('overshirt', '//cdn.shopify.com/a.jpg'))
+    assert.ok(!readsCut('boots', '//cdn.shopify.com/a.jpg'), 'shoes have no cut to read')
+    assert.ok(!readsCut('jacket', '/photos/finds/12'), 'his own photo of a find goes nowhere but the editor')
+
+    const request = buildCutRequest({
+      product_id: 1,
+      image: '//cdn.shopify.com/s/files/1/phillip.jpg?v=1',
+      title: 'Phillip Washed Cotton Overshirt Green',
+      garment_type: 'overshirt',
+      body_html: '<p>Pictured: Size L&nbsp;</p><p>Ace’s Height: 185cm. Chest: 94cm.</p>',
+      tags: ['Mens'],
+    })
+    const [image, words] = request.messages[0]!.content
+    assert.deepEqual(image, { type: 'image', source: { type: 'url', url: 'https://cdn.shopify.com/s/files/1/phillip.jpg?v=1&width=1024' } })
+    assert.ok(words?.type === 'text' && words.text.includes('"description": "Pictured: Size L\\nAce’s Height: 185cm. Chest: 94cm."'), 'the listing as plain text')
   })
 
   test('product photos are asked of the CDN at the size sent', () => {
@@ -245,6 +291,7 @@ describe('the lifecycle', () => {
     const generated = await jpeg(1152, 1536, { r: 40, g: 50, b: 80 })
     const status = await makeTryOn(started.id, {
       sql,
+      readCut: noCut,
       fetch: fakeFetch(
         async () =>
           Response.json(
@@ -298,6 +345,7 @@ describe('the lifecycle', () => {
     assert.ok(started.ok && !started.reused)
     const status = await makeTryOn(started.id, {
       sql,
+      readCut: noCut,
       fetch: fakeFetch(
         async () =>
           Response.json(
@@ -335,6 +383,7 @@ describe('the lifecycle', () => {
     assert.equal(
       await makeTryOn(started.id, {
         sql,
+        readCut: noCut,
         fetch: fakeFetch(async () => Response.json({ data: [{ b64_json: image.toString('base64') }] }), []),
       }),
       'ready',
@@ -390,6 +439,7 @@ describe('the lifecycle', () => {
     const generated = await jpeg(1152, 1536, { r: 40, g: 50, b: 80 })
     const status = await makeTryOn(started.id, {
       sql,
+      readCut: noCut,
       fetch: fakeFetch(async () => Response.json({ data: [{ b64_json: generated.toString('base64') }], usage: { input_tokens: 1000, output_tokens: 1000 } }), calls),
     })
     assert.equal(status, 'ready')
@@ -504,7 +554,7 @@ describe('the lifecycle', () => {
     const calls: Call[] = []
     const generated = await jpeg(1152, 1536, { r: 60, g: 70, b: 50 })
     const openai = fakeFetch(async () => Response.json({ data: [{ b64_json: generated.toString('base64') }], usage: { input_tokens: 1000, output_tokens: 1000 } }), calls)
-    assert.equal(await makeTryOn(started.id, { sql, fetch: openai }), 'ready')
+    assert.equal(await makeTryOn(started.id, { sql, readCut: noCut, fetch: openai }), 'ready')
     const edit = calls.find((call) => call.url === 'https://api.openai.com/v1/images/edits')
     assert.equal((edit!.body!.images as unknown[]).length, 3, 'him, the shop’s jacket, his tee')
 
@@ -527,7 +577,7 @@ describe('the lifecycle', () => {
     assert.equal(newest?.id, again.id)
     assert.equal(newest?.status, 'making')
     assert.deepEqual(newest?.sources.map((source) => source.name), ['Field Jacket', 'Grey tee'])
-    assert.equal(await makeTryOn(again.id, { sql, fetch: openai }), 'ready')
+    assert.equal(await makeTryOn(again.id, { sql, readCut: noCut, fetch: openai }), 'ready')
 
     // A piece gone from the wardrobe stays named on the picture, with nowhere to link.
     await sql`delete from wardrobe_pieces where id = ${tee!.id}`
@@ -538,13 +588,13 @@ describe('the lifecycle', () => {
     // A failed request has no picture, so the page leaves it out.
     const failing = await startOutfitTryOn({ piece_ids: [], product_ids: [jacket!.id] }, sql)
     assert.ok(failing.ok)
-    await makeTryOn(failing.id, { sql, fetch: fakeFetch(async () => Response.json({ error: { message: 'no' } }, { status: 500 }), []) })
+    await makeTryOn(failing.id, { sql, readCut: noCut, fetch: fakeFetch(async () => Response.json({ error: { message: 'no' } }, { status: 500 }), []) })
     assert.ok(!(await listOnMe(sql)).some((image) => image.id === failing.id))
 
     // The jacket alone, made: it is the find's picture too.
     const alone = await startOutfitTryOn({ piece_ids: [], product_ids: [jacket!.id] }, sql)
     assert.ok(alone.ok && !alone.reused)
-    assert.equal(await makeTryOn(alone.id, { sql, fetch: openai }), 'ready')
+    assert.equal(await makeTryOn(alone.id, { sql, readCut: noCut, fetch: openai }), 'ready')
     assert.equal((await latestTryOns([jacket!.id], sql)).get(jacket!.id)?.id, alone.id)
     const onFind = await startTryOn(jacket!.id, sql)
     assert.ok(onFind.ok && onFind.reused && onFind.id === alone.id, 'See it on me on the find opens it')
@@ -597,7 +647,7 @@ describe('the lifecycle', () => {
     assert.match(row!.prompt, /"Rust Mohair Cardigan", the .*, Rust\./)
 
     const openai = fakeFetch(async () => Response.json({ data: [{ b64_json: (await jpeg(1152, 1536, { r: 90, g: 40, b: 20 })).toString('base64') }] }), [])
-    assert.equal(await makeTryOn(started.id, { sql, fetch: openai }), 'ready')
+    assert.equal(await makeTryOn(started.id, { sql, readCut: noCut, fetch: openai }), 'ready')
     assert.equal((await tryOnsByKey([key], sql)).get(key)?.id, started.id, 'the card finds it by its outfit')
     const second = await startStatementTryOn(cardigan!.id, [chinos!.id, tee!.id], sql)
     assert.ok(second.ok && second.reused && second.id === started.id, 'a second tap opens it')
@@ -616,12 +666,65 @@ describe('the lifecycle', () => {
     await sql`insert into feed_actions (product_id, action) values (${cardigan!.id}, 'cleared')`
     const again = await startAgain(started.id, sql)
     assert.ok(again.ok && again.id !== started.id)
-    assert.equal(await makeTryOn(again.id, { sql, fetch: openai }), 'ready')
+    assert.equal(await makeTryOn(again.id, { sql, readCut: noCut, fetch: openai }), 'ready')
 
     // A piece set aside since: the card no longer offers it, and the old ask is refused.
     await sql`update wardrobe_pieces set set_aside_at = now() where id = ${chinos!.id}`
     const gone = await startStatementTryOn(cardigan!.id, [tee!.id, chinos!.id], sql)
     assert.ok(!gone.ok && /no longer in your wardrobe/.test(gone.message))
+
+    await removePhoto(photo.id, sql)
+  })
+
+  test('a find’s cut is read once before its picture, kept, and sent in the prompt', async () => {
+    const photo = await storePhoto({ bytes: await jpeg(1200, 1600, { r: 150, g: 120, b: 90 }), mime: 'image/jpeg', kind: 'full_body' })
+    await sql`update products set body_html = ${'<p>Pictured: Size L. Ace’s Height: 185cm.</p>'} where id = ${productId}`
+    const asked: CutListing[] = []
+    const reader: CutReader = async (listing) => {
+      asked.push(listing)
+      return { cut: OVERSIZED, model: 'claude-sonnet-5-5', served_by: 'claude-sonnet-5-5', input_tokens: 1800, output_tokens: 120, usd: 0.0048 }
+    }
+    const calls: Call[] = []
+    const openai = fakeFetch(async () => Response.json({ data: [{ b64_json: (await jpeg(1152, 1536, { r: 20, g: 90, b: 50 })).toString('base64') }] }), calls)
+
+    const started = await startTryOn(productId, sql, { again: true })
+    assert.ok(started.ok)
+    assert.equal(await makeTryOn(started.id, { sql, readCut: reader, fetch: openai }), 'ready')
+    assert.equal(asked.length, 1)
+    assert.equal(asked[0]?.image, '//cdn.shopify.com/s/files/1/overshirt.jpg?v=3', 'the photo the try-on sends')
+    assert.match(asked[0]?.body_html ?? '', /Pictured: Size L/, 'with the listing, which names the size pictured')
+    const sent = calls.find((call) => call.url === 'https://api.openai.com/v1/images/edits')?.body?.prompt as string
+    assert.match(sent, /Its cut, as the shop photographs it: oversized\. Shoulder seams dropped/)
+    const [row] = await sql<{ prompt: string }[]>`select prompt from try_ons where id = ${started.id}`
+    assert.equal(row?.prompt, sent, 'the row keeps the prompt as sent')
+    const [kept] = await sql<{ fit: string; usd: number }[]>`select fit, usd::float as usd from product_cuts where product_id = ${productId}`
+    assert.deepEqual(kept, { fit: 'oversized', usd: 0.0048 })
+
+    // Made again: the cut kept is used, not read again.
+    const again = await startAgain(started.id, sql)
+    assert.ok(again.ok)
+    assert.equal(await makeTryOn(again.id, { sql, readCut: reader, fetch: openai }), 'ready')
+    assert.equal(asked.length, 1, 'read once per photo')
+    assert.match((await sql<{ prompt: string }[]>`select prompt from try_ons where id = ${again.id}`)[0]!.prompt, /oversized/)
+
+    // A saved find in pieces he chose is read too; a read that fails leaves the general line.
+    const [retailer] = await sql<{ id: number }[]>`select id::int as id from retailers limit 1`
+    const [coat] = await sql<{ id: number }[]>`
+      insert into products (retailer_id, external_id, title, url, images, content_hash, garment_type)
+      values (${retailer!.id}, 'coat', 'Wool Car Coat', 'https://shop.test/p/coat',
+              ${sql.json([{ src: '//cdn.shopify.com/s/files/1/coat.jpg' }])}, 'hc', 'coat')
+      returning id::int as id
+    `
+    await sql`insert into feed_actions (product_id, action) values (${coat!.id}, 'saved')`
+    await sql`insert into feed_actions (product_id, action) values (${productId}, 'saved')`
+    const outfit = await startOutfitTryOn({ piece_ids: [], product_ids: [coat!.id, productId] }, sql)
+    assert.ok(outfit.ok && !outfit.reused)
+    const failing: CutReader = async (listing) => (listing.product_id === coat!.id ? null : reader(listing))
+    assert.equal(await makeTryOn(outfit.id, { sql, readCut: failing, fetch: openai }), 'ready')
+    const [made] = await sql<{ prompt: string }[]>`select prompt from try_ons where id = ${outfit.id}`
+    assert.match(made!.prompt, /- Image 2: "Wool Car Coat", the outer layer\./, 'no read, no cut line')
+    assert.match(made!.prompt, /- Image 3: "Ink Wool Overshirt", the outer layer, oversized fit\. Cut as photographed: Shoulder seams/)
+    assert.equal((await sql`select 1 from product_cuts where product_id = ${coat!.id}`).length, 0, 'a failed read is not kept')
 
     await removePhoto(photo.id, sql)
   })
