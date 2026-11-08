@@ -6,7 +6,7 @@ import type { GarmentType } from '../wardrobe-values.ts'
  * and what its size labels mean. They run at every ingest over every product,
  * so a rule change applies to the whole catalogue the next night. The rules
  * were calibrated against the eleven stores' real feeds on 2026-11-04; the
- * cases they settle are in tests/finder-classify.test.ts.
+ * cases they settle are in tests/finder-rules.test.ts.
  */
 
 export type Classification = {
@@ -34,10 +34,12 @@ type Rule = { pattern: RegExp; garment: GarmentType | null; kind?: string }
  * undershirt or a singlet here, but a knit vest is knitwear.
  */
 const NOT_CLOTHING =
-  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|(?<!\b(?:knit|knitted|sweater|jumper|cable|crochet)[\s-])vests?|bodysuits?|dress(es)?|skirts?|bras?|bralettes?|leggings|tights|wetsuits?|wet suits?|spring suits?|full suits?|rash ?guards?|rashies?|booties|gaiters?|suspenders|waders?)\b/i
+  /\b(towels?|candles?|mugs?|posters?|stickers?|fragrances?|perfumes?|colognes?|eau de|parfum|skin ?care|soaps?|shampoo|conditioner|deodorant|gift ?cards?|vouchers?|cushions?|blankets?|vases?|toys?|dolls?|playing cards|keyrings?|key rings?|lanyards?|lighters?|umbrellas?|socks?|underwear|boxers?|briefs|trunks|swim\w*|boardshorts?|board shorts|pyjamas?|pajamas?|robes?|loungewear|sleepwear|bandanas?|wallets?|card ?holders?|sunglasses|eyewear|glasses|necklaces?|bracelets?|earrings?|pendants?|jewell?ery|chains?|cufflinks|tie ?clips?|laces|shoe care|insoles|grooming|(?<!\b(?:knit|knitted|sweater|jumper|cable|crochet)[\s-])vests?|bodysuits?|dress(es)?(?![\s-]*(?:shoes?|shirts?|boots?|pants?|trousers?))|skirts?|bras?|bralettes?|leggings|tights|wetsuits?|wet suits?|spring suits?|full suits?|rash ?guards?|rashies?|booties|gaiters?|suspenders|waders?)\b/i
 
 /** Words that only exclude when they are the product type, because they turn up in titles ("Ring Spun Tee", "Book Club Shirt"). */
-const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|magazines?|accessories - other|gift)\b/i
+const NOT_CLOTHING_TYPE = /\b(rings?|books?|cards?|home|homewares?|art|prints?|magazines?|accessories - other|gift|(?:phone|laptop) cases?)\b/i
+
+const FILED_AS_JACKET = /\b(coats?|jackets?|outerwear)\b/i
 
 /**
  * Sport-specific kit: a running shoe, a golf polo, a gym tee. It is
@@ -50,7 +52,8 @@ const SPORT =
 /** Most specific first. The first rule that matches wins. */
 const RULES: Rule[] = [
   { pattern: /\b(boots?|chelseas?)\b/i, garment: 'boots' },
-  { pattern: /\b(sneakers?|trainers?|runners?)\b/i, garment: 'sneakers' },
+  // '47's Base Runner is a cap.
+  { pattern: /\b(sneakers?|trainers?|(?<!\bbase )runners?)\b/i, garment: 'sneakers' },
   {
     pattern: /\b(shoes?|loafers?|derby|derbies|brogues?|mules?|sandals?|slides?|espadrilles?|moccasins?|footwear)\b/i,
     garment: 'shoes',
@@ -75,7 +78,7 @@ const RULES: Rule[] = [
     garment: 'trousers',
   },
   { pattern: /\b(blazers?|suits?|sport ?coats?|tuxedos?|waistcoats?)\b/i, garment: 'tailoring' },
-  { pattern: /\b(over ?shirts?|over-shirts?|shackets?|shirt jackets?|cpo)\b/i, garment: 'overshirt' },
+  { pattern: /\b(over ?shirts?|over-shirts?|shackets?|shirt[\s-]jac(?:ket)?s?|cpo)\b/i, garment: 'overshirt' },
   { pattern: /\b(polos?|rugby)\b/i, garment: 'polo' },
   { pattern: /\b(tanks?|singlets?)\b/i, garment: 'tank' },
   { pattern: /\b(t-?shirts?|tees?|henleys?)\b/i, garment: 'tee' },
@@ -122,13 +125,39 @@ export function categoryText(productType: string | null, tags: string[]): string
   return [productType ?? '', ...fromTags].filter(Boolean).join(' / ')
 }
 
-export function garmentOf(
-  title: string,
-  productType: string | null,
-  options: { sport?: boolean } = {},
-): { garment_type: GarmentType | null; garment_kind: string | null } {
-  const type = productType ?? ''
-  const text = `${title} | ${type}`
+/** A category naming two garments settles neither: the title decides, and this is what it falls back on. */
+function plainCategory(type: string): string {
+  return type
+    .replace(/\b(?:coats? (?:and|&) jackets?|jackets? (?:and|&) coats?)\b/gi, 'Jackets')
+    .replace(/\bhats? (?:and|&) beanies?\b/gi, 'Hats')
+}
+
+/** "Terra Bomber Jacket - Polo Black" -> "Terra Bomber Jacket". */
+function withoutColourway(title: string): string {
+  const dash = title.lastIndexOf(' - ')
+  return dash > 0 ? title.slice(0, dash) : title
+}
+
+type Garment = { garment_type: GarmentType | null; garment_kind: string | null }
+
+/**
+ * A colourway can name a garment ("Polo Black", "Overnight Bag", "Wave
+ * Runner"), so the title is read without one first, and whole only when that
+ * settles nothing ("Loud Larry - Dry Selvage").
+ */
+export function garmentOf(title: string, productType: string | null, options: { sport?: boolean } = {}): Garment {
+  const type = plainCategory(productType ?? '')
+  const name = withoutColourway(title)
+  if (name !== title) {
+    const named = readGarment(name, type, options)
+    if (named.garment_type !== null) return named
+  }
+  return readGarment(title, type, options)
+}
+
+function readGarment(title: string, type: string, options: { sport?: boolean }): Garment {
+  // A vest filed under jackets is a gilet, where anywhere else it is an undershirt.
+  const text = FILED_AS_JACKET.test(type) ? `${title} | ${type}`.replace(/\bvests?\b/gi, 'gilet') : `${title} | ${type}`
   if (NOT_CLOTHING.test(text) || NOT_CLOTHING_TYPE.test(type)) return { garment_type: null, garment_kind: null }
   if (options.sport !== false && SPORT.test(text)) return { garment_type: 'activewear', garment_kind: null }
   for (const rule of RULES) {
