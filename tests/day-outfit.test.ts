@@ -16,8 +16,9 @@ import {
   type DayInput,
   type DayOption,
 } from '../src/lib/day-outfit.ts'
-import { actOnLook, lookKey, readLooks, saveSet } from '../src/lib/looks.ts'
+import { actOnLook, lookKey, readHistory, readLooks, saveSet } from '../src/lib/looks.ts'
 import { createPiece, type Piece } from '../src/lib/pieces.ts'
+import { restingPieces } from '../src/lib/rotation.ts'
 import { saveGuide } from '../src/lib/style-guide.ts'
 import { warmthLimit } from '../src/lib/warmth.ts'
 import type { Forecast } from '../src/lib/weather.ts'
@@ -93,8 +94,8 @@ describe('the pure parts', () => {
         option([3, 5, 7]),
         option([2, 4, 6]),
         option([2, 5, 6]),
-        option([1, 2, 3, 4, 6]),
-        option([1, 2, 5, 7]),
+        option([10, 4, 6]),
+        option([11, 5, 7]),
       ],
       shelf,
       { dismissed: [{ title: 'x', piece_ids: [5, 3, 7], reason: 'colours' }] },
@@ -102,7 +103,7 @@ describe('the pure parts', () => {
     )
     assert.deepEqual(
       kept.map((o) => o.piece_ids),
-      [[1, 3, 4, 6], [2, 5, 6], [1, 2, 3, 4, 6]],
+      [[1, 3, 4, 6], [2, 5, 6], [10, 4, 6]],
     )
     assert.equal(kept[0]?.title, 'Pine and putty')
     assert.equal(kept[0]?.today, 'Showers from 3pm: the coat.', 'the day sentence survives the tidy')
@@ -140,8 +141,88 @@ describe('the pure parts', () => {
       tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(23)).map((o) => o.piece_ids),
       [[11, 10, 4, 7], [3, 5, 7]],
     )
-    assert.equal(tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(16)).length, 3, 'a mild day takes three layers and one warm piece')
-    assert.equal(tidyDay(options, shelf, { dismissed: [] }, [], warmthLimit(10)).length, 3, 'a cold day has no limit')
+    const layered = [option([10, 11, 3, 4, 7]), option([2, 5, 6]), option([1, 12, 4, 6])]
+    assert.equal(tidyDay(layered.slice(0, 2), shelf, { dismissed: [] }, [], warmthLimit(16)).length, 2, 'a mild day takes three layers and one warm piece')
+    assert.equal(tidyDay(layered, shelf, { dismissed: [] }, [], warmthLimit(10)).length, 3, 'a cold day has no limit')
+  })
+
+  describe('variety', () => {
+    const wide: Shelf[] = [
+      piece(21, 'trousers', 'Putty chinos'),
+      piece(22, 'jeans', 'Indigo jeans'),
+      piece(23, 'trousers', 'Navy cotton trousers'),
+      piece(24, 'trousers', 'Olive chinos'),
+      piece(25, 'shorts', 'Stone shorts'),
+      piece(31, 'tee', 'Cream tee'),
+      piece(32, 'shirt', 'White oxford'),
+      piece(33, 'polo', 'Navy polo'),
+      piece(34, 'shirt', 'Blue linen shirt'),
+      piece(40, 'sneakers', 'White sneakers'),
+    ]
+    const shown = (last_on_today: string | null, times = 1) => ({ last_on_today, times })
+    const limit = warmthLimit(16)
+
+    test('what was on Today most recently rests, and at least half of each kind stays', () => {
+      const offered = new Map([
+        [21, shown('2026-11-08', 5)],
+        [22, shown('2026-11-07', 2)],
+        [23, shown('2026-11-01', 1)],
+        [31, shown('2026-11-08', 1)],
+        [32, shown('2026-11-08', 3)],
+        [33, shown('2026-11-08', 2)],
+      ])
+      assert.deepEqual([...restingPieces(wide, offered, limit)].sort(), [21, 22, 32, 33], 'most recent go first, then the most offered')
+    })
+
+    test('a piece only in a set of looks, or not yet shown, never rests, and a small wardrobe rests nothing', () => {
+      assert.equal(restingPieces(wide, new Map([[21, shown(null, 9)]]), limit).size, 0)
+      assert.equal(restingPieces(wide.filter((p) => p.id !== 23 && p.id !== 24), new Map([[21, shown('2026-11-08')], [22, shown('2026-11-07')]]), limit).size, 0)
+    })
+
+    test('what the day rules out does not count towards what stays', () => {
+      const wool = piece(26, 'trousers', 'Grey flannel trousers')
+      const offered = new Map([[21, shown('2026-11-08')], [22, shown('2026-11-07')]])
+      assert.deepEqual([...restingPieces([...wide.slice(0, 2), wool, ...wide.slice(5)], offered, warmthLimit(23))], [], 'the flannels are not an alternative on a hot day')
+    })
+
+    test('an option in the same trousers or top as a better one goes while others are left', () => {
+      const options = [option([31, 21, 40]), option([32, 21, 40]), option([31, 22, 40]), option([33, 22, 40]), option([34, 23, 40])]
+      assert.deepEqual(
+        tidyDay(options, wide, { dismissed: [] }, [], limit).map((o) => o.piece_ids),
+        [[31, 21, 40], [33, 22, 40], [34, 23, 40]],
+      )
+    })
+
+    test('shorts do not count as an alternative until it is warm', () => {
+      const small = [wide[0]!, wide[1]!, wide[4]!, ...wide.slice(5)]
+      const options = [option([31, 21, 40]), option([32, 22, 40]), option([33, 21, 40])]
+      assert.equal(tidyDay(options, small, { dismissed: [] }, [], limit).length, 3, 'mild: two pairs, both used, the third option may repeat')
+      assert.equal(tidyDay(options, small, { dismissed: [] }, [], warmthLimit(24)).length, 2, 'hot: the shorts are left, so it may not')
+    })
+
+    test('options wearing a resting piece go, unless every one does', () => {
+      const options = [option([31, 21, 40]), option([32, 22, 40])]
+      assert.deepEqual(tidyDay(options, wide, { dismissed: [] }, [], limit, new Set([21])).map((o) => o.piece_ids), [[32, 22, 40]])
+      assert.equal(tidyDay(options, wide, { dismissed: [] }, [], limit, new Set([21, 22])).length, 2, 'better a repeat than no outfit')
+    })
+
+    test('the prompt marks what rests and leaves out saved looks that wear it; a note lifts the rest', () => {
+      const pieces = wide.map((p) => ({ ...p, colour_hex: null, colour_name: null, fit: null, notes: null })) as unknown as Piece[]
+      const history = {
+        saved: [{ title: 'Yesterday', piece_ids: [31, 21, 40] }, { title: 'Fresh', piece_ids: [33, 23, 40] }],
+        dismissed: [],
+        worn: new Map(),
+        offered: new Map([[21, shown('2026-11-08', 4)], [22, shown('2026-11-07', 2)]]),
+      }
+      const body = (note: string | null) => JSON.parse(String(buildDayMessages(input({ pieces, history, note }))[0]!.content).split('\n\n')[0]!)
+      const rested = body(null)
+      assert.deepEqual(rested.pieces.filter((p: { resting?: boolean }) => p.resting).map((p: { id: number }) => p.id), [21, 22])
+      assert.equal(rested.pieces.find((p: { id: number }) => p.id === 21).offered_lately, 4)
+      assert.deepEqual(rested.looks_he_saved.map((l: { title: string }) => l.title), ['Fresh'])
+      const noted = body('wedding at 3')
+      assert.equal(noted.pieces.some((p: { resting?: boolean }) => p.resting), false)
+      assert.equal(noted.looks_he_saved.length, 2)
+    })
   })
 
   test('the gym fit keeps to the warmth limit too', () => {
@@ -167,7 +248,7 @@ describe('the pure parts', () => {
     profile: profileFixture,
     guide: guideFixture,
     pieces: [],
-    history: { saved: [], dismissed: [], worn: new Map() },
+    history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
     wornThisWeek: [],
     date: '2026-11-06',
     forecast,
@@ -516,5 +597,24 @@ describe('a day made, read and turned', () => {
     const failed = await readDay('2026-11-06', sql)
     assert.equal(failed?.status, 'failed')
     assert.match(failed?.error ?? '', /held up/)
+  })
+
+  test('what was on Today counts as shown for the next day, gym fits aside', async () => {
+    const [shirt, , chinos, boots, tee] = ids as [number, number, number, number, number]
+    const [tank, shorts, trainers] = kit as [number, number, number]
+    // Past every day the other tests dress, whatever the hour they run at.
+    const date = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+    const id = await making(date)
+    const info = console.info
+    console.info = () => {}
+    try {
+      await runDay(id, sql, drafted([option([tee, chinos, boots], { title: 'Seen' })], option([tank, shorts, trainers], { occasion: 'gym', title: 'Gym' })))
+    } finally {
+      console.info = info
+    }
+    const { offered } = await readHistory(sql)
+    assert.equal(offered.get(tee)?.last_on_today, date)
+    assert.notEqual(offered.get(shirt)?.last_on_today, date, 'not in that day’s outfit')
+    assert.equal(offered.has(tank), false, 'kit is small; a gym fit does not rest it')
   })
 })

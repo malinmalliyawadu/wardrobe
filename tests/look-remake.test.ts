@@ -250,7 +250,7 @@ describe('a look remade in its place', () => {
       profile: profileFixture,
       guide: guideFixture,
       pieces: await listPieces(sql),
-      history: { saved: [], dismissed: [], worn: new Map() },
+      history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
       look: look!,
       ask: { look_id: lookId, swap: [ids.boots!], remove: [ids.coat!], note: 'lighter shoes' },
       day: { id: dayId, date: '2026-11-06', forecast: null, note: null, today: 'A cold morning: the coat.' },

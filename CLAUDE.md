@@ -312,7 +312,13 @@ wool on warm days): read from the warmest the day feels (feels-like already
 counts the wind), it caps layers on the body and warm pieces and rules out
 knits and coats on hot days; the prompts state it, `tidyDay` drops an option
 over it, and a piece with no warmth set has it read from its garment and
-cloth. The option on show gets a flat lay drawn by
+cloth. The options also rotate his trousers and tops (`src/lib/rotation.ts`,
+2026-11-09, after Malin found the same pairs coming back): each day's call
+starts from nothing and wears are logged only on a tap, so what was on Today
+in the past fortnight (`look_offers`) is read as well. The most recently shown
+half of each kind rests for the day (at least two always stay, none when he
+wrote a note), and no two options share trousers or a top until the day has no
+others. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.

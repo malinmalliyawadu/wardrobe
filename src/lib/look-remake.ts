@@ -142,7 +142,7 @@ export function buildRemakeMessages(input: RemakeInput): Anthropic.Beta.BetaMess
       styling: look.styling,
       ...(day ? { today: day.today } : {}),
       pieces: look.pieces.map((piece) => ({
-        ...pieceForPrompt(piece, input.guide, input.history.worn),
+        ...pieceForPrompt(piece, input.guide, input.history),
         he_says: swap.has(piece.id) ? 'swap' : remove.has(piece.id) ? 'remove' : 'keep',
       })),
     },
@@ -168,7 +168,7 @@ export function buildRemakeMessages(input: RemakeInput): Anthropic.Beta.BetaMess
     },
     pieces_to_choose_from: dressable(input.pieces)
       .filter((piece) => !inLook.has(piece.id) && wornFor(piece))
-      .map((piece) => pieceForPrompt(piece, input.guide, input.history.worn)),
+      .map((piece) => pieceForPrompt(piece, input.guide, input.history)),
     looks_he_dismissed: input.history.dismissed,
   }
   const counts = [

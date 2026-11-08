@@ -127,6 +127,14 @@ export function pieceWarmth(piece: Warmable): Warmth | null {
   }
 }
 
+/** Whether one piece could be part of an outfit that day: not ruled out or too warm, and no shorts unless it is warm. */
+export function suitsDay(piece: Warmable, limit: WarmthLimit | null): boolean {
+  if (!limit) return true
+  if (limit.ruled_out.includes(piece.garment_type)) return false
+  if (limit.most_warm_pieces === 0 && pieceWarmth(piece) === 'warm') return false
+  return piece.garment_type !== 'shorts' || limit.band === 'hot' || limit.band === 'warm'
+}
+
 /** Whether an outfit's pieces sit within the day's limit. */
 export function withinWarmth(pieces: Warmable[], limit: WarmthLimit | null): boolean {
   if (!limit) return true
