@@ -54,6 +54,40 @@ test('garment types from real titles and product types', () => {
   }
 })
 
+test("a colourway in the title does not name the garment (Superette's listings, 2026-11-08)", () => {
+  const cases: [string, string, string][] = [
+    ['Terra Insulated Bomber Jacket - Polo Black', 'Mens - Tops - Coats and Jackets', 'jacket'],
+    ['Custom Fit Oxford Shirt - Polo Black', 'Mens - Tops - Shirts', 'shirt'],
+    ['478 Baggy Denim Shorts - Overnight Bag', 'Mens - Bottoms - Shorts', 'shorts'],
+    ['California Cotton Tee - Wave Runner Vintage White', 'Mens - Tops - Tees and Tops', 'tee'],
+    ['California Cotton Tee - Run With Heart Vintage Black', 'Mens - Tops - Tees and Tops', 'tee'],
+  ]
+  for (const [title, type, garment] of cases) assert.equal(garmentOf(title, type).garment_type, garment, title)
+  assert.equal(garmentOf('Loud Larry - Dry Selvage', 'Mens').garment_type, 'jeans', 'read whole when the name settles nothing')
+  assert.equal(garmentOf('Crew Sock - Black', 'Footwear').garment_type, null, 'never a slot still holds')
+})
+
+test('a category naming two garments leaves it to the title', () => {
+  const coats = 'Mens - Tops - Coats and Jackets'
+  assert.equal(garmentOf('Nuptse Puffer - Black', coats).garment_type, 'jacket')
+  assert.equal(garmentOf('Wool Overcoat - Navy', coats).garment_type, 'coat')
+  assert.equal(garmentOf('Cascades Field Jacket', 'Jackets & Coats').garment_type, 'jacket')
+  const hats = 'Mens - Accessories - Hats and Beanies'
+  assert.equal(garmentOf('Charlie Baseball Cap - Black', hats).garment_kind, 'cap')
+  assert.equal(garmentOf('Rib Beanie - Black', hats).garment_kind, 'beanie')
+  assert.equal(garmentOf("Base Runner '47 Clean Up Cap - Pink", hats).garment_kind, 'cap', 'a Base Runner is a cap')
+})
+
+test('a vest filed under jackets is a gilet; dress shoes are not dresses', () => {
+  assert.equal(garmentOf('Atom Vest - Black', 'Mens - Tops - Coats and Jackets').garment_type, 'jacket')
+  assert.equal(garmentOf('Cassius Knitted Vest Khaki', 'Mens Jackets').garment_type, 'knitwear')
+  assert.equal(garmentOf('Merino Rib Vest', 'Underwear').garment_type, null)
+  assert.equal(garmentOf('Lennon Derby - Black', 'Mens - Footwear - Dress Shoes').garment_type, 'shoes')
+  assert.equal(garmentOf('Linen Midi Dress', null).garment_type, null)
+  assert.equal(garmentOf('Reno Shirt Jac - Black', 'Mens - Tops - Coats and Jackets').garment_type, 'overshirt')
+  assert.equal(garmentOf('Active Case For iPhone 17 - Black', 'Mens - Accessories - Phone Cases').garment_type, null)
+})
+
 test('never a slot: swimwear, socks, jewellery, sunglasses, towels', () => {
   for (const [title, type] of [
     ['Geo Swim Short', 'Short - Casual'],

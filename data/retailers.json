@@ -222,6 +222,28 @@
       "wellington_store": null
     },
     {
+      "slug": "superette",
+      "name": "Superette",
+      "platform": "shopify",
+      "base_url": "https://superette.co.nz",
+      "feed_collections": [
+        "mens"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "A multi-brand NZ shop, one Shopify shop in NZD (its meta.json says so); www redirects to the bare host. The 'mens' collection is the men's range (1,355 products, though collections.json counts 14,587); 'mens-clothing' leaves out footwear and accessories. Listings have no colour option: the colour is in the title after ' - ' and in a colour: tag. Probed 2026-11-08: robots.txt allows the feed, and the whole collection reads in 6 pages at the finder's pace with no 429 (a burst of requests is answered 429 local_rate_limited).",
+      "wellington_store": {
+        "name": "Superette",
+        "area": "Te Aro",
+        "address": "102 Victoria Street",
+        "verified": true,
+        "source": "https://superette.co.nz/pages/locator",
+        "checked": "2026-11-08"
+      }
+    },
+    {
       "slug": "lskd",
       "name": "LSKD",
       "platform": "shopify",

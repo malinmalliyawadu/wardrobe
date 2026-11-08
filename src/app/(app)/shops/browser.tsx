@@ -77,7 +77,7 @@ export function ShopBrowser({
         key={formKey}
         role="search"
         onSubmit={search}
-        className="mt-8 lg:grid lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] lg:gap-3"
+        className="mt-8 xl:grid xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] xl:gap-3"
       >
         <label htmlFor="shops-q" className="sr-only">
           Search the shops
@@ -98,7 +98,7 @@ export function ShopBrowser({
           />
         </div>
         {/* The four filters: a row of their own under the field on the phone, in the field's row on the laptop. */}
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:contents">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:contents">
           <Select name="kind" label="Kind of piece" value={query.kind ?? ''} onChange={submitOnChange}>
             <option value="">Every kind</option>
             {kinds.map((kind) => (
