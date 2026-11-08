@@ -166,7 +166,10 @@ whose titles end in the colourway and whose categories name two garments
 and leave such a category to the title. LSKD (added 2026-11-07, Malin's ask
 for gym tanks) is a Gold Coast activewear shop that ships here, links only by
 his call: a Shopify store that starts switched off, so a pasted link is read
-and a saved one re-read each night, but it is not walked. Rodd & Gunn (added 2026-11-05, migration 0019, platform
+and a saved one re-read each night, but it is not walked. Oxford (added
+2026-11-09, Malin's ask) is an Australian shop in AUD that ships here, links
+only the same way, with a men's and a women's range told apart by its
+`Gender_MENS` tag. Rodd & Gunn (added 2026-11-05, migration 0019, platform
 `rodd-and-gunn`, `rodd-and-gunn.ts`) is links only, like Uniqlo, Malin's
 call: it is not Shopify and its catalogue is a page per colour (about 2,540),
 most of an hour a night at a page a second, so it is never walked and has no

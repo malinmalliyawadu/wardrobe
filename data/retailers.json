@@ -257,6 +257,19 @@
       "wellington_store": null
     },
     {
+      "slug": "oxford",
+      "name": "Oxford",
+      "platform": "shopify",
+      "base_url": "https://www.oxfordshop.com.au",
+      "country": "AU",
+      "currency": "AUD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "enabled": false,
+      "notes": "Links only by default, Malin's ask 2026-11-09: an Australian label, one Shopify shop in AUD with men's and women's ranges (about 2,150 products; its meta.json says AUD and that it ships to NZ, and its delivery guide gives NZ times). A pasted link is read from /products/<handle>.js like any Shopify store, and a saved one is re-read each night. It starts switched off on /you/finder. Probed 2026-11-09: robots.txt allows /products/ and /products.json, and both those and the .js endpoint answer 429 with Retry-After 60 after a handful of requests, and it stayed limited over eight quiet minutes later (product pages kept answering). A product's gender is its Gender_MENS or Gender_WOMENS tag; the stock-code tags beside it can say the opposite. Its store locator names no Wellington store.",
+      "wellington_store": null
+    },
+    {
       "slug": "rodd-and-gunn",
       "name": "Rodd & Gunn",
       "platform": "rodd-and-gunn",

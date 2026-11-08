@@ -148,6 +148,12 @@ test('menswear: a menswear store needs only not to say women or kids; a mixed st
     isMenswear({ ...base, productType: 'Womens Denim', tags: ['Gender:Men', 'Gender:Women'], catalogue: 'mixed' }),
     'but not a gender tag',
   )
+  assert.ok(
+    isMenswear({ ...base, productType: 'SHOES CASUAL', tags: ['Gender_MENS', 'ExtraClassification1_WOMENS'], catalogue: 'mixed' }),
+    "Oxford's gender tag, whatever its stock code says",
+  )
+  assert.ok(!isMenswear({ ...base, productType: 'SHOES FLAT', tags: ['Gender_WOMENS'], catalogue: 'mixed' }))
+  assert.ok(!isMenswear({ ...base, productType: 'LADIES SHOES FLAT', tags: ['Size_40'], catalogue: 'mixed' }))
 })
 
 test('size keys by garment', () => {
