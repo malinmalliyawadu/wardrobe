@@ -3,10 +3,14 @@ import { execFileSync } from 'node:child_process'
 import { after, before, describe, test } from 'node:test'
 
 import { connect, db, type Sql } from '../src/lib/db.ts'
+import { DAY_SYSTEM_PROMPT } from '../src/lib/day-outfit.ts'
+import { REMAKE_SYSTEM_PROMPT } from '../src/lib/look-remake.ts'
 import {
   actOnLook,
   buildLooksMessages,
+  DRESSINESS_RULES,
   gymReadiness,
+  LOOKS_SYSTEM_PROMPT,
   readHistory,
   readiness,
   readinessAround,
@@ -210,6 +214,21 @@ describe('the pure parts', () => {
     const content = message!.content as string
     assert.match(content, /"days_a_week": 4/)
     assert.match(content, /Make up to 6 gym fits from his gym kit/)
+  })
+})
+
+describe('one level of dress', () => {
+  test('every prompt that puts an everyday outfit together carries the rule', () => {
+    for (const prompt of [LOOKS_SYSTEM_PROMPT, DAY_SYSTEM_PROMPT, REMAKE_SYSTEM_PROMPT]) {
+      assert.ok(prompt.includes(DRESSINESS_RULES))
+    }
+  })
+
+  test('the rule keeps loafers with dark jeans, stops a shell over tassels, and leaves gym fits alone', () => {
+    assert.match(DRESSINESS_RULES, /dark jeans with loafers are fine/)
+    assert.match(DRESSINESS_RULES, /a rain shell over tassel loafers is not/)
+    assert.match(DRESSINESS_RULES, /Gym fits are outside this/)
+    assert.equal(plainDashes(DRESSINESS_RULES), DRESSINESS_RULES)
   })
 })
 

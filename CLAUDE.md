@@ -318,7 +318,12 @@ starts from nothing and wears are logged only on a tap, so what was on Today
 in the past fortnight (`look_offers`) is read as well. The most recently shown
 half of each kind rests for the day (at least two always stay, none when he
 wrote a note), and no two options share trousers or a top until the day has no
-others. The option on show gets a flat lay drawn by
+others. Every everyday outfit, here, in a set of looks and in a remake, keeps to
+one level of dress (`DRESSINESS_RULES` in looks.ts, 2026-11-09, after Malin
+found tassel loafers under a rain shell): pieces stay within one step of each
+other and an outer layer does not repeat the colour under it unless tonal on
+purpose. It is prompt only, since a piece has no formality field and code
+cannot tell. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.
