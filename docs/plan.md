@@ -145,6 +145,7 @@ Probed on 2026-11-04:
 | Patagonia NZ (added 2026-11-05) | yes | not readable (locator drawn by script) |
 | Bronze Snake (AU, ships to NZ; added 2026-11-07) | yes | no (Australia only) |
 | LSKD (AU, ships to NZ; added 2026-11-07) | yes, whole catalogue only (robots.txt disallows collection feeds); links only | not checked |
+| Oxford (AU, ships to NZ; added 2026-11-09) | yes, rate-limits quickly; links only | none on its store locator |
 | Hallensteins | no (406) | yes |
 | Rodd & Gunn (added 2026-11-05) | no (410); links only | yes (46 Willis St) |
 | THE ICONIC | no | no |

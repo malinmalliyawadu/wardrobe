@@ -191,11 +191,12 @@ export function slotKind(garment: GarmentType, name: string): string | null {
 // Menswear
 // ---------------------------------------------------------------------------
 
-const WOMEN = /\b(women'?s?|womens|womenswear|woman|ladies|female|her|wmns|gender:womens)\b/i
-const MEN = /\b(men'?s?|mens|menswear|man|male|his|gender:mens|unisex)\b/i
+// "Gender_MENS" (Oxford) is spelled out because an underscore is a word character, so \bmens\b cannot see it.
+const WOMEN = /\b(women'?s?|womens|womenswear|woman|ladies|female|her|wmns|gender:womens|gender_womens)\b/i
+const MEN = /\b(men'?s?|mens|menswear|man|male|his|gender:mens|gender_mens|unisex)\b/i
 const KIDS = /\b(kids?|child|children|childrens|boys?|girls?|baby|babies|junior|youth|toddlers?|infants?|teens?)\b/i
-/** A tag that sets the gender on purpose ("Gender:Men"), as against a loose "Mens" tag. */
-const GENDER_MEN_TAG = /^gender:\s*(men|mens|male|unisex)$/i
+/** A tag that sets the gender on purpose ("Gender:Men", "Gender_MENS"), as against a loose "Mens" tag. */
+const GENDER_MEN_TAG = /^gender[:_]\s*(men|mens|male|unisex)$/i
 
 /**
  * Menswear from the words a store uses. A menswear-only store needs only to
