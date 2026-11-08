@@ -5,6 +5,7 @@ import { MODELS, callUsd } from './claude.ts'
 import { db, type Sql } from './db.ts'
 import {
   dressable,
+  DRESSINESS_RULES,
   getLooks,
   GYM_FIT_RULES,
   gymForPrompt,
@@ -93,6 +94,8 @@ Dress him for the forecast, not the month or the season. You are given the hours
 The season sets the mood within his palette, never the warmth: the lighter and brighter of his colours in spring and summer, the deeper ones in autumn and winter. Never step outside his palette to follow a season.
 
 Work out the day from the weekday and his week: an office day, a weekend, or a day with an evening out. Where his week is empty, weekdays are office days. Office means smart casual unless his profile says otherwise. If he said what is on, that decides; dress for the most demanding part of the day and say how to adjust for the rest.
+
+${DRESSINESS_RULES}
 
 ${GYM_FIT_RULES} The day's options are everyday outfits, never gym fits. When he trains this day (trains_today, or his note says he is training) and his gym kit is ready (gym.kit_ready), also give gym: one gym fit for this day's weather on the walk there, within the same warmth_limit, a layer when it is cold or wet; its today line says what about the day it answers. Otherwise gym is null. A gym fit may repeat one he wore this week or saved; kit is small.
 
