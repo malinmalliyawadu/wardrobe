@@ -181,7 +181,7 @@ describe('the pure parts', () => {
       guide: guideFixture,
       pieces,
       wanted: [{ id: 7, name: 'Oxblood scarf', garment_type: 'accessory', status: 'wanted' }],
-      history: { saved: [], dismissed: [], worn: new Map([[1, 2]]) },
+      history: { saved: [], dismissed: [], worn: new Map([[1, 2]]), offered: new Map() },
       note: 'a wedding',
       now: new Date('2026-11-04T00:00:00Z'),
     })
@@ -203,7 +203,7 @@ describe('the pure parts', () => {
       guide: guideFixture,
       pieces: [],
       wanted: [],
-      history: { saved: [], dismissed: [], worn: new Map() },
+      history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
       note: null,
       kind: 'gym',
     })
@@ -220,7 +220,7 @@ describe('looks around a piece', () => {
       guide: guideFixture,
       pieces: [],
       wanted: [],
-      history: { saved: [], dismissed: [], worn: new Map() },
+      history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
       note: 'the office',
       around: { id: 12, name: 'Rust overshirt', worn_for: 'everyday' },
     })
@@ -238,7 +238,7 @@ describe('looks around a piece', () => {
       guide: guideFixture,
       pieces: [],
       wanted: [],
-      history: { saved: [], dismissed: [], worn: new Map() },
+      history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
       note: null,
       around: { id: 21, name: 'Pine tank', worn_for: 'gym' },
     })
@@ -336,6 +336,9 @@ describe('a set saved, read and acted on', () => {
     assert.equal(history.saved.length, 2)
     assert.deepEqual(history.dismissed.map((d) => d.reason), ['too_dressy'])
     assert.equal(history.worn.get(crew), 1)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+    assert.deepEqual(history.offered.get(crew), { last_on_today: today, times: 2 }, 'the set it was in, and the day he wore it')
+    assert.deepEqual(history.offered.get(shirt), { last_on_today: null, times: 1 }, 'only in a set of looks, so it has not been on Today')
 
     // The next set: the saved looks move to Saved, the rest of the old set is gone.
     await saveSet(draft([[shirt, crew, boots]]), { note: 'cold', pieces: 4, date: '2026-11-05', weather: 'cold' })

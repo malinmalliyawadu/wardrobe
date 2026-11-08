@@ -7,6 +7,7 @@ import { db, type Sql } from './db.ts'
 import { BOTTOMS, FOOTWEAR, isWhole, LAYER_ORDER, TOPS } from './look-rules.ts'
 import { inPalette, listPieces, type Piece } from './pieces.ts'
 import type { Profile } from './profile.ts'
+import { OFFERS_WINDOW_DAYS, type PieceOffers } from './rotation.ts'
 import { generate, type GenerationMeta } from './structured.ts'
 import { colourNameFor, getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { latestLookTryOns, type OnMe } from './try-on.ts'
@@ -165,7 +166,7 @@ Spread the set across his week. Weight the occasions by the days he gave for off
 
 Colour is the point. Build each look on his palette: say in the why which of his colours carry it and why they sit together (tonal, contrast near the face, a neutral base with one strong colour). Respect the proportion and fit rules in his guide, and name the one that the look uses. Respect his no-gos absolutely.
 
-Make the set varied: no two everyday looks share more than two pieces, and none repeats a look he saved or dismissed. Learn from the reasons he dismissed looks for. Prefer pieces he has worn less lately, so the whole wardrobe gets used. When a look would clearly be better with one of the slots he still wants, say so in better_with, in at most two looks; otherwise leave it null.
+Make the set varied: no two everyday looks share more than two pieces, and none repeats a look he saved or dismissed. Spread the set across his trousers and tops: no pair of trousers goes in a second look until every pair that suits the month is in one, and the same for tops. Learn from the reasons he dismissed looks for. Each piece says worn_lately and offered_lately, how often it has been worn and put in front of him of late: lean on the pieces lowest in both, so the whole wardrobe gets used. When a look would clearly be better with one of the slots he still wants, say so in better_with, in at most two looks; otherwise leave it null.
 
 Write to him in the second person, plainly, without praise or sales talk. Plain hyphens only.`
 
@@ -200,9 +201,11 @@ export type History = {
   dismissed: { title: string; piece_ids: number[]; reason: LookDismissReason }[]
   /** How many times each piece was in a look he wore in the last three weeks. */
   worn: Map<number, number>
+  /** What each piece was offered in lately, gym fits aside (rotation.ts). */
+  offered: Map<number, PieceOffers>
 }
 
-export function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | null, worn: Map<number, number>) {
+export function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | null, history: Pick<History, 'worn' | 'offered'>) {
   return {
     id: piece.id,
     name: piece.name,
@@ -219,7 +222,8 @@ export function pieceForPrompt(piece: Piece, guide: Pick<Guide, 'palette'> | nul
     fit: piece.fit,
     warmth: pieceWarmth(piece),
     notes: piece.notes,
-    worn_lately: worn.get(piece.id) ?? 0,
+    worn_lately: history.worn.get(piece.id) ?? 0,
+    offered_lately: history.offered.get(piece.id)?.times ?? 0,
   }
 }
 
@@ -250,7 +254,7 @@ export function buildLooksMessages(input: {
       accessories: input.guide.accessories,
       fit_vocabulary: input.guide.fit_vocabulary,
     },
-    pieces: dressable(input.pieces).map((piece) => pieceForPrompt(piece, input.guide, input.history.worn)),
+    pieces: dressable(input.pieces).map((piece) => pieceForPrompt(piece, input.guide, input.history)),
     wanted_slots: input.wanted.map((slot) => ({ id: slot.id, name: slot.name, garment: slot.garment_type })),
     looks_he_saved: input.history.saved,
     looks_he_dismissed: input.history.dismissed,
@@ -393,12 +397,30 @@ export async function readHistory(sql: Sql = db()): Promise<History> {
     where w.worn_on > (now() at time zone 'Pacific/Auckland')::date - 21
     group by lp.piece_id
   `
+  const offered = await sql<(PieceOffers & { piece_id: number })[]>`
+    with seen as (
+      select lp.piece_id, o.offered_on as day, o.for_date is not null as on_today,
+             case when o.for_date is not null then 'd' || o.for_date::text else o.offer end as offer
+      from look_offers o join look_pieces lp on lp.look_id = o.look_id join looks l on l.id = o.look_id
+      where l.occasion <> 'gym'
+      union all
+      select lp.piece_id, w.worn_on, true, 'd' || w.worn_on::text
+      from look_wears w join look_pieces lp on lp.look_id = w.look_id join looks l on l.id = w.look_id
+      where l.occasion <> 'gym'
+    )
+    select piece_id::int as piece_id, to_char(max(day) filter (where on_today), 'YYYY-MM-DD') as last_on_today,
+           count(distinct offer)::int as times
+    from seen
+    where day > (now() at time zone 'Pacific/Auckland')::date - ${OFFERS_WINDOW_DAYS}::int
+    group by piece_id
+  `
   return {
     saved: looks.filter((look) => look.status === 'saved').map(({ title, piece_ids }) => ({ title, piece_ids })),
     dismissed: looks
       .filter((look) => look.status === 'dismissed' && look.reason)
       .map(({ title, piece_ids, reason }) => ({ title, piece_ids, reason: reason! })),
     worn: new Map(worn.map((row) => [row.piece_id, row.count])),
+    offered: new Map(offered.map(({ piece_id, ...row }) => [piece_id, row])),
   }
 }
 
