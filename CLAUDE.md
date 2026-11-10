@@ -321,7 +321,13 @@ starts from nothing and wears are logged only on a tap, so what was on Today
 in the past fortnight (`look_offers`) is read as well. The most recently shown
 half of each kind rests for the day (at least two always stay, none when he
 wrote a note), and no two options share trousers or a top until the day has no
-others. Every everyday outfit, here, in a set of looks and in a remake, keeps to
+others. What is left is weighed (2026-11-10, Malin's ask): Opus gives six
+outfits (`DAY_CANDIDATES`), best first, and `chooseVaried` keeps three. An
+outfit starts from its place in Opus's order and loses weight for how lately
+its pieces, and an outfit close to it, were on Today or worn (`shownLately`,
+`staleness`; a showing counts half as much every four days), and each further
+option loses weight for the pieces it shares with those already kept. The
+weights are `WEIGHTS` in rotation.ts. Every everyday outfit, here, in a set of looks and in a remake, keeps to
 one level of dress (`DRESSINESS_RULES` in looks.ts, 2026-11-09, after Malin
 found tassel loafers under a rain shell): pieces stay within one step of each
 other and an outer layer does not repeat the colour under it unless tonal on

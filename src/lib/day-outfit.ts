@@ -26,7 +26,7 @@ import { ensureLookImage, latestLookImages, type LookImage } from './look-image.
 import { listPieces, type Piece } from './pieces.ts'
 import { getProfile, type Profile } from './profile.ts'
 import { weekdayOf } from './profile-values.ts'
-import { restingPieces, spreadOut, type Rotated } from './rotation.ts'
+import { chooseVaried, OFFERS_WINDOW_DAYS, restingPieces, type Rotated, type Shown } from './rotation.ts'
 import { GenerationError, generate, type GenerationMeta } from './structured.ts'
 import { getGuide, profileBrief, type Guide } from './style-guide.ts'
 import { limitForPrompt, withinWarmth, WARMTH_RULES, warmthLimit, type WarmthLimit } from './warmth.ts'
@@ -37,6 +37,7 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  * the pieces he owns: that day's Wellington forecast for the hours he is out,
  * the season, the day of the week against his week, and what he said is on.
  * Three options, best first; Today shows one and "Another" turns to the next.
+ * Opus gives twice that many, and the three are chosen from them by weight.
  *
  * Each option is a look, so Save and "Wore it today" are the looks' own and
  * the next set of looks learns from them. When an option is piece for piece a
@@ -51,7 +52,8 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  * Every option is held to the day's warmth limit (warmth.ts), read from the
  * forecast: left to itself Opus dressed him in three layers and wool on a
  * warm day. And each is held to the rotation (rotation.ts): the trousers and
- * tops on Today most recently rest, and the options do not lean on one pair.
+ * tops on Today most recently rest, an outfit weighs less the more lately it
+ * or its pieces were on Today, and the three kept are the ones least alike.
  *
  * On a day he trains (a gym day on his week, or a note that says so) the same
  * call adds a gym fit from his gym kit (migration 0014): one look of the gym
@@ -59,6 +61,9 @@ import { dressDate, fetchForecast, forecastLine, nzDate, nzSeason, weekday, type
  */
 
 export const DAY_OPTIONS = 3
+
+/** How many Opus gives for the day; the options are the best of them once weighed for variety. */
+export const DAY_CANDIDATES = 6
 
 /** A making row older than this died with its process; the next start closes it. */
 const STALE_MINUTES = 5
@@ -79,15 +84,15 @@ export const DayOptionSchema = LookDraftSchema.omit({ better_with: true }).exten
 })
 
 export const DaySchema = z.object({
-  options: z.array(DayOptionSchema).describe(`${DAY_OPTIONS} outfits for the day, best first, each a different outfit.`),
+  options: z.array(DayOptionSchema).describe(`${DAY_CANDIDATES} outfits for the day, best first, each a different outfit.`),
   gym: DayOptionSchema.nullable().describe('On a day he trains, one gym fit from his gym kit, occasion gym; otherwise null.'),
 })
 
 export type DayOption = z.infer<typeof DayOptionSchema>
 
-export const DAY_SYSTEM_PROMPT = `You are an experienced menswear stylist dressing one client for one day from clothes he already owns. You have his confirmed profile (colouring, proportions, sizes, his week), the style guide written for him, the list of his pieces, the looks he saved and dismissed, what he wore this past week, the day and its forecast. A private app shows him the first option on its Today page each morning (or the evening before), with the others a tap away.
+export const DAY_SYSTEM_PROMPT = `You are an experienced menswear stylist dressing one client for one day from clothes he already owns. You have his confirmed profile (colouring, proportions, sizes, his week), the style guide written for him, the list of his pieces, the looks he saved and dismissed, what he wore this past week, the day and its forecast. A private app shows him one outfit on its Today page each morning (or the evening before), with two others a tap away.
 
-Give ${DAY_OPTIONS} options for the day, best first. Each is one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, and an outer layer when the day asks for it. Accessories only when they add something, and then in his metal. Use only the pieces on the list, by id, each at most once in an outfit; never invent a garment. The options must differ: no two wear the same trousers, jeans or shorts, and no two share a top, until the day has no others of that kind left, and no two share more than two pieces. An option that repeats one too soon is thrown away.
+Give ${DAY_CANDIDATES} options for the day, best first. The app keeps ${DAY_OPTIONS} of them: it weighs your order against how lately each outfit and its pieces were on Today, and against how alike the ones it keeps are. Each is one complete outfit: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, and an outer layer when the day asks for it. Accessories only when they add something, and then in his metal. Use only the pieces on the list, by id, each at most once in an outfit; never invent a garment. The options must be quite different from each other, never one outfit with a piece swapped. Spread them over his trousers, jeans and shorts and over his tops as widely as the day allows, vary the shoes and the outer layer where he has others that suit the day, and let no two share more than two pieces. Make them different in character too: each its own colour story from his palette, its own silhouette, its own reading of the day within what the day asks for. Of the ${DAY_OPTIONS} kept, no two wear the same trousers, jeans or shorts or share a top while the day has others of that kind, and the more pieces an option shares with a better one, the less likely it is kept.
 
 Dress him for the forecast, not the month or the season. You are given the hours he is likely out, 7am to 10pm, with temperature, feels-like temperature, rain chance and wind, and the day's warmth_limit, which every option must keep to: no more layers than most_layers, no more warm pieces than most_warm_pieces, none of garments_ruled_out; null means no limit. An option over it is thrown away. ${WARMTH_RULES} Wind matters for what a garment does in it: it cuts through an open knit and lifts an unbuttoned layer. Dress for the warm middle of the day, not its coolest hour: when the morning or evening is cooler, the answer is one light layer he can take off and carry, never a warmer outfit. Warm days want light cloth, cotton and linen, a tee or a short-sleeved shirt; wool and knits are for cool days. Rain likely while he is out calls for an outer layer that sheds water, if he owns one and the limit has room, and shoes that cope (no suede). A UV index of 6 or more is strong in New Zealand: sunglasses or a cap if he has them. When no forecast could be read you are given the month's usual weather instead, and the limit is read from its usual high; dress for an ordinary day of it.
 
@@ -99,7 +104,7 @@ ${DRESSINESS_RULES}
 
 ${GYM_FIT_RULES} The day's options are everyday outfits, never gym fits. When he trains this day (trains_today, or his note says he is training) and his gym kit is ready (gym.kit_ready), also give gym: one gym fit for this day's weather on the walk there, within the same warmth_limit, a layer when it is cold or wet; its today line says what about the day it answers. Otherwise gym is null. A gym fit may repeat one he wore this week or saved; kit is small.
 
-Variety matters as much as the best match: he should see his whole wardrobe over a fortnight, not the same trousers and tops. A piece marked resting was on Today most recently and stays out of the day's options; an option wearing one is thrown away. Only a gym fit may wear a resting piece. Of the rest, each piece says worn_lately and offered_lately, how often it has been worn and put in front of him of late: build on the ones lowest in both, and do not fall back on the safest pair of trousers.
+Variety matters as much as the best match: he should see his whole wardrobe over a fortnight, not the same trousers and tops. A piece marked resting was on Today most recently and stays out of the day's options; an option wearing one is thrown away. Only a gym fit may wear a resting piece. Of the rest, each piece says worn_lately and offered_lately, how often it has been worn and put in front of him of late: build on the ones lowest in both, and do not fall back on the safest pair of trousers. on_today_lately lists the outfits that were on Today or that he wore in the past fortnight, by days_ago (0 is earlier this same day, when he asked for others). The more recent one is, the further from it to stay: nothing from the past few days comes back piece for piece or with one piece swapped, while one from over a week ago may return when it is the best for the day.
 
 He may re-wear a look he saved, piece for piece, when it suits the day; it is one candidate among new combinations, not the default. Never offer an outfit he wore in the past week, piece for piece, nor one he dismissed, and learn from the reasons he gave.
 
@@ -120,6 +125,8 @@ export type DayInput = {
   history: History
   /** Looks he wore in the past week, newest first. */
   wornThisWeek: Worn[]
+  /** The outfits on Today, or worn, in the fortnight before the day, newest first. */
+  shownLately: Shown[]
   /** The day it dresses him for, YYYY-MM-DD in New Zealand. */
   date: string
   forecast: Forecast | null
@@ -195,10 +202,11 @@ export function buildDayMessages(input: DayInput): Anthropic.Beta.BetaMessagePar
     looks_he_saved: input.history.saved.filter((look) => !look.piece_ids.some((id) => resting.has(id))),
     looks_he_dismissed: input.history.dismissed,
     worn_this_week: input.wornThisWeek,
+    on_today_lately: input.shownLately,
   }
   const ask = input.note
-    ? `He says this is on: "${input.note}". Dress him for the day with that in mind: ${DAY_OPTIONS} options, best first.`
-    : `Dress him for the day: ${DAY_OPTIONS} options, best first.`
+    ? `He says this is on: "${input.note}". Dress him for the day with that in mind: ${DAY_CANDIDATES} options, best first.`
+    : `Dress him for the day: ${DAY_CANDIDATES} options, best first.`
   return [{ role: 'user', content: `${JSON.stringify(body, null, 2)}\n\n${ask}` }]
 }
 
@@ -217,7 +225,7 @@ export async function draftDay(input: DayInput): Promise<DayDraft> {
   const limit = dayLimit(input)
   const gym = gymReadiness(input.pieces).ready && data.gym ? tidyGym(data.gym, input.pieces, input.history, limit) : null
   return {
-    options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek, limit, dayResting(input)),
+    options: tidyDay(data.options, input.pieces, input.history, input.wornThisWeek, limit, dayResting(input), input.shownLately),
     gym,
     proposed: data.options.length,
     meta,
@@ -239,8 +247,9 @@ function warmEnough<T extends Pick<DayOption, 'piece_ids'>>(options: T[], pieces
  * dismissed or wore this past week may not. A gym fit is not one of the
  * day's options, and none may be warmer than the day's limit. Options
  * wearing a resting piece go, unless that would leave none: a day repeating
- * itself beats a day with no outfit. Then the options are spread over his
- * trousers and tops (rotation.ts), and at most DAY_OPTIONS are kept.
+ * itself beats a day with no outfit. Then at most DAY_OPTIONS are chosen by
+ * weight (rotation.ts): Opus's order, less for what was on Today lately, less
+ * for being like an option already chosen, spread over his trousers and tops.
  */
 export function tidyDay(
   options: DayOption[],
@@ -249,6 +258,7 @@ export function tidyDay(
   wornThisWeek: Pick<Worn, 'piece_ids'>[],
   limit: WarmthLimit | null = null,
   resting: ReadonlySet<number> = new Set(),
+  shownLately: Shown[] = [],
 ): DayOption[] {
   const notAgain = [
     ...history.dismissed,
@@ -262,7 +272,7 @@ export function tidyDay(
   )
   const warm = warmEnough(whole, pieces, limit)
   const rested = warm.filter((option) => !option.piece_ids.some((id) => resting.has(id)))
-  return spreadOut(rested.length > 0 ? rested : warm, pieces, limit, resting).slice(0, DAY_OPTIONS)
+  return chooseVaried(rested.length > 0 ? rested : warm, pieces, limit, resting, shownLately, DAY_OPTIONS)
 }
 
 /**
@@ -298,6 +308,26 @@ export async function wornThisWeek(sql: Sql = db()): Promise<Worn[]> {
     from look_wears w join looks l on l.id = w.look_id
     where w.worn_on > (now() at time zone 'Pacific/Auckland')::date - ${NOT_AGAIN_DAYS + 1}::int
     order by w.worn_on desc
+  `
+}
+
+/**
+ * The everyday outfits on Today in the fortnight up to a day, and the looks he
+ * wore in it, newest first, to weigh the day's options against (rotation.ts).
+ * Asking again on the day itself counts the options it already had.
+ */
+export async function shownLately(date: string, sql: Sql = db()): Promise<Shown[]> {
+  return sql<Shown[]>`
+    with seen as (
+      select o.look_id, o.for_date as day from look_offers o where o.for_date is not null
+      union
+      select w.look_id, w.worn_on from look_wears w
+    )
+    select distinct (${date}::date - s.day)::int as days_ago,
+           array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids
+    from seen s join looks l on l.id = s.look_id
+    where l.occasion <> 'gym' and s.day <= ${date}::date and s.day > ${date}::date - ${OFFERS_WINDOW_DAYS}::int
+    order by days_ago
   `
 }
 
@@ -372,12 +402,13 @@ export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps>
       select to_char(for_date, 'YYYY-MM-DD') as for_date, note, forecast from day_outfits where id = ${id} and status = 'making'
     `
     if (!day) return
-    const [profile, guide, pieces, history, worn] = await Promise.all([
+    const [profile, guide, pieces, history, worn, shown] = await Promise.all([
       getProfile(),
       getGuide(),
       listPieces(sql),
       readHistory(sql),
       wornThisWeek(sql),
+      shownLately(day.for_date, sql),
     ])
     if (!guide) throw new GenerationError('Draft your style guide first.')
     const made = await draft({
@@ -386,6 +417,7 @@ export async function runDay(id: number, sql: Sql = db(), deps: Partial<DayDeps>
       pieces,
       history,
       wornThisWeek: worn,
+      shownLately: shown,
       date: day.for_date,
       forecast: day.forecast,
       note: day.note,

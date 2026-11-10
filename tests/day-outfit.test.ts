@@ -8,6 +8,7 @@ import {
   readDay,
   runDay,
   showNext,
+  shownLately,
   startDay,
   tidyDay,
   tidyGym,
@@ -18,7 +19,7 @@ import {
 } from '../src/lib/day-outfit.ts'
 import { actOnLook, lookKey, readHistory, readLooks, saveSet } from '../src/lib/looks.ts'
 import { createPiece, type Piece } from '../src/lib/pieces.ts'
-import { restingPieces } from '../src/lib/rotation.ts'
+import { alike, restingPieces, staleness } from '../src/lib/rotation.ts'
 import { saveGuide } from '../src/lib/style-guide.ts'
 import { warmthLimit } from '../src/lib/warmth.ts'
 import type { Forecast } from '../src/lib/weather.ts'
@@ -103,7 +104,7 @@ describe('the pure parts', () => {
     )
     assert.deepEqual(
       kept.map((o) => o.piece_ids),
-      [[1, 3, 4, 6], [2, 5, 6], [10, 4, 6]],
+      [[1, 3, 4, 6], [2, 5, 6], [11, 5, 7]],
     )
     assert.equal(kept[0]?.title, 'Pine and putty')
     assert.equal(kept[0]?.today, 'Showers from 3pm: the coat.', 'the day sentence survives the tidy')
@@ -206,6 +207,50 @@ describe('the pure parts', () => {
       assert.equal(tidyDay(options, wide, { dismissed: [] }, [], limit, new Set([21, 22])).length, 2, 'better a repeat than no outfit')
     })
 
+    test('an outfit weighs less the more lately it was on Today, by half every four days', () => {
+      assert.equal(alike([31, 21, 40], [40, 21, 31]), 1)
+      assert.equal(alike([31, 21, 40], [32, 22, 40]), 0.2, 'one piece shared of five')
+      assert.equal(staleness([31, 21, 40], []), 0)
+      assert.equal(staleness([31, 21, 40], [{ days_ago: 0, piece_ids: [31, 21, 40] }]), 1.2, 'the same outfit, earlier the same day')
+      assert.equal(staleness([31, 21, 40], [{ days_ago: 4, piece_ids: [40, 31, 21] }]), 0.6)
+      assert.equal(staleness([31, 21, 40], [{ days_ago: 8, piece_ids: [31, 21, 40] }]), 0.3)
+      const sneakersDaily = [0, 1, 2].map((days_ago) => ({ days_ago, piece_ids: [34, 24, 40] }))
+      assert.ok(staleness([31, 21, 40], sneakersDaily) < 0.35, 'shoes seen every day cost a fresh outfit little')
+      const twiceADay = [{ days_ago: 4, piece_ids: [31, 21, 40] }, { days_ago: 4, piece_ids: [31, 22, 40] }]
+      assert.equal(staleness([31], twiceADay), staleness([31], twiceADay.slice(0, 1)), 'a day counts once for a piece')
+    })
+
+    test('an outfit already on Today falls behind fresh ones; one from long ago keeps its place', () => {
+      const options = [option([31, 21, 40]), option([32, 22, 40]), option([33, 23, 40]), option([34, 24, 40])]
+      const order = (days_ago: number) =>
+        tidyDay(options, wide, { dismissed: [] }, [], limit, new Set(), [{ days_ago, piece_ids: [31, 21, 40] }]).map((o) => o.piece_ids[0])
+      assert.deepEqual(order(0), [32, 33, 34], 'asked again the same day: every fresh one is ahead of it')
+      assert.deepEqual(order(5), [32, 31, 33], 'five days on it is back, behind one fresh outfit')
+      assert.deepEqual(order(13), [31, 32, 33], 'at the end of the fortnight it leads again')
+    })
+
+    test('an outfit built from pieces shown lately gives way to one that was not', () => {
+      const options = [[31, 21, 40], [32, 22, 40], [33, 23, 40], [34, 24, 40], [33, 24, 40], [34, 23, 40]].map((ids) => option(ids))
+      const shown = [{ days_ago: 1, piece_ids: [31, 23, 40] }, { days_ago: 2, piece_ids: [33, 21, 40] }]
+      const [first] = tidyDay(options, wide, { dismissed: [] }, [], limit, new Set(), shown)
+      assert.deepEqual(first?.piece_ids, [32, 22, 40], 'Opus put the tee and chinos first; neither was a new sight')
+    })
+
+    test('of the candidates, the three kept are the ones least alike', () => {
+      const layered: Shelf[] = [...wide, piece(41, 'boots', 'Brown boots'), piece(50, 'jacket', 'Navy jacket'), piece(51, 'coat', 'Camel coat')]
+      const options = [
+        option([50, 31, 21, 40]),
+        option([50, 32, 22, 40]), // the same jacket and shoes as the first
+        option([50, 33, 23, 40]), // and again
+        option([51, 34, 24, 41]), // nothing shared with any
+        option([32, 22, 41]), // the second's top and trousers, the fourth's boots
+      ]
+      assert.deepEqual(
+        tidyDay(options, layered, { dismissed: [] }, [], warmthLimit(10)).map((o) => o.piece_ids),
+        [[50, 31, 21, 40], [51, 34, 24, 41], [50, 32, 22, 40]],
+      )
+    })
+
     test('the prompt marks what rests and leaves out saved looks that wear it; a note lifts the rest', () => {
       const pieces = wide.map((p) => ({ ...p, colour_hex: null, colour_name: null, fit: null, notes: null })) as unknown as Piece[]
       const history = {
@@ -219,6 +264,9 @@ describe('the pure parts', () => {
       assert.deepEqual(rested.pieces.filter((p: { resting?: boolean }) => p.resting).map((p: { id: number }) => p.id), [21, 22])
       assert.equal(rested.pieces.find((p: { id: number }) => p.id === 21).offered_lately, 4)
       assert.deepEqual(rested.looks_he_saved.map((l: { title: string }) => l.title), ['Fresh'])
+      assert.deepEqual(rested.on_today_lately, [])
+      const shownLately = [{ days_ago: 1, piece_ids: [31, 21, 40] }]
+      assert.deepEqual(JSON.parse(String(buildDayMessages(input({ pieces, history, shownLately }))[0]!.content).split('\n\n')[0]!).on_today_lately, shownLately)
       const noted = body('wedding at 3')
       assert.equal(noted.pieces.some((p: { resting?: boolean }) => p.resting), false)
       assert.equal(noted.looks_he_saved.length, 2)
@@ -250,6 +298,7 @@ describe('the pure parts', () => {
     pieces: [],
     history: { saved: [], dismissed: [], worn: new Map(), offered: new Map() },
     wornThisWeek: [],
+    shownLately: [],
     date: '2026-11-06',
     forecast,
     note: null,
@@ -616,5 +665,12 @@ describe('a day made, read and turned', () => {
     assert.equal(offered.get(tee)?.last_on_today, date)
     assert.notEqual(offered.get(shirt)?.last_on_today, date, 'not in that day’s outfit')
     assert.equal(offered.has(tank), false, 'kit is small; a gym fit does not rest it')
+
+    // The same day's outfit is what a later day, or asking again, is weighed against.
+    const dayAfter = new Date(Date.now() + 31 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+    assert.deepEqual([...(await shownLately(dayAfter, sql))], [{ days_ago: 1, piece_ids: [tee, chinos, boots] }], 'the gym fit is left out')
+    assert.deepEqual([...(await shownLately(date, sql))], [{ days_ago: 0, piece_ids: [tee, chinos, boots] }], 'asking again counts the day itself')
+    const wellAfter = new Date(Date.now() + 45 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Pacific/Auckland' })
+    assert.deepEqual([...(await shownLately(wellAfter, sql))], [], 'past the fortnight it no longer counts')
   })
 })
