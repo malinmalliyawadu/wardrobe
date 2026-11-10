@@ -521,9 +521,9 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
           select price_cents, sizes from finder_candidates where run_id = ${run.id} and product_id = ${action.product_id}
         `
       : []
-    // Not on the shortlist: a search result or a statement piece is saved at
-    // the price and size found in his size; a pasted link at the lowest price
-    // in stock.
+    // Not on the shortlist: a search result, a statement piece or a piece of
+    // an outfit from the shops is saved at the price and size found in his
+    // size; a pasted link at the lowest price in stock.
     const [searched] = candidate
       ? []
       : await tx<{ price_cents: number; sizes: string[] }[]>`
@@ -532,6 +532,9 @@ export async function recordAction(input: FeedAction, sql: Sql = db()): Promise<
           union all
           (select c.price_cents, c.sizes, f.started_at from statement_candidates c join finder_runs f on f.id = c.run_id
             where c.product_id = ${action.product_id})
+          union all
+          (select i.price_cents, i.sizes, o.started_at from outfit_items i join outfits o on o.id = i.outfit_id
+            where i.product_id = ${action.product_id} and i.price_cents is not null)
           order by started_at desc limit 1
         `
     const [variant] = candidate || searched

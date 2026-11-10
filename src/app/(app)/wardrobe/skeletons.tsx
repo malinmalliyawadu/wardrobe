@@ -100,6 +100,42 @@ export function LooksSkeleton() {
   )
 }
 
+/** The head, the ask's line, then the outfit as a spread: the pieces laid out, and the name and the why beside them. */
+export function OutfitSkeleton() {
+  return (
+    <>
+      <HeadWaiting current="outfit" />
+      <Skeleton label="Loading the outfit">
+        <div className="mt-12">
+          <HeadBone width="w-40" />
+        </div>
+        <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:gap-12">
+          <div className="grid grid-cols-6 gap-2">
+            <Bone className="col-span-4 row-span-2 aspect-[3/4]" />
+            <Bone className="col-span-2 h-full" />
+            <Bone className="col-span-2 h-full" />
+            <Bone className="col-span-3 h-28 sm:h-32" />
+            <Bone className="col-span-3 h-28 sm:h-32" />
+          </div>
+          <div className="max-w-[34rem] pt-5 lg:pt-1">
+            <div className="text-[0.8125rem]">
+              <TextBone className="w-40" />
+            </div>
+            <span className="mt-1.5 flex h-[2.35rem] items-center text-[2.5rem] sm:h-[3.05rem] sm:text-[3.25rem]">
+              <Bone className="h-[0.7em] w-3/4 rounded-[2px]" />
+            </span>
+            <div className="mt-5 text-[0.9375rem]">
+              <TextBone className="w-full" />
+              <TextBone className="w-full" />
+              <TextBone className="w-2/3" />
+            </div>
+          </div>
+        </div>
+      </Skeleton>
+    </>
+  )
+}
+
 /** The head, then a section of rows: a strip of pieces, a caption, a name and a line. */
 export function WornSkeleton() {
   return (

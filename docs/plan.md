@@ -54,7 +54,10 @@ zero-data-retention agreement. Results are stored with the photos, and
 "delete photos" removes them with the photos. The Anthropic API does not train
 on API traffic either. The profile page has a "delete photos, keep the derived
 profile" action. (Agreed with Malin on 2026-11-04, with OpenAI as the try-on
-provider; see M3.5.)
+provider; see M3.5.) Extended by Malin on 2026-11-10: asking for an outfit
+made from anything (the Outfit page) is itself the ask for its try-on, so his
+full-length photo goes to OpenAI with that outfit's description, no garment
+photo, as soon as the outfit is made; the form says so before he taps.
 
 Photos of his clothes (the wardrobe, M5) are a second kind: not of him. Each
 is stored like his photos, without metadata, served only through the app, and

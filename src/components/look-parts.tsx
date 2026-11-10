@@ -3,10 +3,10 @@
 import type { CSSProperties } from 'react'
 
 import { seeLookOnMe } from '@/app/try-on-actions'
-import { PieceImage } from '@/components/piece-image'
+import { PieceImage, type PieceLook } from '@/components/piece-image'
 import { TryOn } from '@/components/try-on'
 import type { Look } from '@/lib/looks'
-import { GARMENT_LABELS } from '@/lib/wardrobe-values'
+import { GARMENT_LABELS, type GarmentType } from '@/lib/wardrobe-values'
 
 /** The tick a done action shows; the icon under its old name, for the look card. */
 export { TickIcon as Tick } from '@/components/icons'
@@ -60,6 +60,9 @@ export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
   )
 }
 
+/** What a flat lay shows: a look, or an outfit that mixes his pieces with the shops' (its ids are then keys). */
+export type Laid = { title: string; pieces: (PieceLook & { id: number | string; garment_type: GarmentType })[] }
+
 /**
  * The pieces laid out on a six-column grid with hairline gaps, like a
  * contact sheet: the first (outermost) large on the left, the next two
@@ -67,7 +70,7 @@ export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {
  * sharing a shorter row along the bottom. Square-cornered, so it can run to
  * the screen's edge; the caller rounds it where it sits in a card.
  */
-export function FlatLay({ look, className = '' }: { look: Look; className?: string }) {
+export function FlatLay({ look, className = '' }: { look: Laid; className?: string }) {
   const [first, second, third, ...rest] = look.pieces
   if (!first) return <div className={`swatch aspect-[4/5] ${className}`} style={{ '--swatch': 'var(--surface)' } as CSSProperties} />
   return (

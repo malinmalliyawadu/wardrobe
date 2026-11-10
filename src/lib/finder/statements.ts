@@ -197,9 +197,13 @@ export function rankCandidates<T extends { signals: Quality[]; garment_type: Gar
  * the profile when he gave one for its kind, otherwise the top of the
  * blueprint's bands for that garment, otherwise no ceiling.
  */
-export function ceilings(budget: Profile['budget'], slots: Pick<Slot, 'garment_type' | 'budget_max_cents'>[]): Partial<Record<GarmentType, number>> {
+export function ceilings(
+  budget: Profile['budget'],
+  slots: Pick<Slot, 'garment_type' | 'budget_max_cents'>[],
+  garments: readonly GarmentType[] = STATEMENT_GARMENTS,
+): Partial<Record<GarmentType, number>> {
   const result: Partial<Record<GarmentType, number>> = {}
-  for (const garment of STATEMENT_GARMENTS) {
+  for (const garment of garments) {
     const own = budget[BUDGET_CATEGORY[garment]]
     if (typeof own === 'number' && own > 0) {
       result[garment] = own * 100
