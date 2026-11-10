@@ -5,12 +5,14 @@ import { after, before, describe, test } from 'node:test'
 import { connect, db, type Sql } from '../src/lib/db.ts'
 import { DAY_SYSTEM_PROMPT } from '../src/lib/day-outfit.ts'
 import { REMAKE_SYSTEM_PROMPT } from '../src/lib/look-remake.ts'
+import { OUTFIT_SYSTEM_PROMPT } from '../src/lib/outfit.ts'
 import {
   actOnLook,
   buildLooksMessages,
-  DRESSINESS_RULES,
   gymReadiness,
+  GYM_FIT_RULES,
   LOOKS_SYSTEM_PROMPT,
+  OUTFIT_STYLING,
   readHistory,
   readiness,
   readinessAround,
@@ -217,18 +219,25 @@ describe('the pure parts', () => {
   })
 })
 
-describe('one level of dress', () => {
-  test('every prompt that puts an everyday outfit together carries the rule', () => {
-    for (const prompt of [LOOKS_SYSTEM_PROMPT, DAY_SYSTEM_PROMPT, REMAKE_SYSTEM_PROMPT]) {
-      assert.ok(prompt.includes(DRESSINESS_RULES))
+describe('room to style an outfit', () => {
+  const prompts = [LOOKS_SYSTEM_PROMPT, DAY_SYSTEM_PROMPT, REMAKE_SYSTEM_PROMPT, OUTFIT_SYSTEM_PROMPT]
+
+  test('every prompt that puts an everyday outfit together carries the brief', () => {
+    for (const prompt of prompts) assert.ok(prompt.includes(OUTFIT_STYLING))
+  })
+
+  test('tonal is never the default, and a repeated colour across layers is allowed', () => {
+    assert.match(OUTFIT_STYLING, /Tonal dressing is one option and never the default/)
+    assert.match(OUTFIT_STYLING, /the same colour carried across layers/)
+    for (const text of [...prompts, GYM_FIT_RULES]) {
+      assert.doesNotMatch(text, /tonal on purpose|\(tonal,/)
     }
   })
 
-  test('the rule keeps loafers with dark jeans, stops a shell over tassels, and leaves gym fits alone', () => {
-    assert.match(DRESSINESS_RULES, /dark jeans with loafers are fine/)
-    assert.match(DRESSINESS_RULES, /a rain shell over tassel loafers is not/)
-    assert.match(DRESSINESS_RULES, /Gym fits are outside this/)
-    assert.equal(plainDashes(DRESSINESS_RULES), DRESSINESS_RULES)
+  test('the brief still stops a shell over tassels and leaves gym fits alone', () => {
+    assert.match(OUTFIT_STYLING, /tassel loafers under a rain shell/)
+    assert.match(OUTFIT_STYLING, /Gym fits are outside this/)
+    assert.equal(plainDashes(OUTFIT_STYLING), OUTFIT_STYLING)
   })
 })
 
