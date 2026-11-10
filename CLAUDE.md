@@ -56,7 +56,8 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
 - Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
   `src/lib/try-on.ts`, only on Malin's tap, one at a time, of a find or of a
-  whole look. The one image made without a tap is the outfit of the day's
+  whole look. Asking for an outfit made from anything is such a tap: its
+  picture of him is made with it, from words and his photo. The one image made without a tap is the outfit of the day's
   flat lay (`src/lib/look-image.ts`), from photos of his clothes, never of
   him. The photo rule in docs/plan.md 1.1 is what he agreed; do not send his
   photos anywhere else.
@@ -84,7 +85,7 @@ carries its name as `data-colour` (the `name` prop on `Swatch`), and
 Tabs, by how often each is opened: Today (the outfit of the day and nothing
 else), Finds (`/finds`: ask the shops, the way into Statement pieces, last
 night's finds, the way into Shops), Wishlist (`/wishlist`: what he saved and the links he pasted, with
-what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks, On me and Worn under its name; a
+what changed; he opens it in a shop to decide whether to buy), Wardrobe (`/wardrobe`, with Looks, Outfit, On me and Worn under its name; a
 piece is `/wardrobe/[id]`), Blueprint, You. Old `/looks/*` paths redirect
 from `next.config.ts`.
 
@@ -440,3 +441,36 @@ days owned since looks began with no look wearing it), then saved looks,
 other pieces, never in a look, and looks offered and never saved, each most
 passed over first, with Dismiss or Set aside on the row. Look cards and a
 piece's page carry the same line (`wearLine` in format.ts).
+
+An outfit from scratch built 2026-11-10 (migration 0023), asked for by Malin,
+who chose the sources, one outfit an ask, and a place under Wardrobe; gate
+pending (a week of asks whose outfits he would wear or buy). `/wardrobe/outfit`
+(`src/lib/outfit.ts`; what the browser needs is in `outfit-values.ts`) takes
+what it is for, typed or from a prompt he taps, and what it is made from. From
+his wardrobe, Opus dresses him from his pieces alone. From the shops, Sonnet
+reads the brief into up to eight garments to look for (`planOutfit`), the
+nightly filter finds each in his size over what the last run read
+(`findPool`: the ten closest to the plan's words, then up to four he saved or
+Claude rated 70 or more), and Opus puts the outfit together from them. From
+both, the plan names only what he lacks and Opus is told to buy as little as
+it can. From anything (`anywhere`, migration 0024, his ask the same day), no
+shop is read and nothing he owns is used: Opus describes the ideal garments
+(`ideas`: name, colour from his palette, cloth, cut, search words), shown as
+cloth in their colour, each with a Search that runs the Search tab's search;
+and the ask itself makes the picture of him in them (his ask the same day:
+swatches alone showed him nothing): `askOutfit` starts
+`startAskedOutfitTryOn` once the outfit is ready, every garment in words and
+his photo the one image sent, under the outfit's own key (`describedKey`),
+and the spread leads with the picture. The form says his photo goes to
+OpenAI for it; the tap on "Make an outfit" is the tap. The brief sets the level of dress; rotation and his week do not
+apply. Opus gives two and `tidyOutfit` keeps the first that is whole, with
+nothing from a source he did not ask for. An outfit made only of his pieces
+is a look in a `look_sets` row of kind `ask` (the look already made with
+those pieces, when there is one), shown as a wide `LookCard`; any other is
+`outfit_items` rows shown by `OutfitSpread`, each product with Save (the
+feed's, at the price and size found) and the whole with "See it on me"
+(`startAskedOutfitTryOn`, finds need not be saved). It runs in `after()`,
+one at a time, and the page refreshes while it does. Prices are last
+night's: nothing is re-read from the shop. First real runs: a wedding from
+the shops, 7 garments planned, 74 in the pool from 1,882 in his size, 44 s,
+US$0.19; a job interview from anything, 42 s, US$0.12.
