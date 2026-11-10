@@ -28,6 +28,20 @@ export function findKey(productId: number): string {
   return `f${productId}`
 }
 
+/**
+ * The key of an outfit made from anything (outfit.ts): its garments are only
+ * described, so nothing else can be the same outfit and it goes by its own id.
+ */
+export function describedKey(outfitId: number): string {
+  return `a${outfitId}`
+}
+
+/** The outfit a described key names, or null for any other key. */
+export function describedOutfit(key: string | null): number | null {
+  const match = /^a(\d+)$/.exec(key ?? '')
+  return match ? Number(match[1]) : null
+}
+
 /** The key of the look aliased `l`, from its pieces as they are now. */
 export const lookOutfitKey = (sql: Sql) => sql`
   coalesce((

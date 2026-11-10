@@ -6,10 +6,11 @@ import Anthropic from '@anthropic-ai/sdk'
  *
  * Model split, decided in docs/plan.md: the profile analysis, blueprint
  * drafting, looks, the outfit of the day and remaking a look run rarely (the
- * outfit once a day at most, a remake on his tap) and quality matters, so
- * they get Opus; scoring
+ * outfit once a day at most, a remake or an outfit from scratch on his tap)
+ * and quality matters, so they get Opus; scoring
  * runs over hundreds of products a night, and a photo of one of his clothes or
- * a find's cut before its try-on is a quick read, so those get Sonnet.
+ * a find's cut before its try-on is a quick read, as is what to look for in the
+ * shops for an outfit, so those get Sonnet.
  */
 const OPUS = 'claude-opus-5-5'
 const SONNET = 'claude-sonnet-5-5'
@@ -22,6 +23,8 @@ export const MODELS = {
   looks: OPUS,
   day: OPUS,
   remake: OPUS,
+  outfit: OPUS,
+  outfitPlan: SONNET,
 } as const
 
 /** List prices, USD per million tokens. */

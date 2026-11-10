@@ -10,6 +10,7 @@ import {
   MAX_OUTFIT_PIECES,
   makeTryOn,
   startAgain,
+  startAskedOutfitTryOn,
   startLookTryOn,
   startOutfitTryOn,
   startStatementTryOn,
@@ -19,7 +20,8 @@ import {
 
 /*
  * "See it on me", on a find, on a look, on a statement piece with the pieces
- * it wears with, and on pieces he chose on the On me page. Each records the
+ * it wears with, on an outfit he asked for, and on pieces he chose on the On
+ * me page. Each records the
  * request and answers at once; the image is made after the response, because
  * it takes up to two minutes, and the card asks /photos/try-ons/:id/status
  * until it is ready. On a card nothing is revalidated: the card holds the state, and the
@@ -60,6 +62,13 @@ export async function seeStatementOutfitOnMe(productId: number, pieceIds: number
   const pieces = z.array(Id).min(1).max(MAX_OUTFIT_PIECES - 1).safeParse(pieceIds)
   if (!id.success || !pieces.success) return { ok: false, message: 'That outfit could not be read.' }
   return makeAfter(await startStatementTryOn(id.data, pieces.data, undefined, { again: again === true }))
+}
+
+/** An outfit he asked for on the Outfit page, his pieces and the shops' products together. */
+export async function seeAskedOutfitOnMe(outfitId: number, again: boolean = false): Promise<Started> {
+  const id = Id.safeParse(outfitId)
+  if (!id.success) return { ok: false, message: 'That outfit could not be read.' }
+  return makeAfter(await startAskedOutfitTryOn(id.data, undefined, { again: again === true }))
 }
 
 /** "p12" is wardrobe piece 12, "f34" saved find 34. */
