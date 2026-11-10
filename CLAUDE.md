@@ -56,7 +56,8 @@ Local Postgres is Homebrew's on 5432, database `wardrobe`. `.env` holds
   Opus for the rare, quality-sensitive calls, Sonnet for nightly scoring.
 - Try-on images come from OpenAI (`OPENAI_API_KEY`), only through
   `src/lib/try-on.ts`, only on Malin's tap, one at a time, of a find or of a
-  whole look. The one image made without a tap is the outfit of the day's
+  whole look. Asking for an outfit made from anything is such a tap: its
+  picture of him is made with it, from words and his photo. The one image made without a tap is the outfit of the day's
   flat lay (`src/lib/look-image.ts`), from photos of his clothes, never of
   him. The photo rule in docs/plan.md 1.1 is what he agreed; do not send his
   photos anywhere else.
@@ -456,7 +457,12 @@ it can. From anything (`anywhere`, migration 0024, his ask the same day), no
 shop is read and nothing he owns is used: Opus describes the ideal garments
 (`ideas`: name, colour from his palette, cloth, cut, search words), shown as
 cloth in their colour, each with a Search that runs the Search tab's search;
-it has no try-on, since nothing has a picture. The brief sets the level of dress; rotation and his week do not
+and the ask itself makes the picture of him in them (his ask the same day:
+swatches alone showed him nothing): `askOutfit` starts
+`startAskedOutfitTryOn` once the outfit is ready, every garment in words and
+his photo the one image sent, under the outfit's own key (`describedKey`),
+and the spread leads with the picture. The form says his photo goes to
+OpenAI for it; the tap on "Make an outfit" is the tap. The brief sets the level of dress; rotation and his week do not
 apply. Opus gives two and `tidyOutfit` keeps the first that is whole, with
 nothing from a source he did not ask for. An outfit made only of his pieces
 is a look in a `look_sets` row of kind `ask` (the look already made with

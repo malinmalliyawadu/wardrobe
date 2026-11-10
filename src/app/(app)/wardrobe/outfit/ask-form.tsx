@@ -8,10 +8,10 @@ import { OUTFIT_SOURCES, SOURCE_LABELS, type OutfitSource } from '@/lib/outfit-v
 import { askOutfit } from '../actions'
 
 const HINTS: Record<OutfitSource, string> = {
-  wardrobe: 'Only what you own.',
+  wardrobe: 'Only what you own, as a look you can save and wear.',
   shops: 'Nothing you own: a whole outfit to buy, in your size.',
   both: 'What you own, and from the shops only what it lacks.',
-  anywhere: 'Tied to no shop and nothing you own: the ideal pieces, described.',
+  anywhere: 'Tied to no shop and nothing you own: the ideal pieces described, and a picture of you in them. Your full-length photo goes to OpenAI for it.',
 }
 
 /** Briefs to start from: a tap puts one in the field, to send as it is or to add to. */
@@ -36,6 +36,7 @@ export function AskForm({ sources, initial }: { sources: OutfitSource[]; initial
   const v = withEcho({ brief: '', source: initial }, state?.values)
   // A tapped prompt replaces what the field holds; the count remounts it even when the same one is tapped twice.
   const [prompt, setPrompt] = useState({ text: v.brief ?? '', taps: 0 })
+  const [source, setSource] = useState<OutfitSource>(sources.includes(v.source as OutfitSource) ? (v.source as OutfitSource) : initial)
   return (
     <form action={action} className="max-w-2xl space-y-5" key={state?.values ? JSON.stringify(state.values) : 'blank'}>
       <div>
@@ -53,13 +54,23 @@ export function AskForm({ sources, initial }: { sources: OutfitSource[]; initial
       <fieldset>
         <legend className="mb-3 text-sm font-medium text-ink-2">Made from</legend>
         <div className="flex flex-wrap gap-2">
-          {OUTFIT_SOURCES.filter((source) => sources.includes(source)).map((source) => (
-            <label key={source} className="segment pressable" title={HINTS[source]}>
-              <input type="radio" name="source" value={source} defaultChecked={v.source === source} className="sr-only" />
-              {SOURCE_LABELS[source]}
+          {OUTFIT_SOURCES.filter((option) => sources.includes(option)).map((option) => (
+            <label key={option} className="segment pressable">
+              <input
+                type="radio"
+                name="source"
+                value={option}
+                defaultChecked={source === option}
+                onChange={() => setSource(option)}
+                className="sr-only"
+              />
+              {SOURCE_LABELS[option]}
             </label>
           ))}
         </div>
+        <p className="mt-2 max-w-[48ch] text-sm text-ink-3" aria-live="polite">
+          {HINTS[source]}
+        </p>
       </fieldset>
       <div className="space-y-3">
         <SubmitButton pending="Starting">Make an outfit</SubmitButton>

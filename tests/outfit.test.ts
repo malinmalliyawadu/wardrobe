@@ -383,14 +383,19 @@ describe('an outfit asked for, made and read', () => {
     assert.equal(outcome, 'ready')
     const view = await getOutfit(started.id, sql)
     assert.equal(view!.look, null)
-    assert.equal(view!.on_me, null)
+    assert.equal(view!.on_me, null, 'no picture has been made yet')
     assert.equal(view!.to_buy_cents, 0)
     assert.deepEqual(view!.parts.map((part) => part.name), ['Oxblood merino crew', 'Chocolate wool trousers', 'Brown suede chukkas'])
     assert.deepEqual(view!.parts[0]!.idea, {
       garment_type: 'knitwear', name: 'Oxblood merino crew', colour_name: 'oxblood', colour_hex: '#7a2e1f', fabric: 'merino', fit: null,
       why: 'the colour near your face', search: 'oxblood merino crew',
     })
-    assert.deepEqual(await startAskedOutfitTryOn(started.id, sql), { ok: false, message: 'Only an outfit whose every piece has a picture can be put on you.' })
+    // Its picture of him is made from the words; with no key it stops there, like any try-on.
+    const key = process.env.OPENAI_API_KEY
+    delete process.env.OPENAI_API_KEY
+    const tryOn = await startAskedOutfitTryOn(started.id, sql)
+    if (key) process.env.OPENAI_API_KEY = key
+    assert.deepEqual(tryOn, { ok: false, message: 'Try-on needs an OpenAI key: add OPENAI_API_KEY to the server’s environment.' })
   })
 
   test('a brief that is not about getting dressed fails in Claude’s words; an outfit that does not hold fails in ours', async () => {

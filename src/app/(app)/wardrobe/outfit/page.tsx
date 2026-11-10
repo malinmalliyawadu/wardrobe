@@ -107,8 +107,8 @@ async function Content({ searchParams }: Pick<PageProps<'/wardrobe/outfit'>, 'se
           />
           <p className="prose mt-3 max-w-[48ch] text-[0.9375rem] leading-normal text-ink-2">
             {owned
-              ? 'Say what it is for and what to make it from. From the shops it is a whole outfit to buy in your size; from both, what you own with only what it lacks; from anything, the ideal pieces described, tied to no shop.'
-              : 'Say what it is for. Your wardrobe cannot dress you yet, so it comes from the shops in your size, with what you own where it fits, or from anything: the ideal pieces described, tied to no shop.'}
+              ? 'Say what it is for and what to make it from. From the shops it is a whole outfit to buy in your size; from both, what you own with only what it lacks; from anything, the ideal pieces described and a picture of you in them, tied to no shop.'
+              : 'Say what it is for. Your wardrobe cannot dress you yet, so it comes from the shops in your size, with what you own where it fits, or from anything: the ideal pieces described and a picture of you in them, tied to no shop.'}
           </p>
           <div className="mt-5">
             <AskForm sources={sources} initial={outfit && sources.includes(outfit.source) ? outfit.source : sources[0]!} />
@@ -167,7 +167,16 @@ function Shown({ outfit }: { outfit: OutfitView }) {
     )
   }
   if (outfit.parts.length === 0) return <p className="max-w-[44ch] text-ink-2">Its pieces are no longer in your wardrobe or the shops.</p>
-  return <OutfitSpread key={outfit.id} outfit={outfit} occasion={outfit.occasion ? OCCASION_LABELS[outfit.occasion] : 'Outfit'} />
+  // An outfit from anything gets its picture of him right after it is made: keep reading until it is there.
+  const drawing =
+    outfit.source === 'anywhere' &&
+    (outfit.on_me ? outfit.on_me.status === 'making' : outfit.just_made)
+  return (
+    <>
+      <OutfitSpread key={outfit.id} outfit={outfit} occasion={outfit.occasion ? OCCASION_LABELS[outfit.occasion] : 'Outfit'} drawing={drawing} />
+      {drawing ? <Refresh /> : null}
+    </>
+  )
 }
 
 /** Where it is, in words, with a hairline that fills by stage. The line moves by transform only. */

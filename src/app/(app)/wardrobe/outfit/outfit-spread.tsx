@@ -7,7 +7,7 @@ import { search } from '@/app/(app)/search/actions'
 import { feedAction } from '@/app/feed-actions'
 import { seeAskedOutfitOnMe } from '@/app/try-on-actions'
 import { PriceLine, nzd, sizeLine } from '@/components/feed/product'
-import { SubmitButton } from '@/components/form'
+import { Spinner, SubmitButton } from '@/components/form'
 import { TickIcon } from '@/components/icons'
 import { FlatLay, type Laid } from '@/components/look-parts'
 import { PieceImage, type PieceLook } from '@/components/piece-image'
@@ -21,8 +21,8 @@ import { GARMENT_LABELS } from '@/lib/wardrobe-values'
  * what he asked for, and each piece as a row. A product's row opens the
  * shop's page and saves it to the wishlist; a piece of his opens the piece;
  * a garment only described is its colour as cloth, with a search of the
- * shops for it. "See it on me" puts the whole outfit on him, when every
- * piece of it has a picture.
+ * shops for it. "See it on me" puts the whole outfit on him; an outfit only
+ * described gets that picture with the ask, and leads with it.
  */
 
 function pictured(part: OutfitPart): PieceLook {
@@ -31,7 +31,16 @@ function pictured(part: OutfitPart): PieceLook {
   return { name: part.name, colour_hex: null, photo: null, image: part.product.image }
 }
 
-export function OutfitSpread({ outfit, occasion }: { outfit: OutfitView; occasion: string }) {
+export function OutfitSpread({
+  outfit,
+  occasion,
+  drawing = false,
+}: {
+  outfit: OutfitView
+  occasion: string
+  /** An outfit from anything whose picture of him is still being made. */
+  drawing?: boolean
+}) {
   const products = outfit.parts.flatMap((part) => (part.product ? [part.product] : []))
   const [saved, setSaved] = useState(() => new Set(products.filter((product) => product.state === 'saved').map((product) => product.product_id)))
   const [failed, setFailed] = useState(false)
@@ -66,12 +75,42 @@ export function OutfitSpread({ outfit, occasion }: { outfit: OutfitView; occasio
   const buyable = products.filter((product) => product.state !== 'bought' && !product.gone)
   const unsaved = buyable.filter((product) => !saved.has(product.product_id))
   const described = outfit.parts.some((part) => part.idea)
+  // An outfit only described leads with the picture of him in it, once there is one.
+  const picture = described && outfit.on_me?.status === 'ready' ? outfit.on_me : null
   const own = outfit.parts.filter((part) => part.piece).length
   const unseen = outfit.parts.filter((part) => part.piece && !part.piece.photo && !part.piece.image).length
 
   return (
     <article className="lg:grid lg:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
-      <FlatLay look={laid} className="bleed lg:mx-0 lg:overflow-hidden lg:rounded-[var(--radius-tile)]" />
+      {picture ? (
+        <figure>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a private, already-sized file; the optimiser would only copy it */}
+          <img
+            src={`/photos/try-ons/${picture.id}`}
+            alt={`You wearing ${(outfit.title ?? 'the outfit').toLowerCase()}`}
+            width={picture.width ?? 3}
+            height={picture.height ?? 4}
+            style={{ aspectRatio: `${picture.width ?? 3} / ${picture.height ?? 4}` }}
+            className="bleed block h-auto w-[calc(100%+2*var(--gutter))] max-w-none lg:mx-0 lg:w-full lg:rounded-[var(--radius-tile)]"
+          />
+          <div className="mt-px grid gap-px lg:mt-2 lg:gap-1" style={{ gridTemplateColumns: `repeat(${laid.pieces.length}, minmax(0, 1fr))` }}>
+            {laid.pieces.map((piece) => (
+              <PieceImage key={piece.id} piece={piece} sizes="4rem" className="h-8 lg:rounded-[2px]" />
+            ))}
+          </div>
+          <figcaption className="caption mt-2">Drawn from your photo and the description of each piece, not from real garments</figcaption>
+        </figure>
+      ) : (
+        <div>
+          <FlatLay look={laid} className="bleed lg:mx-0 lg:overflow-hidden lg:rounded-[var(--radius-tile)]" />
+          {drawing ? (
+            <p className="caption mt-2 flex items-center gap-2" aria-live="polite">
+              <Spinner />
+              Putting it on you. About a minute.
+            </p>
+          ) : null}
+        </div>
+      )}
 
       <div className="max-w-[34rem] pt-5 lg:pt-1">
         <p className="caption">
@@ -141,8 +180,9 @@ export function OutfitSpread({ outfit, occasion }: { outfit: OutfitView; occasio
         ) : null}
         {failed ? <p className="mt-2 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
 
-        <div className="mt-4" hidden={described}>
+        <div className="mt-4">
           <TryOn
+            key={outfit.on_me ? `${outfit.on_me.id}-${outfit.on_me.status}` : 'none'}
             initial={outfit.on_me}
             start={(again) => seeAskedOutfitOnMe(outfit.id, again)}
             content={{
@@ -165,7 +205,12 @@ export function OutfitSpread({ outfit, occasion }: { outfit: OutfitView; occasio
                   <figcaption className="caption mt-2">What it is made from</figcaption>
                 </figure>
               ),
-              note: (
+              note: described ? (
+                <>
+                  Made by OpenAI from your full-length photo and the description of each piece. No real garment was shown, so read it
+                  for the idea: the colours together, the proportions, the level of dress.
+                </>
+              ) : (
                 <>
                   Made by OpenAI from your full-length photo{own > 0 ? ', the photos of your pieces' : ''} and the shops’ photos. Judge
                   the colours against the clothes themselves: the picture cannot know how each one sits on you.

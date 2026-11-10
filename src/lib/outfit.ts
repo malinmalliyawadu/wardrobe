@@ -30,7 +30,7 @@ import {
   type Look,
   type Occasion,
 } from './looks.ts'
-import { outfitKey } from './outfit-key.ts'
+import { describedKey, outfitKey } from './outfit-key.ts'
 import { BRIEF_MAX, OUTFIT_SOURCES, SOURCE_LABELS, usesShops, usesWardrobe, type OutfitSource } from './outfit-values.ts'
 import { listPieces, type Piece } from './pieces.ts'
 import { getProfile, type Profile } from './profile.ts'
@@ -57,7 +57,9 @@ import { forEveryday, forGym, GARMENT_TYPES, normaliseHex, type GarmentType } fr
  *             owns and buys only what he lacks or what clearly does better.
  *   anywhere  tied to no shop and to nothing he owns (migration 0024): Opus
  *             describes the ideal garments in words, each with its colour
- *             from his palette and the words to search the shops with.
+ *             from his palette and the words to search the shops with, and
+ *             the ask makes a picture of him in them (try-on.ts), since
+ *             words and swatches alone show him nothing.
  *
  * Claude is sent words only, never a photo. Code holds the answer to what an
  * outfit must be (tidyOutfit): only pieces he has and products from the pool,
@@ -799,6 +801,7 @@ export type OutfitSummary = {
   error: string | null
   title: string | null
   started_at: Date
+  finished_at: Date | null
 }
 
 /** A product of an outfit, as its row shows it. */
@@ -840,6 +843,8 @@ export type OutfitView = OutfitSummary & {
   to_buy_cents: number
   /** The kept picture of him in exactly these, if one was made. */
   on_me: OnMe | null
+  /** Made in the last few seconds: an outfit from anything is about to get its picture. */
+  just_made: boolean
 }
 
 const STATUS_COLUMNS = (sql: Sql) => sql`
@@ -851,7 +856,7 @@ const STATUS_COLUMNS = (sql: Sql) => sql`
 /** The asks he made, newest first. */
 export async function listOutfits(limit = 9, sql: Sql = db()): Promise<OutfitSummary[]> {
   return sql<OutfitSummary[]>`
-    select o.id::int as id, o.brief, o.source, ${STATUS_COLUMNS(sql)}, o.stage, o.title, o.started_at
+    select o.id::int as id, o.brief, o.source, ${STATUS_COLUMNS(sql)}, o.stage, o.title, o.started_at, o.finished_at
     from outfits o order by o.started_at desc, o.id desc limit ${limit}
   `
 }
@@ -871,6 +876,7 @@ type OutfitRow = OutfitSummary & {
   usd: number
   stats: OutfitStats
   look_id: number | null
+  just_made: boolean
 }
 
 type ItemRow = {
@@ -900,8 +906,9 @@ type ItemRow = {
 /** One outfit with everything its page shows: the given one, or the newest. */
 export async function getOutfit(id: number | null, sql: Sql = db()): Promise<OutfitView | null> {
   const [row] = await sql<OutfitRow[]>`
-    select o.id::int as id, o.brief, o.source, ${STATUS_COLUMNS(sql)}, o.stage, o.title, o.started_at,
+    select o.id::int as id, o.brief, o.source, ${STATUS_COLUMNS(sql)}, o.stage, o.title, o.started_at, o.finished_at,
            o.occasion, o.weather, o.why, o.styling, o.usd::float as usd, o.stats,
+           coalesce(o.finished_at > now() - interval '20 seconds', false) as just_made,
            (select l.look_id::int from look_set_looks l where l.set_id = o.set_id order by l.position limit 1) as look_id
     from outfits o
     where ${id === null ? sql`true` : sql`o.id = ${id}`}
@@ -973,9 +980,11 @@ export async function getOutfit(id: number | null, sql: Sql = db()): Promise<Out
     ]
   })
   const look = looks[0] ?? null
-  const key = outfitKey(parts.map((part) => ({ piece_id: part.piece?.id ?? null, product_id: part.product?.product_id ?? null })))
-  // A look carries its own picture; the rest are found by what they are made of. A garment only described has none.
-  const onMe = look || parts.length === 0 || parts.some((part) => part.idea) ? null : ((await tryOnsByKey([key], sql)).get(key) ?? null)
+  // A look carries its own picture; the rest are found by what they are made of, and one only described by its own id.
+  const key = parts.some((part) => part.idea)
+    ? describedKey(outfit.id)
+    : outfitKey(parts.map((part) => ({ piece_id: part.piece?.id ?? null, product_id: part.product?.product_id ?? null })))
+  const onMe = look || parts.length === 0 ? null : ((await tryOnsByKey([key], sql)).get(key) ?? null)
   return {
     ...outfit,
     parts,

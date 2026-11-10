@@ -46,7 +46,7 @@ import { getProfile } from '@/lib/profile'
 import { listRetailers } from '@/lib/retailers'
 import { GenerationError } from '@/lib/structured'
 import { getGuide } from '@/lib/style-guide'
-import { fetchProductImage } from '@/lib/try-on'
+import { fetchProductImage, makeTryOn, startAskedOutfitTryOn } from '@/lib/try-on'
 
 /** What the add form's first step returns: the values to start the form from. */
 export type DraftState = (NonNullable<ActionState> & { draft?: PieceDraft }) | null
@@ -303,7 +303,8 @@ export async function makePieceLooks(_prev: ActionState, form: FormData): Promis
  * One outfit from scratch, for what he says it is for, from his wardrobe, the
  * shops or both. Records the ask and opens its page at once; the outfit is
  * made after the response (up to a minute or two), and the page refreshes
- * until it is there, so leaving loses nothing.
+ * until it is there, so leaving loses nothing. An outfit from anything then
+ * gets its picture of him, made the same way.
  */
 export async function askOutfit(_prev: ActionState, form: FormData): Promise<ActionState> {
   const brief = text(form, 'brief') ?? ''
@@ -312,7 +313,13 @@ export async function askOutfit(_prev: ActionState, form: FormData): Promise<Act
   const started = await startOutfit({ brief, source })
   if (!started.ok) return { ok: false, message: started.message, values: echo(form) }
   after(async () => {
-    await runOutfit(started.id)
+    const made = await runOutfit(started.id)
+    // An outfit from anything is only words, so its picture of him is part of the ask: his tap on "Make an outfit"
+    // is the tap, and the form says so. If it cannot start (no photo, another in the making), the page offers it.
+    if (made === 'ready' && source === 'anywhere') {
+      const tryOn = await startAskedOutfitTryOn(started.id)
+      if (tryOn.ok && !tryOn.reused) await makeTryOn(tryOn.id)
+    }
   })
   refreshAll()
   redirect('/wardrobe/outfit')
