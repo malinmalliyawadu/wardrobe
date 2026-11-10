@@ -327,12 +327,14 @@ outfit starts from its place in Opus's order and loses weight for how lately
 its pieces, and an outfit close to it, were on Today or worn (`shownLately`,
 `staleness`; a showing counts half as much every four days), and each further
 option loses weight for the pieces it shares with those already kept. The
-weights are `WEIGHTS` in rotation.ts. Every everyday outfit, here, in a set of looks and in a remake, keeps to
-one level of dress (`DRESSINESS_RULES` in looks.ts, 2026-11-09, after Malin
-found tassel loafers under a rain shell): pieces stay within one step of each
-other and an outer layer does not repeat the colour under it unless tonal on
-purpose. It is prompt only, since a piece has no formality field and code
-cannot tell. The option on show gets a flat lay drawn by
+weights are `WEIGHTS` in rotation.ts. Every everyday outfit, here, in a set of
+looks and in a remake, gets the same styling brief (`OUTFIT_STYLING` in
+looks.ts, 2026-11-10, after Malin found the earlier tier-by-tier dress rule and
+its tonal clause overbearing): tonal is one option and never the default,
+colour across layers and a deliberate mix of dressy and relaxed are open, and
+only a clash that reads as a mistake is out (tassel loafers under a rain
+shell, his find of 2026-11-09). It is prompt only, since a piece has no
+formality field and code cannot tell. The option on show gets a flat lay drawn by
 OpenAI from photos of his clothes, never of him (`src/lib/look-image.ts`,
 served at `/photos/looks/:id`): the photo rule's one no-tap exception,
 docs/plan.md 1.1. About US$0.14 a day.
