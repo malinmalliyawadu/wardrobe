@@ -18,7 +18,7 @@ Six tabs, ordered by how often each is opened:
 | Today | `/` | The outfit of the day, and nothing else. Three options to swipe between, a gym fit on gym days, "something on today" at the end. Until there is a guide and a wardrobe, it says what to do next. |
 | Finds | `/finds` | The shopping tab. A line to ask the shops for something (which runs a Search, `/search`), a row of the best statement pieces leading to `/statements`, last night's finds by slot, and the way into everything the finder read (`/shops`). |
 | Wishlist | `/wishlist` | What he wants: every find he saved and every link he pasted, each with what changed since. He opens it in a shop to decide whether to buy, so it is a tab of its own, with the paste-a-link line first. |
-| Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`), On me (`/wardrobe/on-me`) and Worn (`/wardrobe/worn`, what to rotate out and what he passes over) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
+| Wardrobe | `/wardrobe` | What he owns (the index), with Looks (`/wardrobe/looks`), Outfit (`/wardrobe/outfit`: one outfit for whatever he says it is for, from his wardrobe, the shops, both or anything, as a spread), On me (`/wardrobe/on-me`) and Worn (`/wardrobe/worn`, what to rotate out and what he passes over) as sections under its name. A piece is `/wardrobe/[id]`, adding one is `/wardrobe/new`. |
 | Blueprint | `/blueprint` | What to own, by priority, with the style guide (`/blueprint/guide`) at the top wearing its palette. |
 | You | `/you` | The profile, the finder's spend and shops, the systems. Edited rarely. |
 

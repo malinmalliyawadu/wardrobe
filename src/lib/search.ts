@@ -103,9 +103,8 @@ export const RequestReadSchema = z.object({
 
 export type RequestRead = z.infer<typeof RequestReadSchema>
 
-export const READ_SYSTEM_PROMPT = `You read one shopping request Malin typed into his private menswear app, and turn it into the terms the app's filter uses. The app then searches New Zealand menswear shops and END. (UK, ships to New Zealand) for products in his size, and a stylist judges the closest against his request and his style guide.
-
-Garment types, and what each covers:
+/** The fixed garment types and what each covers, for any prompt that must name one. */
+export const GARMENT_GUIDE = `Garment types, and what each covers:
 - tee: t-shirts
 - tank: tank tops and singlets
 - polo: polo shirts, including knitted polos
@@ -125,7 +124,11 @@ Garment types, and what each covers:
 - sneakers: sneakers and trainers
 - belt: belts
 - accessory: scarves, beanies, caps, watches, socks, ties, sunglasses
-- bag: bags
+- bag: bags`
+
+export const READ_SYSTEM_PROMPT = `You read one shopping request Malin typed into his private menswear app, and turn it into the terms the app's filter uses. The app then searches New Zealand menswear shops and END. (UK, ships to New Zealand) for products in his size, and a stylist judges the closest against his request and his style guide.
+
+${GARMENT_GUIDE}
 
 Prices are in New Zealand dollars: "under $300" is a maximum of 300; "around $200" is about 160 to 240. A request may name a colour, a cut, a fabric, a price, all of these or none.
 

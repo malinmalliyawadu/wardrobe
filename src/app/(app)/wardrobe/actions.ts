@@ -41,6 +41,7 @@ import {
   wellingtonToday,
   type LookAction,
 } from '@/lib/looks'
+import { OUTFIT_SOURCES, runOutfit, startOutfit, type OutfitSource } from '@/lib/outfit'
 import { getProfile } from '@/lib/profile'
 import { listRetailers } from '@/lib/retailers'
 import { GenerationError } from '@/lib/structured'
@@ -296,6 +297,25 @@ export async function makePieceLooks(_prev: ActionState, form: FormData): Promis
   }
   refreshAll()
   return { ok: true }
+}
+
+/**
+ * One outfit from scratch, for what he says it is for, from his wardrobe, the
+ * shops or both. Records the ask and opens its page at once; the outfit is
+ * made after the response (up to a minute or two), and the page refreshes
+ * until it is there, so leaving loses nothing.
+ */
+export async function askOutfit(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const brief = text(form, 'brief') ?? ''
+  const chosen = text(form, 'source')
+  const source = (OUTFIT_SOURCES as readonly string[]).includes(chosen ?? '') ? (chosen as OutfitSource) : 'wardrobe'
+  const started = await startOutfit({ brief, source })
+  if (!started.ok) return { ok: false, message: started.message, values: echo(form) }
+  after(async () => {
+    await runOutfit(started.id)
+  })
+  refreshAll()
+  redirect('/wardrobe/outfit')
 }
 
 /** Save, un-save, dismiss with a reason, wore it. The card shows it at once; this makes it so. */

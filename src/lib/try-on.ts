@@ -728,8 +728,8 @@ type Choosable = Omit<PieceSent, 'shown'> & { photo_id: number | null; image: st
 
 /**
  * Which finds an outfit may hold: those he saved, as the On me chooser offers
- * them, or any the shops listed (a statement piece, or a picture made again
- * after he cleared the find).
+ * them, or any the shops listed (a statement piece, an outfit he asked for,
+ * or a picture made again after he cleared the find).
  */
 type FindsTaken = 'saved' | 'any'
 
@@ -809,6 +809,31 @@ export async function startStatementTryOn(
     finds: 'any',
     gone: 'A piece of this outfit is no longer in your wardrobe. Reload the page.',
   })
+}
+
+/**
+ * Record a request for an outfit he asked for on the Outfit page (outfit.ts)
+ * put on him: his pieces and the shops' products it is made of, none of which
+ * need be saved; or answer with the picture of exactly those already kept.
+ */
+export async function startAskedOutfitTryOn(outfitId: number, sql: Sql = db(), options: StartOptions = {}): Promise<Started> {
+  const items = await sql<{ piece_id: number | null; product_id: number | null }[]>`
+    select piece_id::int as piece_id, product_id::int as product_id from outfit_items
+    where outfit_id = ${outfitId} order by position
+  `
+  if (items.length === 0) return { ok: false, message: 'That outfit could not be found. Reload the page.' }
+  // A garment only described (an outfit made from anything) has no photo to put on him.
+  if (items.some((item) => item.piece_id === null && item.product_id === null)) {
+    return { ok: false, message: 'Only an outfit whose every piece has a picture can be put on you.' }
+  }
+  return startChosen(
+    {
+      piece_ids: items.flatMap((item) => (item.piece_id !== null ? [item.piece_id] : [])),
+      product_ids: items.flatMap((item) => (item.product_id !== null ? [item.product_id] : [])),
+    },
+    sql,
+    { ...options, finds: 'any', gone: 'A piece of this outfit is no longer in your wardrobe. Ask for the outfit again.' },
+  )
 }
 
 /** The outfit try-ons' shared part: check the choice, find it kept, else record it. */
