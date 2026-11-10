@@ -329,7 +329,7 @@ its pieces, and an outfit close to it, were on Today or worn (`shownLately`,
 `staleness`; a showing counts half as much every four days), and each further
 option loses weight for the pieces it shares with those already kept. The
 weights are `WEIGHTS` in rotation.ts. Every everyday outfit, here, in a set of
-looks and in a remake, gets the same styling brief (`OUTFIT_STYLING` in
+looks, in a remake and in an outfit from scratch, gets the same styling brief (`OUTFIT_STYLING` in
 looks.ts, 2026-11-10, after Malin found the earlier tier-by-tier dress rule and
 its tonal clause overbearing): tonal is one option and never the default,
 colour across layers and a deliberate mix of dressy and relaxed are open, and

@@ -14,7 +14,6 @@ import { ceilings } from './finder/statements.ts'
 import { BOTTOMS, FOOTWEAR, isWhole, LAYER_ORDER, TOPS } from './look-rules.ts'
 import {
   dressable,
-  DRESSINESS_RULES,
   getLooks,
   GYM_FIT_RULES,
   gymForPrompt,
@@ -22,6 +21,7 @@ import {
   matchingLooks,
   OCCASIONS,
   offerLook,
+  OUTFIT_STYLING,
   pieceForPrompt,
   readHistory,
   readiness,
@@ -119,7 +119,7 @@ When it is made from the shops alone, name every garment of one whole outfit for
 
 When it is made from both, start from what he owns. Name only what the outfit needs that he does not own, or what would clearly do better for this brief than anything he owns: at most four garments, and none at all when his wardrobe answers the brief whole.
 
-Colour is how the app narrows the shops, so give each garment plain colour words a shop would use, taken from his palette: his best colours and neutrals, never one he should avoid. Think of the outfit as one colour story and give each garment its part in it. Keep to the fits his guide gives. Set the level of dress by the brief and keep every garment at that level.
+Colour is how the app narrows the shops, so give each garment plain colour words a shop would use, taken from his palette: his best colours and neutrals, never one he should avoid. Think of the outfit as one colour story and give each garment its part in it. Keep to the fits his guide gives. Set the level of dress by the brief; a deliberate mix of dressy and relaxed is open when it suits.
 
 An empty brief means an outfit for an ordinary day this week. It is not understood only when it is not about getting dressed at all; then say why in one short sentence to him, in the second person. Plain hyphens only.`
 
@@ -418,13 +418,13 @@ From both, wear what he owns wherever one of his pieces answers the brief as wel
 
 The shop list is what the shops have for a plan made a moment ago: each product says the place in the outfit it was found for (for), its colours in stock, its price in NZ dollars, and sometimes rated (how well it was judged to suit him before, out of 100) or saved (he saved it to his wishlist). Lean on saved and well rated products where they fit. Read a product's cloth, cut and level of dress from its name and description. When his brief gives a budget, keep the products' total inside it.
 
-The brief decides the level of dress and the occasion; his week does not. ${DRESSINESS_RULES}
+The brief decides the level of dress and the occasion; his week does not. ${OUTFIT_STYLING}
 
 Dress him for Wellington in the month you are given unless his brief names another place, season or weather. You have the month's usual weather and warmth_limit, read from its usual high: keep within it for an ordinary day, and go past it only when the brief asks (a formal event takes a jacket whatever the day). ${WARMTH_RULES} A product gives no warmth: read it from its garment and cloth.
 
 ${GYM_FIT_RULES} Make a gym fit only when his brief is about training, and only from his own kit.
 
-Colour is the point. Build the outfit on his palette: say in the why which of his colours carry it and why they sit together (tonal, contrast near the face, a neutral base with one strong colour). Respect the proportion and fit rules in his guide and name the one the outfit uses. Respect his no-gos absolutely.
+Colour is the point. Work from his palette and say in the why which of his colours carry the outfit and why they sit together. Respect the proportion and fit rules in his guide and name the one the outfit uses. Respect his no-gos absolutely.
 
 Give two outfits, the best first. The second is a different answer to the same brief, sharing as little with the first as his pieces and the shops allow.
 

@@ -5,6 +5,7 @@ import { after, before, describe, test } from 'node:test'
 import { connect, db, type Sql } from '../src/lib/db.ts'
 import { DAY_SYSTEM_PROMPT } from '../src/lib/day-outfit.ts'
 import { REMAKE_SYSTEM_PROMPT } from '../src/lib/look-remake.ts'
+import { OUTFIT_SYSTEM_PROMPT } from '../src/lib/outfit.ts'
 import {
   actOnLook,
   buildLooksMessages,
@@ -219,7 +220,7 @@ describe('the pure parts', () => {
 })
 
 describe('room to style an outfit', () => {
-  const prompts = [LOOKS_SYSTEM_PROMPT, DAY_SYSTEM_PROMPT, REMAKE_SYSTEM_PROMPT]
+  const prompts = [LOOKS_SYSTEM_PROMPT, DAY_SYSTEM_PROMPT, REMAKE_SYSTEM_PROMPT, OUTFIT_SYSTEM_PROMPT]
 
   test('every prompt that puts an everyday outfit together carries the brief', () => {
     for (const prompt of prompts) assert.ok(prompt.includes(OUTFIT_STYLING))
