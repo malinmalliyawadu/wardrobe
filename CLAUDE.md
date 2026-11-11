@@ -476,3 +476,15 @@ one at a time, and the page refreshes while it does. Prices are last
 night's: nothing is re-read from the shop. First real runs: a wedding from
 the shops, 7 garments planned, 74 in the pool from 1,882 in his size, 44 s,
 US$0.19; a job interview from anything, 42 s, US$0.12.
+
+A wish from a photo built 2026-11-12 (migration 0025), asked for by Malin:
+the wishlist's add line is Shop link or Photo. A photo (a screenshot, one
+taken in a shop) is stored as a find photo and read once by Sonnet
+(`src/lib/wish-photo.ts`, the read and its cost on `find_photos`) into a
+name, kind, palette colour, and the brand and price when the photo shows
+them (a price only in NZD); he checks it, price and shop optional. The wish
+is a product of the hidden `photo` store (`PHOTO_PLATFORM` in retailers.ts:
+switched off, out of `listRetailers`, never read), its url the photo's own
+address, one variant only when priced; the same photo again updates it.
+Saved shows it as from a photo, never out of stock, "No price" when it has
+none; "Bought it" makes it a piece in the read colour.

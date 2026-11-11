@@ -64,7 +64,10 @@ is stored like his photos, without metadata, served only through the app, and
 goes to the Claude API (Sonnet) once, when he adds the piece, to fill in the
 form he checks. Looks are made from the pieces' words, not their photos.
 "Delete photos" stays for photos of him; a clothing photo goes with its piece.
-(Agreed with Malin on 2026-11-04.) The one other place a clothing photo goes:
+(Agreed with Malin on 2026-11-04.) A photo he adds to the wishlist instead of
+a link (a screenshot, a photo taken in a shop) is the same kind and goes to
+Sonnet the same way, once, when he chooses it, to fill in the form he checks.
+(Asked for by Malin on 2026-11-12.) The one other place a clothing photo goes:
 "See it on me" on a look sends his full-length photo to OpenAI with the photos
 of that look's pieces (or the shop's photo for a piece he never
 photographed), only when he taps it, one image at a time, under the same terms
