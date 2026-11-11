@@ -6,14 +6,15 @@ import { db } from '@/lib/db'
 import { getWishlist } from '@/lib/feed'
 import { listRetailers, readable, type Retailer } from '@/lib/retailers'
 
-import { AddLink, type ManualStore } from './add-link'
+import type { ManualStore } from './add-link'
+import { AddWish } from './add-wish'
 import { SavedRow } from './find-card'
 import { changeLine, newsSummary } from './saved-change'
 
 /**
- * The wishlist: the line to paste a product link first, since that is what
- * he comes here to do from a shop, then everything saved, newest news
- * first, in two columns on the laptop.
+ * The wishlist: the way to add something first (a pasted link, since that is
+ * what he comes here to do from a shop, or a photo), then everything saved,
+ * newest news first, in two columns on the laptop.
  */
 export async function Wishlist() {
   await connection()
@@ -22,10 +23,17 @@ export async function Wishlist() {
   const news = newsSummary(list.saved, list.run?.started_at ?? null, now)
   const count = list.saved.length
   const forSlots = list.saved.filter((find) => find.slot_id !== null).length
+  // Finds added by hand or from a photo have no page to read, so the line counts only the ones that are checked.
+  const checked = list.saved.filter((find) => !find.byHand && !find.fromPhoto).length
+  const pieces = `${count} ${count === 1 ? 'piece' : 'pieces'}${forSlots ? `, ${forSlots} for ${forSlots === 1 ? 'a slot' : 'slots'}` : ''}`
   const line =
     count === 0
       ? 'Nothing saved yet.'
-      : `${count} ${count === 1 ? 'piece' : 'pieces'}${forSlots ? `, ${forSlots} for ${forSlots === 1 ? 'a slot' : 'slots'}` : ''}, each checked every night for a lower price and your size.`
+      : checked === count
+        ? `${pieces}, each checked every night for a lower price and your size.`
+        : checked === 0
+          ? `${pieces}.`
+          : `${pieces}. ${checked} ${checked === 1 ? 'is' : 'are'} checked every night for a lower price and your size.`
 
   return (
     <section aria-labelledby="wishlist">
@@ -33,7 +41,7 @@ export async function Wishlist() {
       {news ? <p className="mt-1 text-[0.9375rem] text-ink-2">{line}</p> : null}
 
       <div className="max-w-2xl">
-        <AddLink slots={list.openSlots} manualStores={manualStores(retailers)} />
+        <AddWish slots={list.openSlots} manualStores={manualStores(retailers)} />
       </div>
 
       {count > 0 ? (
@@ -49,8 +57,8 @@ export async function Wishlist() {
         </ul>
       ) : (
         <p className="prose mt-10 max-w-[44ch] text-[0.9375rem] text-ink-2">
-          Save a find, or paste a link to anything you want from the shops, and it lands here. Every night it is
-          checked for a lower price, and for your size coming back in stock.
+          Save a find, paste a link to anything you want from the shops, or add a photo of something you saw, and it
+          lands here. Every night a link is checked for a lower price, and for your size coming back in stock.
         </p>
       )}
     </section>
@@ -80,8 +88,12 @@ export function WishlistSkeleton() {
         <TextBone className="w-80 max-w-full" />
       </div>
       <div className="mt-6 max-w-2xl">
-        <Bone className="mb-2 h-3.5 w-36 rounded-[2px]" />
-        <Bone className="h-12 rounded-[var(--radius-control)]" />
+        <Bone className="mb-2 h-3.5 w-40 rounded-[2px]" />
+        <div className="flex gap-2">
+          <Bone className="h-11 w-24 rounded-[var(--radius-control)]" />
+          <Bone className="h-11 w-18 rounded-[var(--radius-control)]" />
+        </div>
+        <Bone className="mt-4 h-12 rounded-[var(--radius-control)]" />
       </div>
       <div className="mt-10 divide-y divide-line lg:grid lg:grid-cols-2 lg:gap-x-12 lg:divide-y-0">
         {[0, 1, 2, 3].map((row) => (

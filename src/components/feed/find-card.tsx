@@ -183,6 +183,12 @@ function WearsWith({ pieces }: { pieces: WornWith[] }) {
 }
 
 /** A saved find: a compact row, with what changed since he saved it. */
+/** Where a saved find is from: its shop, or the photo he added it from, with the brand when he named one. */
+function where(find: SavedFind): string {
+  if (!find.fromPhoto) return find.retailer
+  return find.vendor ? `${find.vendor}, from a photo` : 'From a photo'
+}
+
 export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName: string | null; change: ChangeLine | null }) {
   const [mode, setMode] = useState<'actions' | 'bought' | 'photo'>('actions')
   const { gone, failed, send } = useFeedAction()
@@ -194,12 +200,14 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
         <ProductPhoto find={find} sizes="5.5rem" className="aspect-[4/5] w-22 rounded-[var(--radius-tile)]" />
       </a>
       <div className="min-w-0 flex-1">
-        <p className="caption truncate">{slotName ? `${find.retailer}, for your ${slotName.toLowerCase()}` : find.retailer}</p>
+        <p className="caption truncate">{slotName ? `${where(find)}, for your ${slotName.toLowerCase()}` : where(find)}</p>
         <a href={find.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 line-clamp-2 text-[0.9375rem] leading-snug font-medium">
           {find.title}
         </a>
         <div className="mt-1">
-          {find.inStock ? (
+          {find.inStock && !find.priced ? (
+            <p className="text-[0.9375rem] text-ink-3">No price</p>
+          ) : find.inStock ? (
             <PriceLine find={find} />
           ) : (
             // Out of stock, the change line is the whole story: when it sold out.
@@ -218,6 +226,7 @@ export function SavedRow({ find, slotName, change }: { find: SavedFind; slotName
           </p>
         ) : null}
         {find.byHand ? <p className="mt-1 text-[0.8125rem] text-ink-3">Added by hand, so the price is not checked</p> : null}
+        {find.fromPhoto ? <p className="mt-1 text-[0.8125rem] text-ink-3">No link, so it is not checked each night</p> : null}
         {change && find.inStock ? (
           <p className={`mt-1 text-[0.8125rem] ${change.tone === 'good' ? 'font-medium text-accent' : 'text-ink-3'}`}>{change.text}</p>
         ) : null}

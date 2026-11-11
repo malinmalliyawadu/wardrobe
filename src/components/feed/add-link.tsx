@@ -72,9 +72,9 @@ export function AddLink({ slots, manualStores }: { slots: Slot[]; manualStores: 
 
   return (
     <>
-      <form key={round} action={action} className="mt-6">
-        <label htmlFor="saved-link" className="mb-1.5 block text-sm font-medium text-ink-2">
-          Add a product you want
+      <form key={round} action={action}>
+        <label htmlFor="saved-link" className="sr-only">
+          Product link
         </label>
         <input
           id="saved-link"

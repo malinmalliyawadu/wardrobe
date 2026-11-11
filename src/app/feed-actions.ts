@@ -1,5 +1,6 @@
 'use server'
 
+import Anthropic from '@anthropic-ai/sdk'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -15,6 +16,16 @@ import { PhotoError } from '@/lib/photos'
 import type { ProductImage } from '@/lib/finder/shopify'
 import { addOwnProductPhoto, chooseProductPhoto, ProductPhotoError, productPhotos, type ProductPhotos } from '@/lib/product-photos'
 import { listRetailers, readable, type Retailer } from '@/lib/retailers'
+import { getGuide } from '@/lib/style-guide'
+import {
+  addPhotoWish,
+  PhotoWishError,
+  PhotoWishSchema,
+  readWishPhoto,
+  WishReadError,
+  wishValuesFromRead,
+  type WishValues,
+} from '@/lib/wish-photo'
 
 /**
  * Save, un-save, dismiss with a reason, and mark as bought, from the feed on
@@ -163,4 +174,68 @@ export async function addOwnPhoto(form: FormData): Promise<PhotoResult> {
     if (error instanceof PhotoError || error instanceof ProductPhotoError) return { ok: false, message: error.message }
     throw error
   }
+}
+
+export type WishPhotoState =
+  | { ok: true; photo: FindPhoto; values: Partial<WishValues>; note: string | null }
+  | { ok: false; message: string }
+  | null
+
+/**
+ * A photo of something he wants, with no link: stored, then read once by
+ * Claude to fill in the form he checks (src/lib/wish-photo.ts). A failed read
+ * keeps the photo and leaves the fields for him.
+ */
+export async function readPhotoWish(_prev: WishPhotoState, form: FormData): Promise<WishPhotoState> {
+  const upload = form.get('file')
+  if (!(upload instanceof File) || upload.size === 0) return { ok: false, message: 'Choose a photo first.' }
+  let photo: FindPhoto
+  try {
+    photo = await storeFindPhoto({ bytes: Buffer.from(await upload.arrayBuffer()), mime: upload.type })
+  } catch (error) {
+    if (error instanceof PhotoError) return { ok: false, message: error.message }
+    throw error
+  }
+  const guide = await getGuide()
+  try {
+    const read = await readWishPhoto(photo, guide)
+    const note = read.is_garment ? null : 'Claude was not sure this photo shows one piece. Check every field.'
+    return { ok: true, photo, values: wishValuesFromRead(read, guide), note }
+  } catch (error) {
+    if (!(error instanceof WishReadError || error instanceof Anthropic.APIError)) throw error
+    return { ok: true, photo, values: {}, note: 'Claude could not read the photo. Fill in what it is.' }
+  }
+}
+
+/** Adds what he checked from a photo to the wishlist, for a slot or none. */
+export async function addPhotoToSaved(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const slot = Number(form.get('slot_id'))
+  const slotId = Number.isInteger(slot) && slot > 0 ? slot : null
+  const photo = number(form, 'photo_id')
+  const parsed = finish(PhotoWishSchema, {
+    photo_id: photo,
+    name: text(form, 'name') ?? '',
+    garment_type: text(form, 'garment_type'),
+    price: price(text(form, 'price')),
+    shop: text(form, 'shop'),
+    colour_hex: text(form, 'colour_hex'),
+  })
+  if (!parsed.ok) {
+    const errors = { ...parsed.errors }
+    if (errors.name) errors.name = 'Say what it is called'
+    if (errors.garment_type) errors.garment_type = 'Choose what it is'
+    if (errors.price) errors.price = 'Enter the price in NZD, or leave it empty'
+    if (errors.photo_id) errors.photo_id = 'Choose the photo again'
+    return { ok: false, errors, values: echo(form) }
+  }
+  try {
+    const sql = db()
+    const productId = await addPhotoWish(sql, parsed.data)
+    await recordAction({ action: 'saved', product_id: productId, slot_id: slotId })
+  } catch (error) {
+    if (error instanceof PhotoWishError) return { ok: false, errors: { photo_id: error.message }, values: echo(form) }
+    throw error
+  }
+  revalidatePath('/', 'layout')
+  return { ok: true, message: parsed.data.name }
 }

@@ -156,10 +156,17 @@ export async function seedRetailers(sql: Sql, seeds: RetailerSeed[]): Promise<{ 
   return { inserted, updated }
 }
 
+/**
+ * The hidden store that wishes from a photo belong to (migration 0025). Not a
+ * shop: it has no site, is never in data/retailers.json, and listRetailers
+ * leaves it out, so it is never offered anywhere a shop is.
+ */
+export const PHOTO_PLATFORM = 'photo'
+
 export async function listRetailers(sql: Sql): Promise<Retailer[]> {
   return sql<Retailer[]>`
     select id::int as id, slug, name, platform, base_url, feed_url, feed_collections, country, currency,
            ships_to_nz, catalogue, wellington_store, enabled
-    from retailers order by name
+    from retailers where platform <> ${PHOTO_PLATFORM} order by name
   `
 }

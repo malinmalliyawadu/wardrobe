@@ -11,7 +11,7 @@ import { photoChoices } from './product-photos.ts'
 import { SHOW_THRESHOLD } from './finder/score.ts'
 import type { ProductImage } from './finder/shopify.ts'
 import type { Sizes } from './profile.ts'
-import { STOCK_PLATFORMS, tryOnAt, type WellingtonStore } from './retailers.ts'
+import { PHOTO_PLATFORM, STOCK_PLATFORMS, tryOnAt, type WellingtonStore } from './retailers.ts'
 import { newsSince, savedHistory, type Observation, type SavedEvent } from './saved-history.ts'
 import { latestTryOns, type OnMe } from './try-on.ts'
 import type { GarmentType } from './wardrobe-values.ts'
@@ -95,6 +95,10 @@ export type SavedFind = FindCard & {
   news: SavedEvent | null
   /** Typed in by him from a store that cannot be read, so its price is never checked. */
   byHand: boolean
+  /** Added from a photo, with no link (src/lib/wish-photo.ts): nothing is checked, and it may have no price. */
+  fromPhoto: boolean
+  /** False for a wish from a photo he gave no price for. */
+  priced: boolean
   /** The photos it can show: the shop's, and his own when he chose one (src/lib/product-photos.ts). */
   photos: ProductImage[]
 }
@@ -380,6 +384,8 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       slot_labels: string[] | null
       listed: { label: string; key: string | null }[] | null
       by_hand: boolean
+      from_photo: boolean
+      priced: boolean
       shop_images: ProductImage[]
     })[]
   >`
@@ -393,10 +399,13 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
            p.title, p.vendor, p.url, p.main_image as image, p.images as shop_images,
            r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known, r.platform = 'manual' as by_hand,
+           r.platform = ${PHOTO_PLATFORM} as from_photo,
+           coalesce(c.price_cents, v.price_cents, a.price_cents) is not null as priced,
            coalesce(c.price_cents, v.price_cents, a.price_cents, 0) as price_cents,
            coalesce(c.compare_at_cents, v.compare_at_cents) as compare_at_cents,
            coalesce(c.sizes, v.sizes, '{}') as sizes, coalesce(c.size_known, false) as size_known,
-           (p.removed_at is null and (c.product_id is not null or v.price_cents is not null)) as in_stock,
+           -- A wish from a photo is never checked, so it never goes out of stock.
+           (p.removed_at is null and (c.product_id is not null or v.price_cents is not null or r.platform = ${PHOTO_PLATFORM})) as in_stock,
            coalesce(s.colour_option, (
              select string_agg(colour, ', ' order by first_id) from (
                select option_colour as colour, min(id) as first_id from product_variants
@@ -447,7 +456,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
     if (event.kind === 'back') return { ...event, price: nzd(event.price) }
     return event
   }
-  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, by_hand, shop_images, ...row }) => {
+  return rows.map(({ saved_at, saved_price_cents, in_stock, colour, garment_type, slot_garment, slot_labels, listed, by_hand, from_photo, priced, shop_images, ...row }) => {
     // The slot's own size labels and garment when it was saved for one, as the filter reads them.
     const garment = slot_garment ?? garment_type
     const sizeKeys = garment ? wantedSizeKeys(garment, slot_labels ?? [], sizes) : null
@@ -465,6 +474,8 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
       // The stores are read before scoring, so a run still scoring has already found the changes.
       news: newsSince(events, run?.started_at ?? null),
       byHand: by_hand,
+      fromPhoto: from_photo,
+      priced,
       photos: photoChoices(shop_images, row.image),
     }
   })
