@@ -244,6 +244,21 @@
       }
     },
     {
+      "slug": "trenery",
+      "name": "Trenery",
+      "platform": "shopify",
+      "base_url": "https://www.trenery.co.nz",
+      "feed_collections": [
+        "men"
+      ],
+      "country": "NZ",
+      "currency": "NZD",
+      "ships_to_nz": true,
+      "catalogue": "mixed",
+      "notes": "Country Road's sister label (same group), one Shopify shop (AUD base, its meta.json says so) with an NZ market on this domain; products.json here sets cart_currency=NZD and returns NZD prices, as Country Road's does. The 'men' collection is the men's range; 'men-clothing' leaves out shoes and accessories. Listings carry a Colour option and a colour: tag. Probed 2026-11-12: robots.txt allows the feed, and a burst of requests is answered 429 with Retry-After 60, which the client waits out.",
+      "wellington_store": null
+    },
+    {
       "slug": "lskd",
       "name": "LSKD",
       "platform": "shopify",
