@@ -84,7 +84,8 @@ and the phone is the same content in one column, not the other way round.
     them.
   - Finds: the heading line across the top, then each slot's finds as a grid
     of 4 cards (3 at `lg`, 4 at `xl`).
-  - Wishlist: the paste-a-link form (`max-w-2xl`), then the rows in two columns.
+  - Wishlist: the paste-a-link form (`max-w-2xl`), then the rows in two columns,
+    with a shop select over them when they come from more than one shop.
   - Wardrobe: pieces 4 across at `lg`, 5 at `xl`; looks 3 across; pictures
     4 across; Worn as rows two across at `lg`, each a picture (a strip of a
     look's pieces, stacked above the words on the phone) beside its name, how
@@ -98,10 +99,11 @@ and the phone is the same content in one column, not the other way round.
   - Shops: the search and its filters in one row, the grid 4 across at `lg`,
     5 at `xl`.
   - Statement pieces: the title and its line, colour, texture and cut as a
-    sub-nav with counts, then the find cards in a grid, 1 across on the
-    phone, 2 at `sm`, 3 at `lg`, 4 at `xl`. A card says what makes it a
-    statement where a find says its match, and shows the pieces of his it
-    wears with as small pictures, each a tap to the piece.
+    sub-nav with counts and the shop select at its right, then the find
+    cards in a grid, 1 across on the phone, 2 at `sm`, 3 at `lg`, 4 at `xl`.
+    A card says what makes it a statement where a find says its match, and
+    shows the pieces of his it wears with as small pictures, each a tap to
+    the piece.
 - The phone column is the screen: one column, the same order.
 - A page opens with its first real thing. A page's name is small (`.caption`
   or a `.headline`) unless the name is the content (Blueprint's "34 slots").
@@ -134,6 +136,10 @@ and the phone is the same content in one column, not the other way round.
 - `PieceImage`, `ProductPhoto`: a picture on the sweep.
 - `Field`, `TextInput`, `NumberInput`, `Select`, `TextArea`, `FormMessage`
   in `form.tsx`.
+- `ShopFilter` in `shop-filter.tsx`: Shops' own select, "Every shop" and
+  only the shops in the list (wishes from a photo last, as "From a photo"),
+  kept in the URL as `shop`. For a list that mixes shops; Finds and a
+  search's results are a few cards a slot or a search, so they go without.
 - `HubRow`: a row in a list that leads somewhere (You, Recent searches).
 - `BackLink`: the small way back at the top of a sub-page.
 - Skeletons in `skeleton.tsx`: shapes in `--surface`, held back 300ms.

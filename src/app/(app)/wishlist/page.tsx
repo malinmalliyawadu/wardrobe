@@ -10,10 +10,10 @@ export const metadata: Metadata = { title: 'Wishlist' }
  * each checked every night for a lower price and his size. Its own tab,
  * since he opens it in the shops to decide whether to buy.
  */
-export default function WishlistPage() {
+export default function WishlistPage({ searchParams }: PageProps<'/wishlist'>) {
   return (
     <Suspense fallback={<WishlistSkeleton />}>
-      <Wishlist />
+      <Wishlist searchParams={searchParams} />
     </Suspense>
   )
 }

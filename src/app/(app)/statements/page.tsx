@@ -5,9 +5,11 @@ import { Suspense } from 'react'
 import { BackLink } from '@/components/back-link'
 import { FindCard } from '@/components/feed/find-card'
 import { PageTitle } from '@/components/section'
+import { ShopFilter } from '@/components/shop-filter'
 import { Bone, Skeleton, TextBone } from '@/components/skeleton'
 import { Live } from '@/components/sub-page'
 import { QUALITIES, QUALITY_LABELS, type Quality } from '@/lib/finder/statements'
+import { withShop } from '@/lib/shop-filter'
 import { getStatements, qualitiesText, type Statements } from '@/lib/statements'
 
 export const metadata: Metadata = { title: 'Statement pieces' }
@@ -36,9 +38,11 @@ function parseQuality(value: string | string[] | undefined): Quality | null {
 }
 
 async function Content({ searchParams }: Pick<PageProps<'/statements'>, 'searchParams'>) {
-  const quality = parseQuality((await searchParams).by)
-  const statements = await getStatements({ quality })
-  const { finds, total } = statements
+  const params = await searchParams
+  const quality = parseQuality(params.by)
+  const statements = await getStatements({ quality, shop: params.shop })
+  const { finds, total, shop } = statements
+  const shopName = statements.shops.find((option) => option.value === shop)?.label ?? 'this shop'
 
   return (
     <>
@@ -46,20 +50,35 @@ async function Content({ searchParams }: Pick<PageProps<'/statements'>, 'searchP
         <PageTitle title="Statement pieces" line={line(statements)} />
       </div>
       {total > 0 ? (
-        <>
-          <Filter current={quality} statements={statements} />
-          <div className="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {finds.map((find) => (
-              <FindCard
-                key={find.product_id}
-                find={find}
-                slotName={null}
-                statement={{ qualities: qualitiesText(find.qualities), wearsWith: find.wears_with, outfitOnMe: find.outfit_on_me }}
-                inGrid
-              />
-            ))}
-          </div>
-        </>
+        <ShopFilter
+          id="statements-shop"
+          choices={statements.shops.map((option) => ({ ...option, href: withShop('/statements', { by: quality }, option.value) }))}
+          current={shop}
+          everyHref={withShop('/statements', { by: quality }, null)}
+          beside={<Filter current={quality} statements={statements} />}
+        >
+          {finds.length > 0 ? (
+            <div className="mt-8 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {finds.map((find) => (
+                <FindCard
+                  key={find.product_id}
+                  find={find}
+                  slotName={null}
+                  statement={{ qualities: qualitiesText(find.qualities), wearsWith: find.wears_with, outfitOnMe: find.outfit_on_me }}
+                  inGrid
+                />
+              ))}
+            </div>
+          ) : (
+            // A shop with nothing under the quality chosen, kept in the sub-nav so he can see why the grid is empty.
+            <p className="mt-8 max-w-[44ch] text-ink-2">
+              Nothing from {shopName} stands out by {quality ? QUALITY_LABELS[quality].toLowerCase() : 'colour, texture or cut'}.{' '}
+              <Link href={withShop('/statements', {}, shop)} className="font-medium text-accent underline-offset-4 hover:underline">
+                See all of its pieces
+              </Link>
+            </p>
+          )}
+        </ShopFilter>
       ) : null}
     </>
   )
@@ -79,19 +98,22 @@ function line({ run, total, waiting }: Statements): string {
   return `${count} that stand out by colour, texture or cut, in your size and budget, best for you first.${later}`
 }
 
-/** All, then each quality with its count; one with none is left out. Plain links, so nothing moves. */
+/**
+ * All, then each quality with its count in the shop chosen; one with none is
+ * left out. Plain links, so nothing moves; each keeps the shop.
+ */
 function Filter({ current, statements }: { current: Quality | null; statements: Statements }) {
   const items = [
-    { key: null, href: '/statements', label: 'All', count: statements.total },
+    { key: null, href: withShop('/statements', {}, statements.shop), label: 'All', count: statements.inShop },
     ...QUALITIES.map((quality) => ({
       key: quality,
-      href: `/statements?by=${quality}`,
+      href: withShop('/statements', { by: quality }, statements.shop),
       label: QUALITY_LABELS[quality],
       count: statements.byQuality[quality],
     })),
   ].filter((item) => item.count > 0 || item.key === current)
   return (
-    <nav aria-label="What makes them a statement" className="subnav mt-8">
+    <nav aria-label="What makes them a statement" className="subnav">
       {items.map((item) => (
         <Link
           key={item.label}
