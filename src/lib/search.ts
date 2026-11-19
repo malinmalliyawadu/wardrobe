@@ -692,6 +692,7 @@ type ResultRow = {
   url: string
   image: ProductImage | null
   retailer: string
+  shop: string
   country: string
   currency: string
   ships_to_nz: boolean
@@ -722,7 +723,7 @@ export async function getSearch(id: number, sql: Sql = db()): Promise<SearchView
     ? await sql<ResultRow[]>`
         select r.product_id::int as product_id, r.score, r.why, r.colour_verdict, r.fit_verdict, r.fabric_notes,
                r.colour_option, p.title, p.vendor, p.url, p.main_image as image,
-               rt.name as retailer, rt.country, rt.currency, rt.ships_to_nz, rt.wellington_store,
+               rt.name as retailer, rt.slug as shop, rt.country, rt.currency, rt.ships_to_nz, rt.wellington_store,
                rt.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known,
                r.price_cents, r.compare_at_cents, r.sizes, r.size_known
         from search_results r

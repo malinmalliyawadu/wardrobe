@@ -63,6 +63,8 @@ export type FindCard = {
   url: string
   image: ProductImage | null
   retailer: string
+  /** The store's slug, what a filter by shop keeps in the URL. */
+  shop: string
   country: string
   try_on: string | null
   price: Price
@@ -207,6 +209,7 @@ export function findCard(row: Row, rates: Rates): FindCard {
     url: row.url,
     image: row.image,
     retailer: row.retailer,
+    shop: row.shop,
     country: row.country,
     try_on: tryOnAt(row.wellington_store),
     price: findPrice(row, rates),
@@ -314,7 +317,7 @@ export async function getFeed(): Promise<Feed> {
     select c.product_id::int as product_id, s.slot_id::int as slot_id, s.score, s.why,
            s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.main_image as image,
-           r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
+           r.name as retailer, r.slug as shop, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known
     from finder_candidates c
@@ -397,7 +400,7 @@ async function getSaved(sql: Sql, run: Run | null, rates: Rates): Promise<SavedF
            a.price_cents as saved_price_cents,
            coalesce(s.score, 0) as score, s.why, s.colour_verdict, s.fit_verdict, s.fabric_notes, s.colour_option,
            p.title, p.vendor, p.url, p.main_image as image, p.images as shop_images,
-           r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
+           r.name as retailer, r.slug as shop, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            r.platform = any (${[...STOCK_PLATFORMS]}::text[]) as stock_known, r.platform = 'manual' as by_hand,
            r.platform = ${PHOTO_PLATFORM} as from_photo,
            coalesce(c.price_cents, v.price_cents, a.price_cents) is not null as priced,

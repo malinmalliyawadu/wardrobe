@@ -4,6 +4,7 @@ import type { ProductImage } from './finder/shopify.ts'
 import { QUALITIES, STATEMENT_THRESHOLD, type Quality } from './finder/statements.ts'
 import type { PiecePhoto } from './pieces.ts'
 import { outfitKey } from './outfit-key.ts'
+import { chosenShop, shopOptions, type ShopOption } from './shop-filter.ts'
 import { latestTryOns, tryOnsByKey, type OnMe } from './try-on.ts'
 import type { GarmentType } from './wardrobe-values.ts'
 
@@ -37,9 +38,15 @@ export type WornWith = {
 export type Statements = {
   run: Run | null
   finds: StatementFind[]
-  /** Every piece over the bar, before the quality filter and the limit. */
+  /** Every piece over the bar, before the filters and the limit. */
   total: number
-  /** Over the bar for each quality, for the filter's counts. */
+  /** The shops those pieces come from, for the filter by shop. */
+  shops: ShopOption[]
+  /** The shop the list is filtered to, when it is one of those. */
+  shop: string | null
+  /** Over the bar in that shop (every shop when none), before the quality filter. */
+  inShop: number
+  /** Over the bar in that shop for each quality, for the filter's counts. */
   byQuality: Record<Quality, number>
   /** On the shortlist and not judged yet: judged on the coming nights. */
   waiting: number
@@ -63,12 +70,12 @@ export async function statementRun(sql: Sql = db()): Promise<Run | null> {
 }
 
 export async function getStatements(
-  options: { quality?: Quality | null; limit?: number | null } = {},
+  options: { quality?: Quality | null; shop?: string | string[] | null; limit?: number | null } = {},
   sql: Sql = db(),
 ): Promise<Statements> {
   const empty = { colour: 0, texture: 0, cut: 0 }
   const run = await statementRun(sql)
-  if (!run) return { run: null, finds: [], total: 0, byQuality: empty, waiting: 0 }
+  if (!run) return { run: null, finds: [], total: 0, shops: [], shop: null, inShop: 0, byQuality: empty, waiting: 0 }
   const rates = runRates(run)
 
   const rows = await sql<Row[]>`
@@ -80,7 +87,7 @@ export async function getStatements(
            null::text as colour_verdict, null::text as fit_verdict, null::text as fabric_notes, s.colour_option,
            s.qualities, p.garment_type,
            p.title, p.vendor, p.url, p.main_image as image,
-           r.name as retailer, r.country, r.currency, r.ships_to_nz, r.wellington_store,
+           r.name as retailer, r.slug as shop, r.country, r.currency, r.ships_to_nz, r.wellington_store,
            true as stock_known,
            c.price_cents, c.compare_at_cents, c.sizes, c.size_known,
            coalesce((
@@ -111,9 +118,12 @@ export async function getStatements(
       and not exists (select 1 from statement_scores s where s.product_id = c.product_id and s.content_hash = c.content_hash)
   `
 
+  const shops = shopOptions(rows)
+  const shop = chosenShop(options.shop ?? undefined, shops)
+  const inShop = shop === null ? rows : rows.filter((row) => row.shop === shop)
   const byQuality = { ...empty }
-  for (const row of rows) for (const quality of row.qualities) byQuality[quality] += 1
-  const chosen = options.quality ? rows.filter((row) => row.qualities.includes(options.quality!)) : rows
+  for (const row of inShop) for (const quality of row.qualities) byQuality[quality] += 1
+  const chosen = options.quality ? inShop.filter((row) => row.qualities.includes(options.quality!)) : inShop
   const limited = options.limit ? chosen.slice(0, options.limit) : chosen
   const finds = limited.map((row) => ({
     ...findCard({ ...row, sizes: [...new Set(row.sizes)] }, rates),
@@ -132,7 +142,7 @@ export async function getStatements(
     const outfit = outfits[index]
     find.outfit_on_me = outfit ? (outfitsOnMe.get(outfit) ?? null) : null
   })
-  return { run, finds, total: rows.length, byQuality, waiting: counts?.waiting ?? 0 }
+  return { run, finds, total: rows.length, shops, shop, inShop: inShop.length, byQuality, waiting: counts?.waiting ?? 0 }
 }
 
 /** The outfit its card puts on him: the find and the pieces it wears with. */

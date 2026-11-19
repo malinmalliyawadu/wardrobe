@@ -1,10 +1,12 @@
 import { connection } from 'next/server'
 
 import { PageTitle } from '@/components/section'
+import { ShopFilter } from '@/components/shop-filter'
 import { Bone, Skeleton, TextBone } from '@/components/skeleton'
 import { db } from '@/lib/db'
 import { getWishlist } from '@/lib/feed'
 import { listRetailers, readable, type Retailer } from '@/lib/retailers'
+import { chosenShop, shopOptions, withShop } from '@/lib/shop-filter'
 
 import type { ManualStore } from './add-link'
 import { AddWish } from './add-wish'
@@ -16,9 +18,12 @@ import { changeLine, newsSummary } from './saved-change'
  * what he comes here to do from a shop, or a photo), then everything saved,
  * newest news first, in two columns on the laptop.
  */
-export async function Wishlist() {
+export async function Wishlist({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection()
-  const [list, retailers] = await Promise.all([getWishlist(), listRetailers(db())])
+  const [list, retailers, params] = await Promise.all([getWishlist(), listRetailers(db()), searchParams])
+  const shops = shopOptions(list.saved)
+  const shop = chosenShop(params.shop, shops)
+  const shown = shop === null ? list.saved : list.saved.filter((find) => find.shop === shop)
   const now = new Date()
   const news = newsSummary(list.saved, list.run?.started_at ?? null, now)
   const count = list.saved.length
@@ -45,16 +50,25 @@ export async function Wishlist() {
       </div>
 
       {count > 0 ? (
-        <ul className="mt-10 divide-y divide-line lg:grid lg:grid-cols-2 lg:gap-x-12 lg:divide-y-0">
-          {list.saved.map((find) => (
-            <SavedRow
-              key={find.product_id}
-              find={find}
-              slotName={find.slot_id === null ? null : (list.slotNames[find.slot_id] ?? null)}
-              change={changeLine(find, now)}
-            />
-          ))}
-        </ul>
+        <ShopFilter
+          id="wishlist-shop"
+          choices={shops.map((option) => ({ ...option, href: withShop('/wishlist', {}, option.value) }))}
+          current={shop}
+          everyHref="/wishlist"
+        >
+          <ul
+            className={`divide-y divide-line lg:grid lg:grid-cols-2 lg:gap-x-12 lg:divide-y-0 ${shops.length > 1 ? 'mt-4' : 'mt-10'}`}
+          >
+            {shown.map((find) => (
+              <SavedRow
+                key={find.product_id}
+                find={find}
+                slotName={find.slot_id === null ? null : (list.slotNames[find.slot_id] ?? null)}
+                change={changeLine(find, now)}
+              />
+            ))}
+          </ul>
+        </ShopFilter>
       ) : (
         <p className="prose mt-10 max-w-[44ch] text-[0.9375rem] text-ink-2">
           Save a find, paste a link to anything you want from the shops, or add a photo of something you saw, and it
