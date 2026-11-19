@@ -430,6 +430,8 @@
     border: 2px solid var(--ink);
     opacity: 0;
     transition: opacity 150ms ease;
+    /* The ring lies over the swatch; the pointer must reach the swatch's name (colour-tip.tsx). */
+    pointer-events: none;
   }
 
   .swatch-toggle:has(input:checked)::after {
