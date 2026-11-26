@@ -6,7 +6,7 @@ import { useOptimistic, useState, useTransition } from 'react'
 import { ChangePieces } from '@/components/change-pieces'
 import { Swatch } from '@/components/cloth'
 import { TickIcon } from '@/components/icons'
-import { FlatLay, LookOnMe } from '@/components/look-parts'
+import { FavouriteButton, FlatLay, LookOnMe } from '@/components/look-parts'
 import type { Look, LookAction, LookDismissReason } from '@/lib/looks'
 
 import { lookAction } from './actions'
@@ -15,8 +15,8 @@ import { lookAction } from './actions'
  * One look as a lookbook page: the pieces laid out (the outermost large, the
  * next two beside it, shoes and what is carried along the bottom), then the
  * occasion and weather, the name, why it works and how to wear it. "See it
- * on me" dresses him in the whole look. Save and "Wore it" show at once and
- * are saved behind; Dismiss asks why, then the card fades out and the next
+ * on me" dresses him in the whole look. Save, the favourite heart and "Wore
+ * it" show at once and are saved behind; Dismiss asks why, then the card fades out and the next
  * render drops it. "Change pieces" turns the list of pieces into the way to
  * swap or remove some (ChangePieces), and the remade look takes this card's
  * place.
@@ -31,7 +31,7 @@ export const REASONS: { value: LookDismissReason; label: string }[] = [
   { value: 'not_me', label: 'Not me' },
 ]
 
-type Shown = { saved: boolean; woreToday: boolean }
+type Shown = { saved: boolean; favourite: boolean; woreToday: boolean }
 
 export function LookCard({
   look,
@@ -53,7 +53,11 @@ export function LookCard({
   const [gone, setGone] = useState(false)
   const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState(false)
-  const [shown, setShown] = useOptimistic<Shown>({ saved: look.status === 'saved', woreToday: look.worn[0] === today })
+  const [shown, setShown] = useOptimistic<Shown>({
+    saved: look.status === 'saved',
+    favourite: look.favourite,
+    woreToday: look.worn[0] === today,
+  })
   const [, startTransition] = useTransition()
 
   function send(input: LookAction, next?: Shown) {
@@ -167,12 +171,25 @@ export function LookCard({
                   aria-pressed={shown.saved}
                   className="btn btn-quiet btn-small"
                   onClick={() =>
-                    send({ action: shown.saved ? 'unsave' : 'save', look_id: look.id }, { ...shown, saved: !shown.saved })
+                    send(
+                      { action: shown.saved ? 'unsave' : 'save', look_id: look.id },
+                      { ...shown, saved: !shown.saved, favourite: shown.saved ? false : shown.favourite },
+                    )
                   }
                 >
                   {shown.saved ? <TickIcon className="text-accent" /> : null}
                   {shown.saved ? 'Saved' : 'Save'}
                 </button>
+                <FavouriteButton
+                  small
+                  on={shown.favourite}
+                  onClick={() =>
+                    send(
+                      { action: shown.favourite ? 'unfavourite' : 'favourite', look_id: look.id },
+                      { ...shown, saved: shown.favourite ? shown.saved : true, favourite: !shown.favourite },
+                    )
+                  }
+                />
                 <button
                   type="button"
                   aria-pressed={shown.woreToday}
@@ -180,7 +197,7 @@ export function LookCard({
                   onClick={() =>
                     send(
                       { action: shown.woreToday ? 'unwore' : 'wore', look_id: look.id },
-                      { saved: shown.woreToday ? shown.saved : true, woreToday: !shown.woreToday },
+                      { ...shown, saved: shown.woreToday ? shown.saved : true, woreToday: !shown.woreToday },
                     )
                   }
                 >

@@ -52,7 +52,7 @@ async function Content() {
     )
   }
 
-  if (kinds.length === 0 && page.saved.length === 0 && page.fresh.length === 0) {
+  if (kinds.length === 0 && page.favourites.length === 0 && page.saved.length === 0 && page.fresh.length === 0) {
     const active = pieces.filter((piece) => !piece.set_aside_at).length
     return (
       <>
@@ -71,10 +71,11 @@ async function Content() {
   const fresh = page.fresh.length > 0 && page.latest ? page.latest : null
   const noun = (kind: LookKind | undefined, count: number) =>
     kind === 'gym' ? (count === 1 ? 'gym fit' : 'gym fits') : count === 1 ? 'look' : 'looks'
+  const kept = page.favourites.length + page.saved.length
   const line = fresh
     ? `${page.fresh.length} ${noun(fresh.kind, page.fresh.length)} in this set, made ${day(fresh.created_at)}`
-    : page.saved.length > 0
-      ? `${page.saved.length} saved ${noun(undefined, page.saved.length)}`
+    : kept > 0
+      ? `${kept} saved ${noun(undefined, kept)}${page.favourites.length > 0 ? `, ${page.favourites.length} ${page.favourites.length === 1 ? 'favourite' : 'favourites'}` : ''}`
       : 'No looks yet'
 
   const make = (
@@ -118,12 +119,22 @@ async function Content() {
         />
       ) : null}
       {page.fresh.length === 0 ? make : null}
+      {page.favourites.length > 0 ? (
+        <Section
+          id="favourites"
+          title="Favourites"
+          aside={page.favourites.length}
+          hint="The looks you love. New looks and the outfit of the day learn most from these."
+          looks={page.favourites}
+          today={today}
+        />
+      ) : null}
       {page.saved.length > 0 ? (
         <Section
           id="saved"
           title="Saved"
           aside={page.saved.length}
-          hint="Kept from earlier sets. Wearing a look saves it."
+          hint="Kept from earlier sets. Wearing a look saves it; the heart makes it a favourite."
           looks={page.saved}
           today={today}
         />

@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react'
 
 import { seeLookOnMe } from '@/app/try-on-actions'
+import { HeartIcon } from '@/components/icons'
 import { PieceImage, type PieceLook } from '@/components/piece-image'
 import { TryOn } from '@/components/try-on'
 import type { Look } from '@/lib/looks'
@@ -13,8 +14,28 @@ export { TickIcon as Tick } from '@/components/icons'
 
 /*
  * The parts of a look shared by its card in the wardrobe and the outfit of
- * the day on Today: the pieces laid out, and "See it on me" for the whole look.
+ * the day on Today: the pieces laid out, "See it on me" for the whole look,
+ * and the heart that makes it a favourite.
  */
+
+/**
+ * The heart beside Save: a favourite is one of the few saved looks he loves,
+ * so marking one saves it too. Green and filled when it is one.
+ */
+export function FavouriteButton({ on, onClick, small = false }: { on: boolean; onClick: () => void; small?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label="Favourite"
+      title={on ? 'A favourite' : 'Make it a favourite'}
+      className={`btn btn-quiet px-0 ${small ? 'btn-small w-10' : 'w-12'}`}
+      onClick={onClick}
+    >
+      <HeartIcon filled={on} className={on ? 'text-accent' : undefined} />
+    </button>
+  )
+}
 
 /** "See it on me" for the whole look: him dressed in it, beside the pieces it was made from. */
 export function LookOnMe({ look, occasion }: { look: Look; occasion: string }) {

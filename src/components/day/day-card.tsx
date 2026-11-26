@@ -7,7 +7,7 @@ import { lookAction } from '@/app/(app)/wardrobe/actions'
 import { drawLook, turnTo } from '@/app/day-actions'
 import { ChangePieces } from '@/components/change-pieces'
 import { TickIcon } from '@/components/icons'
-import { FlatLay, LookOnMe } from '@/components/look-parts'
+import { FavouriteButton, FlatLay, LookOnMe } from '@/components/look-parts'
 import { PieceImage } from '@/components/piece-image'
 import type { LookImage } from '@/lib/look-image'
 import type { Look, LookAction } from '@/lib/looks'
@@ -175,12 +175,16 @@ function Thumb({ option }: { option: DayCardOption }) {
   )
 }
 
-type Shown = { saved: boolean; woreToday: boolean }
+type Shown = { saved: boolean; favourite: boolean; woreToday: boolean }
 
-/** Wear this and Save: both show at once and are saved behind. */
+/** Wear this, Save and the favourite heart: each shows at once and is saved behind. */
 function Actions({ look, today, isToday }: { look: Look; today: string; isToday: boolean }) {
   const [failed, setFailed] = useState(false)
-  const [shown, setShown] = useOptimistic<Shown>({ saved: look.status === 'saved', woreToday: look.worn[0] === today })
+  const [shown, setShown] = useOptimistic<Shown>({
+    saved: look.status === 'saved',
+    favourite: look.favourite,
+    woreToday: look.worn[0] === today,
+  })
   const [, startTransition] = useTransition()
 
   function send(input: LookAction, next: Shown) {
@@ -203,7 +207,7 @@ function Actions({ look, today, isToday }: { look: Look; today: string; isToday:
             onClick={() =>
               send(
                 { action: shown.woreToday ? 'unwore' : 'wore', look_id: look.id },
-                { saved: shown.woreToday ? shown.saved : true, woreToday: !shown.woreToday },
+                { ...shown, saved: shown.woreToday ? shown.saved : true, woreToday: !shown.woreToday },
               )
             }
           >
@@ -215,11 +219,25 @@ function Actions({ look, today, isToday }: { look: Look; today: string; isToday:
           type="button"
           aria-pressed={shown.saved}
           className="btn btn-quiet"
-          onClick={() => send({ action: shown.saved ? 'unsave' : 'save', look_id: look.id }, { ...shown, saved: !shown.saved })}
+          onClick={() =>
+            send(
+              { action: shown.saved ? 'unsave' : 'save', look_id: look.id },
+              { ...shown, saved: !shown.saved, favourite: shown.saved ? false : shown.favourite },
+            )
+          }
         >
           {shown.saved ? <TickIcon /> : null}
           {shown.saved ? 'Saved' : 'Save'}
         </button>
+        <FavouriteButton
+          on={shown.favourite}
+          onClick={() =>
+            send(
+              { action: shown.favourite ? 'unfavourite' : 'favourite', look_id: look.id },
+              { ...shown, saved: shown.favourite ? shown.saved : true, favourite: !shown.favourite },
+            )
+          }
+        />
       </div>
       {failed ? <p className="mt-2 text-[0.8125rem] text-alert">That did not save. Try again.</p> : null}
     </div>

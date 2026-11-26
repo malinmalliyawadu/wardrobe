@@ -491,3 +491,12 @@ switched off, out of `listRetailers`, never read), its url the photo's own
 address, one variant only when priced; the same photo again updates it.
 Saved shows it as from a photo, never out of stock, "No price" when it has
 none; "Bought it" makes it a piece in the read colour.
+
+Favourite looks built 2026-11-26 (migration 0026), asked for by Malin. Saved
+looks grow with every wear, so a heart beside Save (`FavouriteButton` in
+`look-parts.tsx`, on look cards and Today's outfit) marks the few he loves:
+`looks.favourite_at`, held by a check constraint to saved looks. Favouriting
+saves; un-saving, dismissing or a remake's replacing clears it, and a remake
+carries it to the new look. The Looks tab shows Favourites above Saved; the
+looks and day prompts are told which saved looks are favourites (first in
+`readHistory`) and to learn most from them. Worn marks a favourite row.

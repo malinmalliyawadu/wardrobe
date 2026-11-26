@@ -203,7 +203,11 @@ constraint). Wearing a look logs the New Zealand date, once a day per look,
 and saves it. The Looks page shows the newest set less what he dismissed,
 then the looks he saved from earlier sets; the next set is told his saved and
 dismissed looks (with reasons) and how often each piece was worn in the last
-three weeks.
+three weeks. A favourite (`favourite_at`, migration 0026) is one of the few
+saved looks he loves: a check constraint holds it to `status = 'saved'`, so
+un-saving, dismissing or remaking one clears the mark (a remake carries it to
+the look in its place). Favourites lead the Looks page and the history the
+next set and the outfit of the day are told, marked `favourite`.
 
 **Searches (migration 0010)** are the request and its own target, never a
 blueprint slot: the read (garment, colour words and families, price, cut,

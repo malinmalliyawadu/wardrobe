@@ -190,7 +190,7 @@ describe('a look remade in its place', () => {
   let lookId = 0
   let dayId = 0
 
-  test('a saved look he wore today, and the day’s outfit that shows it', async () => {
+  test('a favourite look he wore today, and the day’s outfit that shows it', async () => {
     await saveGuide(guideFixture, meta)
     await saveSet(
       {
@@ -214,6 +214,7 @@ describe('a look remade in its place', () => {
     )
     lookId = (await readLooks(sql)).fresh[0]!.id
     await actOnLook({ action: 'wore', look_id: lookId }, sql)
+    await actOnLook({ action: 'favourite', look_id: lookId }, sql)
 
     const [day] = await sql<{ id: number }[]>`
       insert into day_outfits (for_date) values (${dressDate()}) returning id::int as id
@@ -297,19 +298,21 @@ describe('a look remade in its place', () => {
     assert.equal(done.ok && done.onShow, true, 'the day’s option on show, so its picture is drawn')
   })
 
-  test('the remake takes the look’s place: saved, worn today, on the day, and the old look kept as replaced', async () => {
+  test('the remake takes the look’s place: saved, a favourite, worn today, on the day, and the old look kept as replaced', async () => {
     const page = await readLooks(sql)
     const [remade] = page.fresh
     assert.equal(page.fresh.length, 1, 'in the same set and place')
     assert.notEqual(remade?.id, lookId)
     assert.equal(remade?.title, 'Crew and white sneakers')
     assert.equal(remade?.status, 'saved')
+    assert.equal(remade?.favourite, true, 'a favourite, as the old one was')
     assert.deepEqual(remade?.pieces.map((p) => p.name), ['Pine crew', 'Ecru oxford', 'Putty chinos', 'White sneakers'])
     assert.equal(remade?.worn.length, 1, 'today’s wear moved to it')
     assert.equal(remade?.remaking, null)
 
     const [old] = await getLooks([lookId], sql)
     assert.equal(old?.status, 'replaced')
+    assert.equal(old?.favourite, false)
     assert.deepEqual(old?.worn, [], 'he is wearing the remade one today')
     assert.ok(!(await readHistory(sql)).saved.some((look) => look.title === 'Camel over pine'), 'the next set does not see it as saved')
 
@@ -360,6 +363,7 @@ describe('a look remade in its place', () => {
     const [reused] = await getLooks([made.id], sql)
     assert.equal(reused?.title, 'Navy tee day', 'with its own words')
     assert.equal(reused?.status, 'saved', 'saved, as the look it replaced was')
+    assert.equal(reused?.favourite, true, 'and a favourite')
     assert.equal((await readDay(dressDate(), sql))?.options[0]?.look.id, made.id, 'on the day in its place')
     lookId = made.id
   })

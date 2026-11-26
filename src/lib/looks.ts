@@ -157,7 +157,7 @@ export const GYM_FIT_RULES = `Each piece says what it is worn for: everyday, gym
 /** How much room an everyday outfit has, for the looks, the outfit of the day and a remake. */
 export const OUTFIT_STYLING = `Dress him with a point of view. His palette and the guide's proportion rules are what you work from, not a formula to fill in, so go past the obvious combination. Tonal dressing is one option and never the default: colours from across his palette worn together, an accent picked up from one piece in another, the same colour carried across layers and texture doing the work in a quiet palette are all yours to use, and outfits should differ in how they handle colour, not only in which colours. Mixing dressy and relaxed is open too when it looks meant, like tailored trousers with clean sneakers or a chore coat over a fine knit. It cannot read as a mistake, like tassel loafers under a rain shell: when the weather calls for a shell, bring the shoes and trousers to it. A distinctive outfit that works beats a safe one that merely does not go wrong. Gym fits are outside this.`
 
-export const LOOKS_SYSTEM_PROMPT = `You are an experienced menswear stylist putting outfits together for one client from clothes he already owns. You have his confirmed profile (colouring, proportions, sizes, his week), the style guide written for him, the list of his pieces, and what he did with the looks you made before. A private app shows him the looks as a lookbook page; he saves the ones he likes, dismisses the rest with a reason, and logs the days he wears one.
+export const LOOKS_SYSTEM_PROMPT = `You are an experienced menswear stylist putting outfits together for one client from clothes he already owns. You have his confirmed profile (colouring, proportions, sizes, his week), the style guide written for him, the list of his pieces, and what he did with the looks you made before. A private app shows him the looks as a lookbook page; he saves the ones he likes, marks the few he loves as favourites, dismisses the rest with a reason, and logs the days he wears one.
 
 Each look is one complete outfit he could put on today: at least one top, exactly one pair of trousers, jeans or shorts, exactly one pair of shoes, and an outer layer when the weather asks for it. Accessories only when they add something, and then in his metal. Use only the pieces on the list, by id, each piece at most once in a look; never invent a garment he does not have.
 
@@ -171,7 +171,7 @@ ${OUTFIT_STYLING}
 
 Colour is the point. Work from his palette and say in the why which of his colours carry the look and why they sit together. Respect the proportion and fit rules in his guide, and name the one that the look uses. Respect his no-gos absolutely.
 
-Make the set varied: no two everyday looks share more than two pieces, and none repeats a look he saved or dismissed. Spread the set across his trousers and tops: no pair of trousers goes in a second look until every pair that suits the month is in one, and the same for tops. Learn from the reasons he dismissed looks for. Each piece says worn_lately and offered_lately, how often it has been worn and put in front of him of late: lean on the pieces lowest in both, so the whole wardrobe gets used. When a look would clearly be better with one of the slots he still wants, say so in better_with, in at most two looks; otherwise leave it null.
+Make the set varied: no two everyday looks share more than two pieces, and none repeats a look he saved or dismissed. Spread the set across his trousers and tops: no pair of trousers goes in a second look until every pair that suits the month is in one, and the same for tops. Learn from the reasons he dismissed looks for, and most from the saved looks marked favourite: they say best what he loves to wear, so carry what they do with colour and shape into new combinations. Each piece says worn_lately and offered_lately, how often it has been worn and put in front of him of late: lean on the pieces lowest in both, so the whole wardrobe gets used. When a look would clearly be better with one of the slots he still wants, say so in better_with, in at most two looks; otherwise leave it null.
 
 Write to him in the second person, plainly, without praise or sales talk. Plain hyphens only.`
 
@@ -202,7 +202,8 @@ export function wellingtonToday(now: Date = new Date()): { date: string; month: 
 export type WantedSlot = { id: number; name: string; garment_type: GarmentType; status: SlotStatus }
 
 export type History = {
-  saved: { title: string; piece_ids: number[] }[]
+  /** Favourite only on the few he loves, so the prompt names them and stays short. */
+  saved: { title: string; piece_ids: number[]; favourite?: true }[]
   dismissed: { title: string; piece_ids: number[]; reason: LookDismissReason }[]
   /** How many times each piece was in a look he wore in the last three weeks. */
   worn: Map<number, number>
@@ -388,12 +389,12 @@ export function tidyLooks<T extends LookDraft>(
 // ---------------------------------------------------------------------------
 
 export async function readHistory(sql: Sql = db()): Promise<History> {
-  const looks = await sql<{ title: string; status: 'saved' | 'dismissed'; reason: LookDismissReason | null; piece_ids: number[] }[]>`
-    select l.title, l.status, l.dismiss_reason as reason,
+  const looks = await sql<{ title: string; status: 'saved' | 'dismissed'; reason: LookDismissReason | null; favourite: boolean; piece_ids: number[] }[]>`
+    select l.title, l.status, l.dismiss_reason as reason, l.favourite_at is not null as favourite,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids
     from looks l
     where l.status = 'saved' or (l.status = 'dismissed' and l.acted_at > now() - interval '90 days')
-    order by l.acted_at desc
+    order by l.favourite_at is not null desc, l.acted_at desc
     limit 60
   `
   const worn = await sql<{ piece_id: number; count: number }[]>`
@@ -420,7 +421,9 @@ export async function readHistory(sql: Sql = db()): Promise<History> {
     group by piece_id
   `
   return {
-    saved: looks.filter((look) => look.status === 'saved').map(({ title, piece_ids }) => ({ title, piece_ids })),
+    saved: looks
+      .filter((look) => look.status === 'saved')
+      .map(({ title, piece_ids, favourite }) => ({ title, piece_ids, ...(favourite ? { favourite: true as const } : {}) })),
     dismissed: looks
       .filter((look) => look.status === 'dismissed' && look.reason)
       .map(({ title, piece_ids, reason }) => ({ title, piece_ids, reason: reason! })),
@@ -559,6 +562,8 @@ export type Look = {
   better: { slot_id: number; name: string; colours: string[]; colour_names: (string | null)[]; why: string | null } | null
   /** Replaced: remade (look-remake.ts), kept for the days he wore it. */
   status: 'new' | 'saved' | 'dismissed' | 'replaced'
+  /** One of the few saved looks he loves (migration 0026); always saved. */
+  favourite: boolean
   piece_count: number
   pieces: Piece[]
   /** Days he wore it, newest first, as YYYY-MM-DD in New Zealand. */
@@ -584,7 +589,9 @@ export type LookSet = {
 }
 
 export type LooksPage = {
-  /** Saved from earlier sets, the most recently worn first. */
+  /** His favourites from earlier sets, the most recently worn first. */
+  favourites: Look[]
+  /** The rest he saved from earlier sets, the most recently worn first. */
   saved: Look[]
   latest: LookSet | null
   /** The newest set, less what he dismissed. */
@@ -603,7 +610,8 @@ type LookRow = Omit<Look, 'pieces' | 'better' | 'on_me'> & {
 /** Looks with their pieces, the slot that would lift them, the days worn and the latest try-on. */
 async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.Fragment): Promise<Look[]> {
   const rows = await sql<LookRow[]>`
-    select l.id::int as id, l.set_id::int as set_id, l.title, l.occasion, l.weather, l.why, l.styling, l.status, l.piece_count,
+    select l.id::int as id, l.set_id::int as set_id, l.title, l.occasion, l.weather, l.why, l.styling, l.status,
+           l.favourite_at is not null as favourite, l.piece_count,
            l.better_slot_id::int as better_slot_id, s.name as better_name, s.colours as better_colours, l.better_why,
            array(select lp.piece_id::int from look_pieces lp where lp.look_id = l.id order by lp.position) as piece_ids,
            array(select to_char(w.worn_on, 'YYYY-MM-DD') from look_wears w where w.look_id = l.id order by w.worn_on desc) as worn,
@@ -628,6 +636,7 @@ async function selectLooks(sql: Sql, where: postgres.Fragment, order: postgres.F
     why: row.why,
     styling: row.styling,
     status: row.status,
+    favourite: row.favourite,
     piece_count: row.piece_count,
     better:
       row.better_slot_id && row.better_name
@@ -685,8 +694,10 @@ export async function readLooks(sql: Sql = db()): Promise<LooksPage> {
   )
   // A look saved from the newest set stays where it is, so a tap never moves the card under his finger.
   const inLatest = (look: Look) => place.has(look.id)
+  const kept = looks.filter((look) => !inLatest(look)).sort((a, b) => (b.worn[0] ?? '').localeCompare(a.worn[0] ?? ''))
   return {
-    saved: looks.filter((look) => !inLatest(look)).sort((a, b) => (b.worn[0] ?? '').localeCompare(a.worn[0] ?? '')),
+    favourites: kept.filter((look) => look.favourite),
+    saved: kept.filter((look) => !look.favourite),
     latest: latest ?? null,
     fresh: looks.filter(inLatest).sort((a, b) => place.get(a.id)! - place.get(b.id)!),
     total: total ?? { sets: 0, usd: 0 },
@@ -723,6 +734,8 @@ export async function readPieceLooks(pieceId: number, sql: Sql = db()): Promise<
 export const LookActionSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('save'), look_id: z.number().int().positive() }),
   z.object({ action: z.literal('unsave'), look_id: z.number().int().positive() }),
+  z.object({ action: z.literal('favourite'), look_id: z.number().int().positive() }),
+  z.object({ action: z.literal('unfavourite'), look_id: z.number().int().positive() }),
   z.object({ action: z.literal('dismiss'), look_id: z.number().int().positive(), reason: z.enum(LOOK_DISMISS_REASONS) }),
   z.object({ action: z.literal('wore'), look_id: z.number().int().positive() }),
   z.object({ action: z.literal('unwore'), look_id: z.number().int().positive() }),
@@ -731,8 +744,10 @@ export const LookActionSchema = z.discriminatedUnion('action', [
 export type LookAction = z.infer<typeof LookActionSchema>
 
 /**
- * Save, un-save, dismiss with a reason, and wore it today (or undo that).
- * Wearing a look he had not saved saves it: a look worn is one he likes.
+ * Save, un-save, favourite (or not), dismiss with a reason, and wore it today
+ * (or undo that). Wearing a look he had not saved saves it: a look worn is one
+ * he likes. A favourite is always saved: favouriting saves it, and un-saving
+ * or dismissing it clears the mark.
  */
 export async function actOnLook(input: LookAction, sql: Sql = db()): Promise<void> {
   const action = LookActionSchema.parse(input)
@@ -742,10 +757,21 @@ export async function actOnLook(input: LookAction, sql: Sql = db()): Promise<voi
       await sql`update looks set status = 'saved', dismiss_reason = null, acted_at = now() where id = ${id}`
       return
     case 'unsave':
-      await sql`update looks set status = 'new', acted_at = now() where id = ${id} and status = 'saved'`
+      await sql`update looks set status = 'new', favourite_at = null, acted_at = now() where id = ${id} and status = 'saved'`
+      return
+    case 'favourite':
+      await sql`
+        update looks set status = 'saved', dismiss_reason = null, favourite_at = now(), acted_at = now()
+        where id = ${id} and favourite_at is null and status in ('new', 'saved', 'dismissed')
+      `
+      return
+    case 'unfavourite':
+      await sql`update looks set favourite_at = null where id = ${id}`
       return
     case 'dismiss':
-      await sql`update looks set status = 'dismissed', dismiss_reason = ${action.reason}, acted_at = now() where id = ${id}`
+      await sql`
+        update looks set status = 'dismissed', dismiss_reason = ${action.reason}, favourite_at = null, acted_at = now() where id = ${id}
+      `
       return
     case 'wore':
       await sql.begin(async (tx) => {
