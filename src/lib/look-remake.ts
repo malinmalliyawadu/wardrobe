@@ -364,10 +364,10 @@ async function sameLook(tx: Sql | TransactionSql, oldId: number, look: { occasio
 /**
  * The remade look in the old one's place, in one transaction: the look
  * already made with those pieces (sameLook), else a new look in the same set
- * and position; saved if the old one was, and in the old one's place in every
- * set that offered it (look_set_looks); today's wear handed
- * over, every current day's outfit that showed the old look showing the new
- * one with its line for the day, and the old look marked replaced.
+ * and position; saved (and a favourite) if the old one was, and in the old
+ * one's place in every set that offered it (look_set_looks); today's wear
+ * handed over, every current day's outfit that showed the old look showing
+ * the new one with its line for the day, and the old look marked replaced.
  */
 export async function finishRemake(
   id: number,
@@ -376,8 +376,8 @@ export async function finishRemake(
   sql: Sql = db(),
 ): Promise<{ lookId: number; onShow: boolean }> {
   return sql.begin(async (tx) => {
-    const [old] = await tx<{ id: number; set_id: number; position: number; status: Look['status'] }[]>`
-      select l.id::int as id, l.set_id::int as set_id, l.position, l.status
+    const [old] = await tx<{ id: number; set_id: number; position: number; status: Look['status']; favourite_at: Date | null }[]>`
+      select l.id::int as id, l.set_id::int as set_id, l.position, l.status, l.favourite_at
       from look_remakes r join looks l on l.id = r.look_id
       where r.id = ${id} and r.status = 'making'
       for update of l, r
@@ -386,8 +386,12 @@ export async function finishRemake(
     if (old.status !== 'new' && old.status !== 'saved') throw new GenerationError('This look changed while it was being remade.')
 
     const lookId = (await sameLook(tx, old.id, look)) ?? (await insertLook(tx, old.set_id, old.position, look))
-    if (old.status === 'saved') await tx`update looks set status = 'saved', acted_at = now() where id = ${lookId}`
-    await tx`update looks set status = 'replaced', acted_at = now() where id = ${old.id}`
+    if (old.status === 'saved') {
+      await tx`
+        update looks set status = 'saved', favourite_at = coalesce(favourite_at, ${old.favourite_at}), acted_at = now() where id = ${lookId}
+      `
+    }
+    await tx`update looks set status = 'replaced', favourite_at = null, acted_at = now() where id = ${old.id}`
     await tx`update look_set_looks set look_id = ${lookId} where look_id = ${old.id}`
     await tx`
       with moved as (

@@ -9,6 +9,7 @@ import { OUTFIT_SYSTEM_PROMPT } from '../src/lib/outfit.ts'
 import {
   actOnLook,
   buildLooksMessages,
+  getLooks,
   gymReadiness,
   GYM_FIT_RULES,
   LOOKS_SYSTEM_PROMPT,
@@ -422,6 +423,48 @@ describe('a set saved, read and acted on', () => {
     // The same outfit is in the Looks tab's newest set too, so it is saved there, where it was.
     const looksTab = await readLooks()
     assert.equal(looksTab.fresh.find((l) => l.id === around.looks[0]!.id)?.status, 'saved', 'one outfit, saved everywhere')
+  })
+
+  test('a favourite is a saved look he loves: shown first, named to the next set, and always saved', async () => {
+    let page = await readLooks()
+    const [kept] = page.saved
+    assert.ok(kept, 'a saved look from an earlier set')
+    await actOnLook({ action: 'favourite', look_id: kept.id })
+    page = await readLooks()
+    assert.deepEqual(page.favourites.map((l) => l.id), [kept.id])
+    assert.ok(!page.saved.some((l) => l.id === kept.id), 'a favourite is not listed again under Saved')
+    let history = await readHistory()
+    assert.equal(history.saved[0]?.title, kept.title, 'favourites first, so the next set always sees them')
+    assert.equal(history.saved[0]?.favourite, true)
+    assert.ok(history.saved.slice(1).every((l) => !('favourite' in l)), 'only favourites carry the mark')
+
+    // Favouriting a look from the newest set saves it, and the card stays where it is.
+    const fresh = page.fresh.find((l) => l.status === 'new')
+    assert.ok(fresh, 'a look in the newest set not yet saved')
+    await actOnLook({ action: 'favourite', look_id: fresh.id })
+    page = await readLooks()
+    const card = page.fresh.find((l) => l.id === fresh.id)
+    assert.deepEqual([card?.status, card?.favourite], ['saved', true])
+
+    // Un-favouriting keeps it saved; un-saving or dismissing clears the mark.
+    await actOnLook({ action: 'unfavourite', look_id: fresh.id })
+    assert.deepEqual((await getLooks([fresh.id]))[0]?.status, 'saved')
+    await actOnLook({ action: 'favourite', look_id: fresh.id })
+    await actOnLook({ action: 'unsave', look_id: fresh.id })
+    assert.deepEqual(
+      (await getLooks([fresh.id])).map((l) => [l.status, l.favourite]),
+      [['new', false]],
+    )
+    await actOnLook({ action: 'dismiss', look_id: kept.id, reason: 'not_me' })
+    assert.deepEqual(
+      (await getLooks([kept.id])).map((l) => [l.status, l.favourite]),
+      [['dismissed', false]],
+    )
+    history = await readHistory()
+    assert.ok(!history.saved.some((l) => l.favourite))
+    await assert.rejects(sql`update looks set favourite_at = now() where id = ${fresh.id}`, /looks_favourite_saved/, 'a favourite is always saved')
+
+    await actOnLook({ action: 'save', look_id: kept.id })
   })
 
   test('a look says so when one of its pieces is set aside or deleted', async () => {

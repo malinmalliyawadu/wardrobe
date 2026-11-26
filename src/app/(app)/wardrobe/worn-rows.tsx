@@ -114,6 +114,7 @@ export function WornLook({ look, occasion, line }: { look: Look; occasion: strin
     >
       <p className="caption">
         {occasion}
+        {look.favourite ? ', a favourite' : ''}
         {aside ? ', part of it no longer in your wardrobe' : ''}
       </p>
       <h3 className="title mt-1">{look.title}</h3>

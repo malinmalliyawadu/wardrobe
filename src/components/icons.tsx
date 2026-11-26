@@ -131,3 +131,12 @@ export function CrossIcon(props: IconProps) {
     </svg>
   )
 }
+
+/** A heart: a favourite look. Filled when it is one. */
+export function HeartIcon({ filled = false, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <svg {...base({ width: 18, height: 18, fill: filled ? 'currentColor' : 'none', ...props })}>
+      <path d="M12 19.5s-7.5-4.6-7.5-10.1A4.15 4.15 0 0 1 12 7a4.15 4.15 0 0 1 7.5 2.4c0 5.5-7.5 10.1-7.5 10.1Z" />
+    </svg>
+  )
+}
